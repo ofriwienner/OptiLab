@@ -485,7 +485,8 @@ function traceRay(ray, depth, results) {
     });
 
     if (closestHit) {
-        results.push({ x1: ray.x, y1: ray.y, x2: closestHit.x, y2: closestHit.y, color: ray.color + ray.intensity + ')' });
+        // [Step 2 Update] Added 'stokes: ray.stokes' to results
+        results.push({ x1: ray.x, y1: ray.y, x2: closestHit.x, y2: closestHit.y, color: ray.color + ray.intensity + ')', stokes: ray.stokes });
         const segVec = closestHit.segVector;
         let nx = -segVec.y; let ny = segVec.x; const nl = Math.sqrt(nx*nx+ny*ny); nx/=nl; ny/=nl;
         const inc = {x: ray.dx, y: ray.dy}; const dp = dot(inc, {x:nx, y:ny});
@@ -493,22 +494,27 @@ function traceRay(ray, depth, results) {
 
         if (hitSegment.type === 'mirror-front' && dp < 0) {
             const rx = inc.x - 2 * dp * nx; const ry = inc.y - 2 * dp * ny;
-            traceRay({ ...ray, x: closestHit.x, y: closestHit.y, dx: rx, dy: ry, intensity: ray.intensity * 0.95 }, depth + 1, results);
+            // [Step 2 Update] Pass 'stokes: ray.stokes'
+            traceRay({ ...ray, x: closestHit.x, y: closestHit.y, dx: rx, dy: ry, intensity: ray.intensity * 0.95, stokes: ray.stokes }, depth + 1, results);
         } else if (['splitter', 'pbs'].includes(hitSegment.type)) {
              const rx = inc.x - 2 * dp * nx; const ry = inc.y - 2 * dp * ny;
-             traceRay({ ...ray, x: closestHit.x, y: closestHit.y, dx: rx, dy: ry, intensity: ray.intensity * 0.5 }, depth + 1, results);
-             traceRay({ ...ray, x: closestHit.x + inc.x*0.1, y: closestHit.y + inc.y*0.1, dx: inc.x, dy: inc.y, intensity: ray.intensity * 0.5 }, depth + 1, results);
+             // [Step 2 Update] Pass 'stokes: ray.stokes' to both paths
+             traceRay({ ...ray, x: closestHit.x, y: closestHit.y, dx: rx, dy: ry, intensity: ray.intensity * 0.5, stokes: ray.stokes }, depth + 1, results);
+             traceRay({ ...ray, x: closestHit.x + inc.x*0.1, y: closestHit.y + inc.y*0.1, dx: inc.x, dy: inc.y, intensity: ray.intensity * 0.5, stokes: ray.stokes }, depth + 1, results);
         } else if (hitSegment.type === 'aom') {
             if (dp < 0) {
-                traceRay({ x: closestHit.x + inc.x * 0.1, y: closestHit.y + inc.y * 0.1, dx: inc.x, dy: inc.y, intensity: ray.intensity * 0.3, color: ray.color }, depth + 1, results);
+                // [Step 2 Update] Pass 'stokes: ray.stokes'
+                traceRay({ x: closestHit.x + inc.x * 0.1, y: closestHit.y + inc.y * 0.1, dx: inc.x, dy: inc.y, intensity: ray.intensity * 0.3, color: ray.color, stokes: ray.stokes }, depth + 1, results);
                 const diff = rotatePoint(inc, -0.035);
-                traceRay({ x: closestHit.x + diff.x * 0.1, y: closestHit.y + diff.y * 0.1, dx: diff.x, dy: diff.y, intensity: ray.intensity * 0.7, color: ray.color }, depth + 1, results);
-            } else traceRay({ x: closestHit.x + inc.x * 0.1, y: closestHit.y + inc.y * 0.1, dx: inc.x, dy: inc.y, intensity: ray.intensity, color: ray.color }, depth + 1, results);
+                traceRay({ x: closestHit.x + diff.x * 0.1, y: closestHit.y + diff.y * 0.1, dx: diff.x, dy: diff.y, intensity: ray.intensity * 0.7, color: ray.color, stokes: ray.stokes }, depth + 1, results);
+            } else traceRay({ x: closestHit.x + inc.x * 0.1, y: closestHit.y + inc.y * 0.1, dx: inc.x, dy: inc.y, intensity: ray.intensity, color: ray.color, stokes: ray.stokes }, depth + 1, results);
         } else if (['hwp', 'qwp', 'glass', 'lens'].includes(hitObject.type)) {
-             traceRay({ x: closestHit.x + inc.x*0.1, y: closestHit.y + inc.y*0.1, dx: inc.x, dy: inc.y, intensity: ray.intensity * 0.95, color: ray.color }, depth + 1, results);
+             // [Step 2 Update] Pass 'stokes: ray.stokes'
+             traceRay({ x: closestHit.x + inc.x*0.1, y: closestHit.y + inc.y*0.1, dx: inc.x, dy: inc.y, intensity: ray.intensity * 0.95, color: ray.color, stokes: ray.stokes }, depth + 1, results);
         }
     } else {
-        results.push({ x1: ray.x, y1: ray.y, x2: ray.x + ray.dx * 2000, y2: ray.y + ray.dy * 2000, color: ray.color + ray.intensity + ')' });
+        // [Step 2 Update] Added 'stokes: ray.stokes' to infinity ray
+        results.push({ x1: ray.x, y1: ray.y, x2: ray.x + ray.dx * 2000, y2: ray.y + ray.dy * 2000, color: ray.color + ray.intensity + ')', stokes: ray.stokes });
     }
 }
 
@@ -519,7 +525,16 @@ function castRays() {
     lasers.forEach(laser => {
         const dir = rotatePoint({ x: 1, y: 0 }, laser.rotation);
         const start = rotatePoint({ x: laser.width/2, y: 0 }, laser.rotation); 
-        let ray = { x: laser.x + start.x, y: laser.y + start.y, dx: dir.x, dy: dir.y, intensity: 1.0, color: 'rgba(255, 50, 50, ' };
+        // [Step 2 Update] Initialize ray with stokes property (Horizontal Default)
+        let ray = { 
+            x: laser.x + start.x, 
+            y: laser.y + start.y, 
+            dx: dir.x, 
+            dy: dir.y, 
+            intensity: 1.0, 
+            color: 'rgba(255, 50, 50, ',
+            stokes: MuellerMath.STOKES.HORIZONTAL 
+        };
         traceRay(ray, 0, raysToDraw);
     });
     return raysToDraw;
