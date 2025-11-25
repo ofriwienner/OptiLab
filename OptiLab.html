@@ -621,6 +621,7 @@ function createDragImage(type) {
     const img = new Image(); img.src = c.toDataURL(); return img;
 }
 
+// [V2.7.5.2] Update drawElement to fix Mirror alignment
 function drawElement(el) {
     const pos = worldToScreen(el.x, el.y);
     const sc = view.scale * PIXELS_PER_MM;
@@ -644,21 +645,18 @@ function drawElement(el) {
         
         // [V2.7.5] Image Clipping Update
         if (el.imgData && el.imgConfig.visible) {
-            ctx.save(); // Save state before clipping
-            
-            // Define Clipping Path (The Board Area)
+            ctx.save(); 
             ctx.beginPath();
             ctx.rect(-el.width/2, -el.height/2, el.width, el.height);
-            ctx.clip(); // Enforce clip
+            ctx.clip(); 
             
             ctx.globalAlpha = el.imgConfig.opacity;
             
-            // Existing Image Drawing Logic
             ctx.translate(el.imgConfig.x, el.imgConfig.y);
             ctx.rotate(el.imgConfig.rotation || 0);
             ctx.drawImage(el.imgData, -el.imgConfig.w/2, -el.imgConfig.h/2, el.imgConfig.w, el.imgConfig.h);
             
-            ctx.restore(); // Restore to remove clip
+            ctx.restore(); 
         }
         
         ctx.strokeStyle = '#374151'; ctx.lineWidth = 2/sc; ctx.strokeRect(-el.width/2, -el.height/2, el.width, el.height);
@@ -668,8 +666,21 @@ function drawElement(el) {
         for(let x=startX; x < el.width/2; x+=gx) { for(let y=startY; y < el.height/2; y+=gx) { ctx.beginPath(); ctx.arc(x, y, 1.2, 0, Math.PI*2); ctx.fill(); } }
     }
     else if (el.type === 'laser') { ctx.fillStyle = '#333'; ctx.fillRect(-el.width/2, -el.height/2, el.width, el.height); ctx.fillStyle = 'red'; ctx.fillRect(el.width/2 - 2, -1.5, 2, 3); ctx.fillStyle = '#999'; ctx.font = '8px sans-serif'; ctx.fillText("LASER", -15, 3); } 
-    else if (el.type === 'mirror') { ctx.fillStyle = '#444'; ctx.fillRect(-el.width/2, 0, el.width, el.height); ctx.fillStyle = 'cyan'; ctx.fillRect(-el.width/2, -0.5, el.width, 1); }
-    else if (el.type === 'mirror-d') { const w = el.width/2; ctx.fillStyle = '#444'; ctx.fillRect(-w, 0, el.width, el.height); if (!el.isFlipped) { ctx.fillStyle = 'cyan'; ctx.fillRect(0, -0.5, w, 1); ctx.fillStyle = 'black'; ctx.fillRect(-w, -0.5, w, 1); } else { ctx.fillStyle = 'cyan'; ctx.fillRect(-w, -0.5, w, 1); ctx.fillStyle = 'black'; ctx.fillRect(0, -0.5, w, 1); } }
+    else if (el.type === 'mirror') { 
+        ctx.fillStyle = '#444'; 
+        // [V2.7.5.2] Center body vertically: -el.height/2 instead of 0
+        ctx.fillRect(-el.width/2, -el.height/2, el.width, el.height); 
+        ctx.fillStyle = 'cyan'; 
+        ctx.fillRect(-el.width/2, -0.5, el.width, 1); 
+    }
+    else if (el.type === 'mirror-d') { 
+        const w = el.width/2; 
+        ctx.fillStyle = '#444'; 
+        // [V2.7.5.2] Center body vertically: -el.height/2 instead of 0
+        ctx.fillRect(-w, -el.height/2, el.width, el.height); 
+        if (!el.isFlipped) { ctx.fillStyle = 'cyan'; ctx.fillRect(0, -0.5, w, 1); ctx.fillStyle = 'black'; ctx.fillRect(-w, -0.5, w, 1); } 
+        else { ctx.fillStyle = 'cyan'; ctx.fillRect(-w, -0.5, w, 1); ctx.fillStyle = 'black'; ctx.fillRect(0, -0.5, w, 1); } 
+    }
     else if (['splitter', 'pbs'].includes(el.type)) { const col = el.type === 'pbs' ? 'rgba(168, 85, 247, 0.15)' : 'rgba(255, 255, 0, 0.1)'; const borderCol = el.type === 'pbs' ? 'rgba(168, 85, 247, 0.6)' : 'rgba(255, 255, 0, 0.5)'; ctx.fillStyle = col; ctx.strokeStyle = borderCol; ctx.lineWidth = 0.5; ctx.fillRect(-el.width/2, -el.height/2, el.width, el.height); ctx.strokeRect(-el.width/2, -el.height/2, el.width, el.height); ctx.strokeStyle = el.type === 'pbs' ? 'rgba(168, 85, 247, 0.9)' : 'rgba(255, 255, 0, 0.9)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(-el.width/2, -el.height/2); ctx.lineTo(el.width/2, el.height/2); ctx.stroke(); if(el.type === 'pbs') { ctx.beginPath(); ctx.strokeStyle='white'; ctx.lineWidth=0.5; ctx.moveTo(0, -5); ctx.lineTo(0, 5); ctx.stroke(); ctx.beginPath(); ctx.arc(5, 0, 1, 0, Math.PI*2); ctx.stroke(); } }
     else if (el.type === 'aom') { ctx.fillStyle = 'rgba(239, 68, 68, 0.15)'; ctx.strokeStyle = 'rgba(239, 68, 68, 0.5)'; ctx.lineWidth = 0.5; ctx.fillRect(-el.width/2, -el.height/2, el.width, el.height); ctx.strokeRect(-el.width/2, -el.height/2, el.width, el.height); ctx.fillStyle = '#b91c1c'; ctx.fillRect(-el.width/2 + 2, el.height/2 - 2, el.width - 4, 3); ctx.fillStyle = 'rgba(239, 68, 68, 0.8)'; ctx.font = '6px sans-serif'; ctx.fillText("AOM", -6, 2); }
     else if (el.type === 'lens') { ctx.fillStyle = 'rgba(147, 197, 253, 0.3)'; ctx.strokeStyle = 'rgba(147, 197, 253, 0.8)'; ctx.lineWidth = 0.5; ctx.beginPath(); ctx.ellipse(0, 0, el.width/2, el.height/2, 0, 0, 2 * Math.PI); ctx.fill(); ctx.stroke(); }
@@ -1328,7 +1339,42 @@ function updateBoardInputs() { const s = document.getElementById('boardSizeSelec
 function deleteSelected() { if(selection.size>0){ elements=elements.filter(e=>!selection.has(e)); selection.clear(); draw(); }}
 function clearAll() { elements=[]; selection.clear(); draw(); }
 function resetView() { view.scale=0.5; view.x=(canvas.width-tableConfig.widthMM*PIXELS_PER_MM*view.scale)/2; view.y=(canvas.height-tableConfig.heightMM*PIXELS_PER_MM*view.scale)/2; draw(); }
-function startSidebarDrag(e, type) { e.preventDefault(); const r = canvas.getBoundingClientRect(); const p = screenToWorld(e.clientX - r.left, e.clientY - r.top); let nx = p.x; let ny = p.y; if (!shiftPressed && !ctrlPressed) { nx = Math.round(nx/GRID_PITCH_MM)*GRID_PITCH_MM; ny = Math.round(ny/GRID_PITCH_MM)*GRID_PITCH_MM; } const el = new Element(type, nx, ny); elements.push(el); selection.clear(); selection.add(el); isDragging = true; dragOffsets.clear(); dragOffsets.set(el, { dx: 0, dy: 0 }); updateUI(); draw(); }
+// [V2.7.5.3] Modified startSidebarDrag with Board-Relative Snapping
+function startSidebarDrag(e, type) { 
+    e.preventDefault(); 
+    const r = canvas.getBoundingClientRect(); 
+    const p = screenToWorld(e.clientX - r.left, e.clientY - r.top); 
+    let nx = p.x; 
+    let ny = p.y; 
+    
+    // [V2.7.5.3] Board-Relative Snapping Logic
+    if (!shiftPressed && !ctrlPressed) { 
+        // Check if cursor is over a board
+        const board = elements.find(el => el.type === 'board' && 
+                                    nx >= el.x - el.width/2 && nx <= el.x + el.width/2 && 
+                                    ny >= el.y - el.height/2 && ny <= el.y + el.height/2);
+        if (board) {
+            const snap = getClosestGridPoint({x: nx, y: ny}, board);
+            nx = snap.x;
+            ny = snap.y;
+        } else {
+            // Global Fallback (Offset to match hole pattern: 12.5mm)
+            nx = Math.round((nx - 12.5)/GRID_PITCH_MM)*GRID_PITCH_MM + 12.5;
+            ny = Math.round((ny - 12.5)/GRID_PITCH_MM)*GRID_PITCH_MM + 12.5;
+        }
+    } 
+    
+    const el = new Element(type, nx, ny); 
+    elements.push(el); 
+    selection.clear(); 
+    selection.add(el); 
+    isDragging = true; 
+    dragOffsets.clear(); 
+    dragOffsets.set(el, { dx: 0, dy: 0 }); 
+    updateUI(); 
+    draw(); 
+}
+
 function allowDrop(e) { e.preventDefault(); }
 function handleDrop(e) { e.preventDefault(); }
 function rehydrateElement(data) { const el = new Element(data.type, data.x, data.y, data.width, data.height, data.title); el.id = data.id; el.rotation = data.rotation; el.width = data.width; el.height = data.height; el.isFlipped = data.isFlipped || false; el.locked = data.locked || false; if (data.imgConfig) { el.imgConfig = data.imgConfig; } return el; }
@@ -1514,6 +1560,7 @@ canvas.addEventListener('mousedown', (e) => {
     draw();
 });
 
+// [V2.7.5.3] Modified mousemove Listener
 canvas.addEventListener('mousemove', (e) => {
     const m = { x: e.clientX - canvas.getBoundingClientRect().left, y: e.clientY - canvas.getBoundingClientRect().top };
     lastMousePos = m; const w = screenToWorld(m.x, m.y);
@@ -1544,13 +1591,39 @@ canvas.addEventListener('mousemove', (e) => {
     if (isDragging) {
         let hasBoard = false; selection.forEach(el => { if(el.type==='board') hasBoard = true; });
         if (hasBoard) invalidBoardPlacement = false;
+        
         selection.forEach(el => {
             if (el.locked) return;
             const off = dragOffsets.get(el);
             if (off) {
-                let newX = w.x + off.dx; let newY = w.y + off.dy;
-                if (!shiftPressed && !ctrlPressed) { newX = Math.round(newX/GRID_PITCH_MM)*GRID_PITCH_MM; newY = Math.round(newY/GRID_PITCH_MM)*GRID_PITCH_MM; }
-                else if (shiftPressed) { newX = Math.round(newX/HALF_GRID_MM)*HALF_GRID_MM; newY = Math.round(newY/HALF_GRID_MM)*HALF_GRID_MM; }
+                // Calculate Raw Position
+                const rawX = w.x + off.dx; 
+                const rawY = w.y + off.dy;
+                let newX = rawX; 
+                let newY = rawY;
+
+                // [V2.7.5.3] Board-Relative Snapping
+                if (!shiftPressed && !ctrlPressed) { 
+                    // Find if the component is inside a board
+                    const board = elements.find(b => b.type === 'board' && b !== el && 
+                                              rawX >= b.x - b.width/2 && rawX <= b.x + b.width/2 && 
+                                              rawY >= b.y - b.height/2 && rawY <= b.y + b.height/2);
+                    
+                    if (board) {
+                        const snap = getClosestGridPoint({x: rawX, y: rawY}, board);
+                        newX = snap.x;
+                        newY = snap.y;
+                    } else {
+                        // Global Fallback (Offset 12.5mm)
+                        newX = Math.round((rawX - 12.5)/GRID_PITCH_MM)*GRID_PITCH_MM + 12.5; 
+                        newY = Math.round((rawY - 12.5)/GRID_PITCH_MM)*GRID_PITCH_MM + 12.5; 
+                    }
+                }
+                else if (shiftPressed) { 
+                    newX = Math.round(newX/HALF_GRID_MM)*HALF_GRID_MM; 
+                    newY = Math.round(newY/HALF_GRID_MM)*HALF_GRID_MM; 
+                }
+                
                 if (el.type === 'board' && checkBoardOverlap(el, newX, newY, el.width, el.height)) invalidBoardPlacement = true;
                 el.x = newX; el.y = newY;
                 if (el.type === 'board') draggedChildren.forEach((rel, child) => { child.x = el.x + rel.dx; child.y = el.y + rel.dy; });
