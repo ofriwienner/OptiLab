@@ -625,6 +625,7 @@ function drawElement(el) {
     const isSelected = selection.has(el);
     ctx.save(); ctx.translate(pos.x, pos.y); ctx.rotate(el.rotation); ctx.scale(sc, sc);
 
+    // Highlight Selection (Red for invalid, White for valid)
     if (el.type === 'board' && invalidBoardPlacement && isSelected) {
         ctx.shadowColor = 'red'; ctx.shadowBlur = 20; ctx.strokeStyle = 'rgba(255, 0, 0, 0.8)'; ctx.lineWidth = 3; ctx.strokeRect(-el.width/2, -el.height/2, el.width, el.height); ctx.shadowBlur = 0;
     } else if (isSelected) {
@@ -635,6 +636,7 @@ function drawElement(el) {
         ctx.shadowBlur = 0;
     }
 
+    // --- Draw Component Graphics ---
     if (el.type === 'board') {
         ctx.fillStyle = '#1f2937'; ctx.fillRect(-el.width/2, -el.height/2, el.width, el.height);
         if (el.imgData && el.imgConfig.visible) {
@@ -647,7 +649,6 @@ function drawElement(el) {
         const gx = GRID_PITCH_MM; const startX = -el.width/2 + 12.5; const startY = -el.height/2 + 12.5;
         ctx.fillStyle = '#111';
         for(let x=startX; x < el.width/2; x+=gx) { for(let y=startY; y < el.height/2; y+=gx) { ctx.beginPath(); ctx.arc(x, y, 1.2, 0, Math.PI*2); ctx.fill(); } }
-        if (el.title) { ctx.fillStyle = '#9ca3af'; ctx.font = '10px sans-serif'; ctx.textAlign = 'left'; ctx.fillText(el.title, -el.width/2 + 5, -el.height/2 - 5); }
     }
     else if (el.type === 'laser') { ctx.fillStyle = '#333'; ctx.fillRect(-el.width/2, -el.height/2, el.width, el.height); ctx.fillStyle = 'red'; ctx.fillRect(el.width/2 - 2, -1.5, 2, 3); ctx.fillStyle = '#999'; ctx.font = '8px sans-serif'; ctx.fillText("LASER", -15, 3); } 
     else if (el.type === 'mirror') { ctx.fillStyle = '#444'; ctx.fillRect(-el.width/2, 0, el.width, el.height); ctx.fillStyle = 'cyan'; ctx.fillRect(-el.width/2, -0.5, el.width, 1); }
@@ -660,29 +661,53 @@ function drawElement(el) {
     else if (el.type === 'glass') { ctx.fillStyle = 'rgba(100, 200, 255, 0.3)'; ctx.strokeStyle = 'rgba(100, 200, 255, 0.6)'; ctx.lineWidth = 0.5; ctx.fillRect(-el.width/2, -el.height/2, el.width, el.height); ctx.strokeRect(-el.width/2, -el.height/2, el.width, el.height); }
     else if (el.type === 'hwp' || el.type === 'qwp') { const color = el.type === 'hwp' ? 'rgba(74, 222, 128, 0.4)' : 'rgba(251, 146, 60, 0.4)'; const border = el.type === 'hwp' ? '#4ade80' : '#fb923c'; ctx.fillStyle = color; ctx.strokeStyle = border; ctx.lineWidth = 0.5; ctx.fillRect(-el.width/2, -el.height/2, el.width, el.height); ctx.strokeRect(-el.width/2, -el.height/2, el.width, el.height); ctx.beginPath(); ctx.strokeStyle = 'rgba(255,255,255,0.8)'; ctx.moveTo(0, -el.height/2 + 2); ctx.lineTo(0, el.height/2 - 2); ctx.stroke(); ctx.save(); ctx.translate(el.width+2, 0); ctx.rotate(-Math.PI/2); ctx.fillStyle = border; ctx.font = '10px sans-serif'; const label = el.type === 'hwp' ? '\u03BB/2' : '\u03BB/4'; ctx.fillText(label, -el.height/2, 4); ctx.restore(); }
 
+    // [V2.7.1] Draw Title Label (For ANY component)
+    if (el.title) {
+        ctx.fillStyle = el.type === 'board' ? '#9ca3af' : '#9ca3af'; 
+        ctx.font = '10px sans-serif'; 
+        ctx.textAlign = 'left'; 
+        // Draw slightly above the component
+        const textY = el.type === 'board' ? (-el.height/2 - 5) : (-el.height/2 - 8);
+        const textX = el.type === 'board' ? (-el.width/2 + 5) : (-el.width/2);
+        ctx.fillText(el.title, textX, textY); 
+    }
+
     const isPrimary = Array.from(selection).pop() === el;
+    
+    // --- Handles ---
     if (isSelected && isPrimary && el.type !== 'board') {
         let handleDist = el.width/2 + 15; if (el.type === 'mirror-d') handleDist = el.width + 15; let cx = 0; if (el.type === 'mirror-d') cx = 0; 
         ctx.beginPath(); ctx.moveTo(cx, 0); ctx.lineTo(handleDist, 0); ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.lineWidth = 1 / sc; ctx.stroke();
         ctx.beginPath(); ctx.arc(handleDist, 0, 4 / sc, 0, Math.PI*2); ctx.fillStyle = isRotating ? '#3b82f6' : 'white'; ctx.fill(); ctx.stroke();
         if (el.type === 'mirror-d') {
-            const flipLocal = el.getFlipButtonPosition(); ctx.beginPath(); ctx.arc(flipLocal.x, flipLocal.y, 5/sc, 0, Math.PI*2); const m = lastMousePos; ctx.fillStyle = '#7e22ce'; ctx.fill(); ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.lineWidth = 1/sc; ctx.stroke(); ctx.fillStyle = 'white'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = `${8/sc}px sans-serif`; ctx.fillText('⇄', flipLocal.x, flipLocal.y);
+            const flipLocal = el.getFlipButtonPosition(); ctx.beginPath(); ctx.arc(flipLocal.x, flipLocal.y, 5/sc, 0, Math.PI*2); ctx.fillStyle = '#7e22ce'; ctx.fill(); ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.lineWidth = 1/sc; ctx.stroke(); ctx.fillStyle = 'white'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = `${8/sc}px sans-serif`; ctx.fillText('⇄', flipLocal.x, flipLocal.y);
         }
-        // Snap Button
         if (lastHitOnSelected && lastHitOnSelected.el === el) {
             const snapLocal = el.getSnapButtonPosition(); ctx.beginPath(); ctx.arc(snapLocal.x, snapLocal.y, 5/sc, 0, Math.PI*2);
             ctx.fillStyle = '#3b82f6'; ctx.fill(); ctx.strokeStyle = 'white'; ctx.lineWidth = 1/sc; ctx.stroke();
             ctx.fillStyle='white'; ctx.font=`${8/sc}px sans-serif`; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('↻', snapLocal.x, snapLocal.y);
         }
-    } else if (isSelected && el.type === 'board' && !el.locked) {
+    } 
+    // [V2.7.1] Board Handles (Move + Rotate)
+    else if (isSelected && el.type === 'board' && !el.locked) {
         const mh = el.getMoveHandlePosition();
+        
+        // 1. Move Handle (Blue Box)
         ctx.fillStyle = '#3b82f6'; ctx.fillRect(mh.x, mh.y, 15, 15);
         ctx.strokeStyle = 'white'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(mh.x+7.5, mh.y+3); ctx.lineTo(mh.x+7.5, mh.y+12); ctx.moveTo(mh.x+3, mh.y+7.5); ctx.lineTo(mh.x+12, mh.y+7.5); ctx.stroke();
+        
+        // 2. [NEW] Rotate Handle (Purple Box to the right of Move Handle)
+        // Offset: 18px to the right
+        ctx.fillStyle = '#9333ea'; // Purple
+        ctx.fillRect(mh.x + 18, mh.y, 15, 15); 
+        ctx.fillStyle = 'white'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = '10px sans-serif';
+        ctx.fillText('↻', mh.x + 18 + 7.5, mh.y + 7.5);
+
+        // 3. Resize Handle
         const rh = el.getResizeHandlePosition(); ctx.beginPath(); ctx.rect(rh.x - 5, rh.y - 5, 10, 10); ctx.fillStyle = isResizing ? '#f87171' : '#9ca3af'; ctx.fill(); ctx.strokeStyle = 'white'; ctx.lineWidth = 1/sc; ctx.stroke();
     }
     ctx.restore();
-}
-/**
+}/**
  * Calculates the orientation angle of the polarization ellipse.
  * @param {Array} stokes - The Stokes vector [I, Q, U, V]
  * @returns {number} Angle in radians
@@ -1083,7 +1108,68 @@ function updateUI() {
 
 // --- 7. UI Helpers ---
 function toggleBoardLock() { const p = Array.from(selection).pop(); if (p && p.type === 'board') { p.locked = !p.locked; updateUI(); draw(); }}
-function rotateBoard() { const p = Array.from(selection).pop(); if (p && p.type === 'board' && !p.locked) { const t = p.width; p.width = p.height; p.height = t; if (checkBoardOverlap(p, p.x, p.y, p.width, p.height)) { p.height = p.width; p.width = t; alert("Cannot rotate: Collision."); } draw(); }}
+// [V2.7.1] Group Rotation Logic
+function rotateBoard(board) {
+    if (!board || board.type !== 'board' || board.locked) return;
+
+    // 1. Calculate New Dimensions (Swap Width/Height)
+    const newW = board.height;
+    const newH = board.width;
+
+    // 2. Check for Collision (Optional safety check)
+    // We check if the ROTATED shape fits. 
+    // (Strictly speaking, rotating might cause overlap, but for now we allow it or you can block it)
+    if (checkBoardOverlap(board, board.x, board.y, newW, newH)) {
+        alert("Cannot rotate: Collision with another board.");
+        return;
+    }
+
+    // 3. Find "Children" (Components strictly inside the board's OLD boundary)
+    // We use the old dimensions for detection before we update them
+    const children = elements.filter(el => 
+        el !== board && el.type !== 'board' && 
+        getParentBoard(el) === board
+    );
+
+    // 4. Transform Children
+    children.forEach(child => {
+        // Calculate position relative to board center
+        const dx = child.x - board.x;
+        const dy = child.y - board.y;
+
+        // Rotate 90 degrees clockwise (Math: x' = -y, y' = x)
+        // Note: In screen coords (Y-down), 90 deg CW is (x,y) -> (-y, x)
+        const newDx = -dy; 
+        const newDy = dx;
+
+        // Update Absolute Position
+        child.x = board.x + newDx;
+        child.y = board.y + newDy;
+
+        // Update Component Rotation (+90 deg)
+        child.rotation += Math.PI / 2;
+    });
+
+    // 5. Update Board Dimensions
+    board.width = newW;
+    board.height = newH;
+    
+    // 6. Update Background Image (if exists)
+    if (board.imgData) {
+        // Swap aspect ratio config
+        const temp = board.imgConfig.w;
+        board.imgConfig.w = board.imgConfig.h;
+        board.imgConfig.h = temp;
+        
+        // Rotate offset center: (x, y) -> (-y, x)
+        const ix = board.imgConfig.x;
+        const iy = board.imgConfig.y;
+        board.imgConfig.x = -iy;
+        board.imgConfig.y = ix;
+    }
+
+    draw();
+}
 function triggerImageUpload() { imgUploadInput.click(); }
 function handleImageUpload(input) { const f = input.files[0]; if (!f) return; const p = Array.from(selection).pop(); if (!p || p.type !== 'board') return; const r = new FileReader(); r.onload = (e) => { const i = new Image(); i.onload = () => { p.imgData = i; const a = i.height / i.width; p.imgConfig.w = p.width; p.imgConfig.h = p.width * a; p.imgConfig.x = 0; p.imgConfig.y = 0; draw(); updateUI(); }; i.src = e.target.result; }; r.readAsDataURL(f); input.value = ''; }
 function toggleImage() { const p = Array.from(selection).pop(); if (p && p.type === 'board') { p.imgConfig.visible = !p.imgConfig.visible; draw(); updateUI(); }}
@@ -1176,11 +1262,21 @@ canvas.addEventListener('mousedown', (e) => {
     const m = { x: e.clientX - canvas.getBoundingClientRect().left, y: e.clientY - canvas.getBoundingClientRect().top };
     lastMousePos = m;
     if (calibrationState > 0) { handleCalibrationClick(m); return; }
-    if (e.button === 1 || (e.button === 0 && keys[' '])) { view.isPanning = true; view.startPanX = m.x - view.x; view.startPanY = m.y - view.y; canvas.style.cursor = 'grabbing'; return; }
+    
+    // Pan Logic
+    if (e.button === 1 || (e.button === 0 && keys[' '])) { 
+        view.isPanning = true; 
+        view.startPanX = m.x - view.x; 
+        view.startPanY = m.y - view.y; 
+        canvas.style.cursor = 'grabbing'; 
+        return; 
+    }
+
     const w = screenToWorld(m.x, m.y);
     const primary = Array.from(selection).pop();
     
     if (primary) {
+        // Component Handles
         if (primary.type !== 'board' && lastHitOnSelected && lastHitOnSelected.el === primary) {
             const snapLocal = primary.getSnapButtonPosition();
             const r = primary.rotation;
@@ -1189,10 +1285,16 @@ canvas.addEventListener('mousedown', (e) => {
             const bs = worldToScreen(bx, by);
             if((m.x - bs.x)**2 + (m.y - bs.y)**2 < 100) { cycleSnapRotation(primary, lastHitOnSelected.incoming); draw(); return; }
         }
+        
+        // Board Handles
         if (primary.type === 'board' && !primary.locked) {
-            const rh = primary.getResizeHandlePosition(); const rhS = worldToScreen(primary.x + rh.x, primary.y + rh.y); 
+            const rh = primary.getResizeHandlePosition(); 
+            const rhS = worldToScreen(primary.x + rh.x, primary.y + rh.y); 
+            
+            // Resize
             if ((m.x - rhS.x)**2 + (m.y - rhS.y)**2 < 100) {
-                isResizing = true; originalBoardState = { w: primary.width, h: primary.height, x: primary.x, y: primary.y };
+                isResizing = true; 
+                originalBoardState = { w: primary.width, h: primary.height, x: primary.x, y: primary.y };
                 let minX = primary.x - primary.width/2; let minY = primary.y - primary.height/2; let maxX = minX; let maxY = minY;
                 elements.forEach(child => { if (child !== primary && child.type !== 'board' && getParentBoard(child) === primary) {
                      const hw = child.width/2 + 10; const hh = child.height/2 + 10;
@@ -1201,14 +1303,37 @@ canvas.addEventListener('mousedown', (e) => {
                 originalBoardState.minW = Math.max(50, maxX - minX); originalBoardState.minH = Math.max(50, maxY - minY);
                 return;
             }
-            const mh = primary.getMoveHandlePosition(); const mhS = worldToScreen(primary.x + mh.x + 7.5, primary.y + mh.y + 7.5); 
+            
+            // Move Handle Position
+            const mh = primary.getMoveHandlePosition(); 
+            
+            // [V2.7.1] Rotate Handle Hit Test
+            // Handle is 18px right of Move Handle. (Offset by +18 in local X, +7.5 in local Y for center)
+            // We calculate screen pos of center:
+            const rotH_Screen = worldToScreen(primary.x + mh.x + 18 + 7.5, primary.y + mh.y + 7.5);
+            
+            if ((m.x - rotH_Screen.x)**2 + (m.y - rotH_Screen.y)**2 < 100) {
+                rotateBoard(primary);
+                return;
+            }
+
+            // Move Handle Hit Test
+            const mhS = worldToScreen(primary.x + mh.x + 7.5, primary.y + mh.y + 7.5); 
             if ((m.x - mhS.x)**2 + (m.y - mhS.y)**2 < 100) {
-                 isDragging = true; originalBoardState = { x: primary.x, y: primary.y }; draggedChildren.clear();
-                 elements.forEach(child => { if (child !== primary && child.type !== 'board' && !selection.has(child) && getParentBoard(child) === primary) draggedChildren.set(child, {dx: child.x - primary.x, dy: child.y - primary.y}); });
-                 dragOffsets.clear(); dragOffsets.set(primary, { dx: primary.x - w.x, dy: primary.y - w.y });
+                 isDragging = true; 
+                 originalBoardState = { x: primary.x, y: primary.y }; 
+                 draggedChildren.clear();
+                 elements.forEach(child => { 
+                     if (child !== primary && child.type !== 'board' && !selection.has(child) && getParentBoard(child) === primary) 
+                        draggedChildren.set(child, {dx: child.x - primary.x, dy: child.y - primary.y}); 
+                 });
+                 dragOffsets.clear(); 
+                 dragOffsets.set(primary, { dx: primary.x - w.x, dy: primary.y - w.y });
                  draw(); return;
             }
-        } else if (primary.type !== 'board') {
+        } 
+        // Component Rotate Handle
+        else if (primary.type !== 'board') {
             const hl = primary.getHandlePosition(); const hs = worldToScreen(primary.x + hl.x, primary.y + hl.y);
             if ((m.x - hs.x)**2 + (m.y - hs.y)**2 < 100) { isRotating = true; return; }
             if (primary.type === 'mirror-d') {
@@ -1220,6 +1345,7 @@ canvas.addEventListener('mousedown', (e) => {
         }
     }
 
+    // Selection Logic
     let clicked = null;
     const components = elements.filter(el => el.type !== 'board');
     clicked = components.reverse().find(el => {
@@ -1339,25 +1465,54 @@ window.addEventListener('keydown', (e) => {
     if (selection.size > 0 && (e.key === 'Delete' || e.key === 'Backspace')) deleteSelected(); 
 });
 window.addEventListener('keyup', (e) => { keys[e.key]=false; if(e.key==='Shift')shiftPressed=false; if(e.key==='Control'||e.key==='Meta')ctrlPressed=false; });
+// [V2.7.1] Renaming Logic (Generic)
 canvas.addEventListener('dblclick', (e) => { 
     const m = getMousePos(e);
     const w = screenToWorld(m.x, m.y);
-    const boardHit = elements.filter(el => el.type === 'board').reverse().find(el => {
-         return w.x > el.x - el.width/2 && w.x < el.x + el.width/2 &&
-                w.y > el.y - el.height/2 && w.y < el.y + el.height/2;
+    
+    // Find topmost hit (prioritize components over boards)
+    let hit = elements.slice().reverse().find(el => {
+        if (el.type === 'board') {
+             return w.x > el.x - el.width/2 && w.x < el.x + el.width/2 &&
+                    w.y > el.y - el.height/2 && w.y < el.y + el.height/2;
+        } else {
+             // Simple hit test for components
+             const dx = el.x - w.x; 
+             const dy = el.y - w.y; 
+             const r = Math.max(el.width, el.height) / 1.5;
+             return (dx*dx + dy*dy) < r*r;
+        }
     });
+    
     let isTitle = false;
-    if (boardHit) {
-        const titleY = boardHit.y - boardHit.height/2;
-        const titleX = boardHit.x - boardHit.width/2;
-        if (w.y < titleY && w.y > titleY - 20 && w.x > titleX && w.x < titleX + 200) isTitle = true;
+    if (hit) {
+        if (hit.type === 'board') {
+            // Board: Only trigger if clicking the top-left "Title Area"
+            const titleY = hit.y - hit.height/2;
+            const titleX = hit.x - hit.width/2;
+            if (w.y < titleY && w.y > titleY - 20 && w.x > titleX && w.x < titleX + 200) isTitle = true;
+        } else {
+            // Component: Clicking anywhere triggers rename
+            isTitle = true;
+        }
     }
     
-    if (boardHit && isTitle) {
-        const newTitle = prompt("Enter Board Title:", boardHit.title);
-        if (newTitle !== null) { boardHit.title = newTitle; draw(); }
+    if (hit && isTitle) {
+        const label = hit.type === 'board' ? "Enter Board Title:" : "Enter Component Label:";
+        const newTitle = prompt(label, hit.title);
+        if (newTitle !== null) { 
+            hit.title = newTitle; 
+            draw(); 
+        }
     } else {
-        selection.forEach(el => { el.rotation = 0; if(el.type==='mirror'||el.type==='mirror-d')el.rotation=toRad(-45); if(['splitter','pbs'].includes(el.type))el.rotation=0; }); updateUI(); draw(); 
+        // Existing Logic: Reset rotation on background double-click
+        selection.forEach(el => { 
+            el.rotation = 0; 
+            if(el.type==='mirror'||el.type==='mirror-d') el.rotation=toRad(-45); 
+            if(['splitter','pbs'].includes(el.type)) el.rotation=0; 
+        }); 
+        updateUI(); 
+        draw(); 
     }
 });
 
