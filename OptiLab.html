@@ -187,6 +187,7 @@
  // TODO: change the physical rotation of the waveplates to optical rotation
  // TODO: drop down to select polarization of the laser
  // TODO: fix bug in intensities
+ // TODO: add toggle between optional angles feature (there is a saved optional prompt)
 
 // 1. Globals and Config
 const canvas = document.getElementById('opticalBench');
@@ -223,8 +224,9 @@ let lastHitOnSelected = null;
 let invalidBoardPlacement = false; 
 let originalBoardState = null; 
 const keys = {}; 
-let alignPreference = 0; // [V2.5.2] Toggles which beam to align to
-
+// --- Global Variables ---
+let alignPreference = 0;     // Toggles alignment options
+let hasCycleOptions = false; // [V2.5.3] Tracks if 'Q' key will do anything
 let calibrationState = 0; 
 let calibData = { board: null, p1Img: null, p1Board: null, p2Img: null, p2Board: null };
 
@@ -800,6 +802,46 @@ function drawMarquee() {
     ctx.restore();
 }
 
+function drawHints() {
+    if (selection.size === 1 && hasCycleOptions) {
+        const el = Array.from(selection)[0];
+        // Position above the element
+        const pos = worldToScreen(el.x, el.y - el.height/2 - 10);
+        
+        const text = "Q: Cycle Target";
+        ctx.font = "10px sans-serif";
+        const metrics = ctx.measureText(text);
+        const w = metrics.width + 8;
+        const h = 16;
+        
+        ctx.save();
+        ctx.translate(pos.x, pos.y);
+        
+        // Draw Background Badge
+        ctx.fillStyle = "rgba(31, 41, 55, 0.9)"; // Dark Gray
+        ctx.strokeStyle = "rgba(75, 85, 99, 1)"; // Border
+        ctx.lineWidth = 1;
+        
+        // Rounded Rect Path
+        ctx.beginPath();
+        if (ctx.roundRect) {
+            ctx.roundRect(-w/2, -h/2, w, h, 4);
+        } else {
+            ctx.rect(-w/2, -h/2, w, h); // Fallback for older browsers
+        }
+        ctx.fill();
+        ctx.stroke();
+        
+        // Draw Text
+        ctx.fillStyle = "#fbbf24"; // Yellow/Gold
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(text, 0, 0.5); // 0.5 px adjustment for visual centering
+        
+        ctx.restore();
+    }
+}
+
 function draw() {
     drawGrid();
     elements.forEach(el => { if (el.type === 'board') drawElement(el); });
@@ -808,6 +850,7 @@ function draw() {
     const rays = castRays();
     drawRays(rays);
     drawMarquee();
+    drawHints(); // [V2.5.3] Draw UI Hints on top
 }
 
 // --- 6. Global Logic (Defined Before Listeners) ---
@@ -819,8 +862,10 @@ function tryAutoAlign(element) {
     if (idx > -1) elements.splice(idx, 1);
     const rays = castRays(); 
     if (idx > -1) elements.splice(idx, 0, element);
+
     let candidates = [];
     let minDistance = 30; // Catch beams within 30mm
+
     // 2. Find ALL rays passing near the element center
     rays.forEach(ray => {
         const APx = element.x - ray.x1; const APy = element.y - ray.y1;
@@ -840,22 +885,29 @@ function tryAutoAlign(element) {
             candidates.push({ ray: ray, dist: dist });
         }
     });
-    // [V2.5.2] Sort by distance and select based on preference
+
+    // Sort by distance
     candidates.sort((a, b) => a.dist - b.dist);
     
+    // [V2.5.3 UPDATE] Set Flag for UI Hint
+    hasCycleOptions = candidates.length > 1;
+
     if (candidates.length > 0) {
-        // Modulo operator (%) loops the preference index: 0, 1, 2, 0, 1...
+        // Modulo operator (%) loops the preference index
         const selected = candidates[alignPreference % candidates.length].ray;
         const bestMatch = selected;
+
         // 3. Calculate Alignment for the SELECTED ray
         const rdx = bestMatch.x2 - bestMatch.x1; 
         const rdy = bestMatch.y2 - bestMatch.y1;
         const len = Math.sqrt(rdx*rdx + rdy*rdy);
         const inc = {x: rdx/len, y: rdy/len};
+
         if (['mirror', 'mirror-d'].includes(element.type)) {
             const cardinals = [{x:1,y:0}, {x:-1,y:0}, {x:0,y:1}, {x:0,y:-1}];
             let bestRot = element.rotation;
             let bestDiff = Infinity;
+
             cardinals.forEach(target => {
                 let nx = target.x - inc.x;
                 let ny = target.y - inc.y;
@@ -872,6 +924,7 @@ function tryAutoAlign(element) {
                     }
                 }
             });
+
             if (bestDiff < Math.PI/4) {
                 element.rotation = bestRot;
             }
@@ -879,6 +932,8 @@ function tryAutoAlign(element) {
         else if (['splitter', 'pbs', 'aom', 'hwp', 'qwp', 'glass', 'detector', 'blocker'].includes(element.type)) {
              element.rotation = Math.round(element.rotation / (Math.PI/2)) * (Math.PI/2);
         }
+    } else {
+        hasCycleOptions = false;
     }
 }
 
