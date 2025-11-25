@@ -185,7 +185,7 @@
 
  // TODOs: 
  // TODO: change the physical rotation of the waveplates to optical rotation
- // TODO: drop down to select polarization of the laser
+ // TODO: drop down to select polarization of the laser, maybe apply ".onclick = (e) => e.stopPropagation()" fix
  // TODO: fix bug in intensities
  // TODO: Solution Cycling - add toggle between optional angles feature (there is a saved optional prompt)
  // TODO soon: align beams to grid insted of in between the grid,in the q feature also move the mirror a little to align to grid lines!
@@ -229,7 +229,6 @@ const keys = {};
 let alignPreference = 0;     // Toggles alignment options
 let hasCycleOptions = false; // [V2.5.3] Tracks if 'Q' key will do anything
 let calibrationState = 0; 
-// [V2.7.2] Reset for future 3-point logic
 let calibData = { board: null, p1Img: null, p1Board: null, p2Img: null, p2Board: null, p3Img: null, p3Board: null };
 
 // 2. Math Helpers
@@ -1013,7 +1012,7 @@ function updateUI() {
         rotationSlider.value = deg; 
         rotationValueDisplay.innerText = deg+'°'; 
         
-        // [Step 5.1] Laser UI Controls
+        // Laser UI Controls
         if (p.type === 'laser') {
             const div = document.createElement('div');
             div.className = "mt-2 border-t border-gray-600 pt-2";
@@ -1023,7 +1022,6 @@ function updateUI() {
             div.appendChild(label);
             const select = document.createElement('select');
             select.className = "w-full bg-gray-700 border border-gray-600 rounded px-1 py-1 text-[10px] text-white cursor-pointer";
-            // Event bubbling fixes
             select.style.userSelect = 'auto';      
             select.style.webkitUserSelect = 'auto'; 
             select.onmousedown = (e) => e.stopPropagation(); 
@@ -1044,7 +1042,7 @@ function updateUI() {
             btnContainer.appendChild(div);
         }
 
-        // [Existing Board Controls]
+        // Board Controls
         if (p.type === 'board') {
             const lockBtn = document.createElement('button');
             lockBtn.className = `w-full py-1 text-[10px] rounded border transition mb-1 cursor-pointer ${p.locked ? 'bg-red-900/50 border-red-600 text-red-100' : 'bg-green-900/50 border-green-600 text-green-100'}`;
@@ -1056,42 +1054,60 @@ function updateUI() {
                 const rotBtn = document.createElement('button');
                 rotBtn.className = "w-full py-1 bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] rounded border border-indigo-500 transition mb-1 cursor-pointer";
                 rotBtn.innerText = "Rotate 90°";
-                rotBtn.onclick = () => rotateBoard(p); // Use new rotateBoard
+                rotBtn.onclick = () => rotateBoard(p);
                 btnContainer.appendChild(rotBtn);
             }
             
-            // [V2.7.2 FIX] Use Label for Upload to prevent Event Conflict
+            // Upload Reference Label (Already Fixed)
             const imgLabel = document.createElement('label');
-            imgLabel.htmlFor = 'imgUpload'; // Triggers the hidden input
+            imgLabel.htmlFor = 'imgUpload'; 
             imgLabel.className = "block w-full py-1 bg-blue-700/50 border border-blue-600 rounded text-[10px] text-blue-100 text-center cursor-pointer mb-1 hover:bg-blue-700 select-none";
             imgLabel.innerText = "Upload Reference";
-            
-            // CRITICAL: Stop bubbling so updateUI() doesn't destroy this label before click finishes
             imgLabel.onmousedown = (e) => e.stopPropagation();
-            imgLabel.onmouseup = (e) => e.stopPropagation();
+            imgLabel.onmouseup = (e) => e.stopPropagation(); // Critical
             imgLabel.onclick = (e) => e.stopPropagation();
-            
             btnContainer.appendChild(imgLabel);
             
-            // Calibration controls temporarily hidden until V2.7.3
+            // [V2.7.3 FIX] Apply "The Fix" to all image buttons
              if (p.imgData) {
+                 const calibBtn = document.createElement('button');
+                 calibBtn.className = "w-full py-1 bg-yellow-600/50 border border-yellow-500 rounded text-[10px] text-yellow-100 mb-1 hover:bg-yellow-600 cursor-pointer mt-1";
+                 calibBtn.innerText = "Calibrate Image";
+                 
+                 // FIX: Add onmouseup stopPropagation
+                 calibBtn.onmousedown = (e) => e.stopPropagation();
+                 calibBtn.onmouseup = (e) => e.stopPropagation(); // <--- ADDED
+                 calibBtn.onclick = (e) => { e.stopPropagation(); window.startCalibration(); };
+                 
+                 btnContainer.appendChild(calibBtn);
+
+                 const slideDiv = document.createElement('div');
+                 slideDiv.className = "mt-1";
+                 slideDiv.onmousedown = (e) => e.stopPropagation(); 
+                 slideDiv.innerHTML = `<label class="text-[9px] text-gray-400 block">Opacity</label><input type="range" min="0" max="1" step="0.1" value="${p.imgConfig.opacity}" class="w-full accent-blue-500 h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer" oninput="window.updateOpacity(this.value)">`;
+                 btnContainer.appendChild(slideDiv);
+
                  const togBtn = document.createElement('button');
                  togBtn.className = "w-full py-1 bg-gray-700 border border-gray-600 rounded text-[10px] text-gray-300 mb-1 hover:bg-gray-600 mt-1 cursor-pointer";
                  togBtn.innerText = p.imgConfig.visible ? "Hide Image" : "Show Image";
-                 togBtn.onclick = window.toggleImage;
+                 
+                 // FIX: Add onmouseup stopPropagation
+                 togBtn.onmousedown = (e) => e.stopPropagation();
+                 togBtn.onmouseup = (e) => e.stopPropagation(); // <--- ADDED
+                 togBtn.onclick = (e) => { e.stopPropagation(); window.toggleImage(); };
+                 
                  btnContainer.appendChild(togBtn);
 
                  const rmBtn = document.createElement('button');
                  rmBtn.className = "w-full py-1 bg-red-900/30 border border-red-800 rounded text-[10px] text-red-300 mb-1 hover:bg-red-900 cursor-pointer";
                  rmBtn.innerText = "Remove Image";
-                 rmBtn.onclick = window.removeImage;
-                 btnContainer.appendChild(rmBtn);
                  
-                 const calibBtn = document.createElement('button');
-                 calibBtn.className = "w-full py-1 bg-yellow-600/50 border border-yellow-500 rounded text-[10px] text-yellow-100 mb-1 hover:bg-yellow-600 cursor-pointer mt-1";
-                 calibBtn.innerText = "Calibrate (V2.7.3)";
-                 calibBtn.onclick = window.startCalibration;
-                 btnContainer.appendChild(calibBtn);
+                 // FIX: Add onmouseup stopPropagation
+                 rmBtn.onmousedown = (e) => e.stopPropagation();
+                 rmBtn.onmouseup = (e) => e.stopPropagation(); // <--- ADDED
+                 rmBtn.onclick = (e) => { e.stopPropagation(); window.removeImage(); };
+                 
+                 btnContainer.appendChild(rmBtn);
              }
         }
     } 
@@ -1099,6 +1115,29 @@ function updateUI() {
 
 // --- 7. UI Helpers ---
 function toggleBoardLock() { const p = Array.from(selection).pop(); if (p && p.type === 'board') { p.locked = !p.locked; updateUI(); draw(); }}
+function toggleImage() { 
+    const p = Array.from(selection).pop(); 
+    if (p && p.type === 'board') { 
+        p.imgConfig.visible = !p.imgConfig.visible; 
+        draw(); 
+        updateUI(); 
+    }
+}
+function removeImage() { 
+    const p = Array.from(selection).pop(); 
+    if (p && p.type === 'board') { 
+        p.imgData = null; 
+        draw(); 
+        updateUI(); 
+    }
+}
+function updateOpacity(val) { 
+    const p = Array.from(selection).pop(); 
+    if (p && p.type === 'board') { 
+        p.imgConfig.opacity = parseFloat(val); 
+        draw(); 
+    }
+}
 // [V2.7.1] Group Rotation Logic
 function rotateBoard(board) {
     if (!board || board.type !== 'board' || board.locked) return;
@@ -1177,23 +1216,112 @@ function getClosestGridPoint(w, b) {
     const row = Math.round((ly - sy) / gx); 
     return {x: b.x + sx + col * gx, y: b.y + sy + row * gx};
 }
-
-// [V2.7.2] Placeholder Calibration Logic (Cleanup)
+// [V2.7.3] 3-Point Calibration Engine
 function startCalibration() { 
     const p = Array.from(selection).pop(); 
     if (p && p.type === 'board' && p.imgData) { 
-        alert("3-Point Calibration coming in V2.7.3. For now, the upload works!");
-    } else {
-        alert("Please select a board with an uploaded image first.");
+        calibrationState = 1; 
+        calibData.board = p; 
+        calibrationMsg.innerText = "Step 1/6: Click Top-Left on Image"; 
+        calibrationMsg.style.display = 'block'; 
+        document.body.style.cursor = 'crosshair'; 
     }
 }
 
 function handleCalibrationClick(m) { 
-    // Placeholder 
+    const w = screenToWorld(m.x, m.y); 
+    const b = calibData.board; 
+    
+    if (calibrationState === 1) { 
+        calibData.p1Img = {x: w.x, y: w.y}; 
+        calibrationState = 2; 
+        calibrationMsg.innerText = "Step 2/6: Click Grid Hole for Top-Left"; 
+    } 
+    else if (calibrationState === 2) { 
+        const snap = getClosestGridPoint(w, b);
+        calibData.p1Board = snap; 
+        calibrationState = 3; 
+        calibrationMsg.innerText = "Step 3/6: Click Top-Right on Image"; 
+    } 
+    else if (calibrationState === 3) { 
+        calibData.p2Img = {x: w.x, y: w.y}; 
+        calibrationState = 4; 
+        calibrationMsg.innerText = "Step 4/6: Click Grid Hole for Top-Right"; 
+    } 
+    else if (calibrationState === 4) { 
+        const snap = getClosestGridPoint(w, b);
+        calibData.p2Board = snap; 
+        calibrationState = 5;
+        calibrationMsg.innerText = "Step 5/6: Click Bottom-Right on Image";
+    }
+    else if (calibrationState === 5) {
+        calibData.p3Img = {x: w.x, y: w.y};
+        calibrationState = 6;
+        calibrationMsg.innerText = "Step 6/6: Click Grid Hole for Bottom-Right";
+    }
+    else if (calibrationState === 6) {
+        const snap = getClosestGridPoint(w, b);
+        calibData.p3Board = snap;
+        applyCalibration(); 
+        calibrationState = 0; 
+        calibrationMsg.style.display = 'none'; 
+        document.body.style.cursor = 'default'; 
+    } 
 }
 
 function applyCalibration() { 
-    // Placeholder
+    const b = calibData.board;
+    
+    const p1i = calibData.p1Img; 
+    const p1b = calibData.p1Board; 
+    const p3i = calibData.p3Img; 
+    const p3b = calibData.p3Board; 
+    
+    // Vector in Image Space (P1 -> P3)
+    const vImg = { x: p3i.x - p1i.x, y: p3i.y - p1i.y };
+    // Vector in World Space (P1 -> P3)
+    const vWorld = { x: p3b.x - p1b.x, y: p3b.y - p1b.y };
+    
+    const lenImg = Math.sqrt(vImg.x**2 + vImg.y**2);
+    const lenWorld = Math.sqrt(vWorld.x**2 + vWorld.y**2);
+    
+    if (lenImg < 1) return;
+    
+    // 1. Calculate Scale
+    const scale = lenWorld / lenImg;
+    
+    // 2. Calculate Rotation Angle
+    const angImg = Math.atan2(vImg.y, vImg.x);
+    const angWorld = Math.atan2(vWorld.y, vWorld.x);
+    const rotationDelta = angWorld - angImg;
+    
+    // Apply to Image Config
+    b.imgConfig.w *= scale;
+    b.imgConfig.h *= scale;
+    b.imgConfig.rotation = (b.imgConfig.rotation || 0) + rotationDelta;
+    
+    // 3. Calculate Offset (Map P1_img to P1_board)
+    // We map the old P1 position to the new P1 position relative to the board center
+    const cx = b.imgConfig.x; 
+    const cy = b.imgConfig.y;
+    
+    // Vector from current Image Center to P1 (in world coords before this transform)
+    const dx = (p1i.x - (b.x + cx));
+    const dy = (p1i.y - (b.y + cy));
+    
+    // Scale vector
+    const sdx = dx * scale;
+    const sdy = dy * scale;
+    
+    // Rotate vector
+    const rdx = sdx * Math.cos(rotationDelta) - sdy * Math.sin(rotationDelta);
+    const rdy = sdx * Math.sin(rotationDelta) + sdy * Math.cos(rotationDelta);
+    
+    // New Center Position: TargetP1 - RotatedVectorFromCenter - BoardPos
+    b.imgConfig.x = p1b.x - b.x - rdx;
+    b.imgConfig.y = p1b.y - b.y - rdy;
+    
+    draw(); 
 }
 function updateTableSize() { draw(); }
 function addBoard() { const w = parseInt(document.getElementById('boardW').value) || 600; const h = parseInt(document.getElementById('boardH').value) || 450; const t = document.getElementById('boardTitle').value || 'Board'; const c = screenToWorld(canvas.width/2, canvas.height/2); const nx = Math.round(c.x / GRID_PITCH_MM) * GRID_PITCH_MM; const ny = Math.round(c.y / GRID_PITCH_MM) * GRID_PITCH_MM; const b = new Element('board', nx, ny, w, h, t); let tries = 0; while(checkBoardOverlap(b, b.x, b.y, b.width, b.height) && tries < 50) { b.x += 50; b.y += 50; tries++; } elements.push(b); draw(); }
