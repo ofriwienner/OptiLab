@@ -474,7 +474,7 @@ const MuellerMath = {
 };
 // --- 4. Physics Logic ---
 function traceRay(ray, depth, results) {
-    if (depth > MAX_BOUNCES || ray.intensity < 0.01) return; // Cutoff slightly raised for matrix precision
+    if (depth > MAX_BOUNCES || ray.intensity < 0.01) return; 
 
     let closestHit = null; let closestDist = Infinity; let hitObject = null; let hitSegment = null;
     
@@ -488,103 +488,79 @@ function traceRay(ray, depth, results) {
     });
 
     if (closestHit) {
-        // Log segment
         results.push({ x1: ray.x, y1: ray.y, x2: closestHit.x, y2: closestHit.y, color: ray.color + ray.intensity + ')', stokes: ray.stokes });
         
-        // Calculate Normal & Incidence
         const segVec = closestHit.segVector;
         let nx = -segVec.y; let ny = segVec.x; const nl = Math.sqrt(nx*nx+ny*ny); nx/=nl; ny/=nl;
         const inc = {x: ray.dx, y: ray.dy}; const dp = dot(inc, {x:nx, y:ny});
         
-        // Selection Debug Highlight
         if (selection.has(hitObject) && !lastHitOnSelected && (hitObject.type.includes('mirror') || ['splitter', 'pbs', 'aom', 'glass', 'lens'].includes(hitObject.type))) {
              lastHitOnSelected = { el: hitObject, incoming: inc };
         }
 
-        // --- MUELLER MATRIX LOGIC START ---
+        // --- MUELLER MATRIX LOGIC ---
         
         if (hitSegment.type === 'mirror-front' && dp < 0) {
-            // Logic: Mirrors
-            // Apply MuellerMath.MATRICES.mirror
+            // Mirror Logic
             const newStokes = MuellerMath.interact(ray.stokes, MuellerMath.MATRICES.MIRROR);
-            
-            // Geometric Reflection
             const rx = inc.x - 2 * dp * nx; 
             const ry = inc.y - 2 * dp * ny;
-            
             traceRay({ ...ray, x: closestHit.x, y: closestHit.y, dx: rx, dy: ry, intensity: newStokes[0], stokes: newStokes }, depth + 1, results);
 
         } else if (['splitter', 'pbs'].includes(hitSegment.type)) {
+             // Splitter/PBS Logic
              const rx = inc.x - 2 * dp * nx; 
              const ry = inc.y - 2 * dp * ny;
 
              if (hitSegment.type === 'pbs') {
-                 // Logic: PBS
-                 // Transmitted Ray: Apply polarizer matrix (Horizontal)
                  const matTrans = MuellerMath.rotateComponent(MuellerMath.MATRICES.POLARIZER_H, hitObject.rotation);
                  const stokesTrans = MuellerMath.interact(ray.stokes, matTrans);
                  
-                 // Reflected Ray: Apply a Vertical polarizer matrix (Standard polarizer rotated by 90°)
-                 // We rotate the horizontal polarizer by 90 degrees (+ object rotation) to get vertical behavior
                  const matRefl = MuellerMath.rotateComponent(MuellerMath.MATRICES.POLARIZER_H, hitObject.rotation + Math.PI/2);
                  const stokesRefl = MuellerMath.interact(ray.stokes, matRefl);
                  
-                 // Recurse Transmitted
                  traceRay({ ...ray, x: closestHit.x + inc.x*0.1, y: closestHit.y + inc.y*0.1, dx: inc.x, dy: inc.y, intensity: stokesTrans[0], stokes: stokesTrans }, depth + 1, results);
-                 
-                 // Recurse Reflected
                  traceRay({ ...ray, x: closestHit.x, y: closestHit.y, dx: rx, dy: ry, intensity: stokesRefl[0], stokes: stokesRefl }, depth + 1, results);
-             
              } else {
-                 // Standard Splitter (Non-PBS) - Preserving 50/50 split of intensity, keeping polarization
-                 // Manually scaling stokes for intensity split
                  const splitStokes = ray.stokes.map(val => val * 0.5);
-                 
                  traceRay({ ...ray, x: closestHit.x, y: closestHit.y, dx: rx, dy: ry, intensity: splitStokes[0], stokes: splitStokes }, depth + 1, results);
                  traceRay({ ...ray, x: closestHit.x + inc.x*0.1, y: closestHit.y + inc.y*0.1, dx: inc.x, dy: inc.y, intensity: splitStokes[0], stokes: splitStokes }, depth + 1, results);
              }
 
         } else if (['hwp', 'qwp'].includes(hitObject.type)) {
-             // Logic: Waveplates (HWP/QWP)
-             // Select the correct base matrix
-             const baseMatrix = hitObject.type === 'hwp' ? MuellerMath.MATRICES.HWP_H : MuellerMath.MATRICES.QWP_H;
+             // FIXED LOGIC: Only apply matrix on ENTRY (dp > 0). 
+             // On EXIT (dp < 0), just pass through.
              
-             // Angle Calculation
-             const theta = hitObject.rotation + (hitObject.axisAngle || 0);
-             // TODO (Step 5): Decide if we should remove el.rotation here to decouple physical mount from internal axis.
-             
-             // Interaction: Rotate the matrix by theta and interact
-             const rotMatrix = MuellerMath.rotateComponent(baseMatrix, theta);
-             const newStokes = MuellerMath.interact(ray.stokes, rotMatrix);
-             
-             traceRay({ ...ray, x: closestHit.x + inc.x*0.1, y: closestHit.y + inc.y*0.1, dx: inc.x, dy: inc.y, intensity: newStokes[0], stokes: newStokes, color: ray.color }, depth + 1, results);
+             if (dp > 0) {
+                 // Entering: Apply Matrix
+                 const baseMatrix = hitObject.type === 'hwp' ? MuellerMath.MATRICES.HWP_H : MuellerMath.MATRICES.QWP_H;
+                 const theta = hitObject.rotation + (hitObject.axisAngle || 0);
+                 const rotMatrix = MuellerMath.rotateComponent(baseMatrix, theta);
+                 const newStokes = MuellerMath.interact(ray.stokes, rotMatrix);
+                 
+                 traceRay({ ...ray, x: closestHit.x + inc.x*0.1, y: closestHit.y + inc.y*0.1, dx: inc.x, dy: inc.y, intensity: newStokes[0], stokes: newStokes, color: ray.color }, depth + 1, results);
+             } else {
+                 // Exiting: Pass Through (Identity) to avoid double rotation
+                 traceRay({ ...ray, x: closestHit.x + inc.x*0.1, y: closestHit.y + inc.y*0.1, dx: inc.x, dy: inc.y, intensity: ray.intensity, stokes: ray.stokes, color: ray.color }, depth + 1, results);
+             }
 
         } else if (['glass', 'lens', 'aom'].includes(hitObject.type) || hitObject.type === 'aom') {
-             // Pass-through elements (Identity / Intensity loss logic preserved or simplified)
-             // For now, passing stokes through 
              let modStokes = ray.stokes;
-             let modInt = ray.intensity;
-
              if (hitSegment.type === 'aom') {
-                 // AOM logic (diffraction) - preserving intensity scaling but passing stokes
                  if (dp < 0) {
                      const s0 = ray.stokes.map(v => v * 0.3);
                      const s1 = ray.stokes.map(v => v * 0.7);
                      traceRay({ x: closestHit.x + inc.x * 0.1, y: closestHit.y + inc.y * 0.1, dx: inc.x, dy: inc.y, intensity: s0[0], stokes: s0, color: ray.color }, depth + 1, results);
-                     
                      const diff = rotatePoint(inc, -0.035);
                      traceRay({ x: closestHit.x + diff.x * 0.1, y: closestHit.y + diff.y * 0.1, dx: diff.x, dy: diff.y, intensity: s1[0], stokes: s1, color: ray.color }, depth + 1, results);
                      return; 
                  }
              } else {
-                 // Glass/Lens: small loss
                  modStokes = ray.stokes.map(v => v * 0.95);
              }
-
              traceRay({ x: closestHit.x + inc.x*0.1, y: closestHit.y + inc.y*0.1, dx: inc.x, dy: inc.y, intensity: modStokes[0], stokes: modStokes, color: ray.color }, depth + 1, results);
         }
     } else {
-        // Infinity
         results.push({ x1: ray.x, y1: ray.y, x2: ray.x + ray.dx * 2000, y2: ray.y + ray.dy * 2000, color: ray.color + ray.intensity + ')', stokes: ray.stokes });
     }
 }
@@ -686,15 +662,116 @@ function drawElement(el) {
     }
     ctx.restore();
 }
+/**
+ * Calculates the orientation angle of the polarization ellipse.
+ * @param {Array} stokes - The Stokes vector [I, Q, U, V]
+ * @returns {number} Angle in radians
+ */
+function getStokesAngle(stokes) {
+    if (!stokes) return 0;
+    // Angle = 0.5 * atan2(U, Q)
+    return 0.5 * Math.atan2(stokes[2], stokes[1]);
+}
 
+/**
+ * Draws the light rays with polarization visualization glyphs.
+ * @param {Array} rays - List of ray segments to draw
+ */
+/**
+ * Draws the light rays with polarization visualization glyphs.
+ * @param {Array} rays - List of ray segments to draw
+ */
 function drawRays(rays) {
     ctx.lineCap = 'round';
+    
     rays.forEach(seg => {
-        const p1 = worldToScreen(seg.x1, seg.y1); const p2 = worldToScreen(seg.x2, seg.y2);
-        ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y);
-        ctx.strokeStyle = seg.color.replace(')', ', 0.3)').replace('rgb', 'rgba'); ctx.lineWidth = 3 * view.scale; ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y);
-        ctx.strokeStyle = seg.color; ctx.lineWidth = 1 * view.scale; ctx.stroke();
+        const p1 = worldToScreen(seg.x1, seg.y1); 
+        const p2 = worldToScreen(seg.x2, seg.y2);
+        
+        // 1. Draw the main beam (Solid Color)
+        ctx.beginPath(); 
+        ctx.moveTo(p1.x, p1.y); 
+        ctx.lineTo(p2.x, p2.y);
+        // Outer glow
+        ctx.strokeStyle = seg.color.replace(')', ', 0.3)').replace('rgb', 'rgba'); 
+        ctx.lineWidth = 3 * view.scale; 
+        ctx.stroke();
+        // Inner core
+        ctx.beginPath(); 
+        ctx.moveTo(p1.x, p1.y); 
+        ctx.lineTo(p2.x, p2.y);
+        ctx.strokeStyle = seg.color; 
+        ctx.lineWidth = 1 * view.scale; 
+        ctx.stroke();
+
+        // 2. Draw Polarization Glyphs
+        if (!seg.stokes) return;
+
+        const dx = p2.x - p1.x;
+        const dy = p2.y - p1.y;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        const angle = Math.atan2(dy, dx);
+        const rayNormalAngle = angle - Math.PI / 2; // Perpendicular to ray
+
+        const stokesAngle = getStokesAngle(seg.stokes);
+        // Check if V component is significant relative to I for circularity
+        const isCircular = Math.abs(seg.stokes[3]) > (seg.stokes[0] * 0.1); 
+
+        // Iterate along the ray in steps of 40 pixels
+        const step = 40 * view.scale; 
+        for (let d = step; d < dist - step/2; d += step) {
+            const t = d / dist;
+            const px = p1.x + dx * t;
+            const py = p1.y + dy * t;
+
+            ctx.save();
+            ctx.translate(px, py);
+            
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
+            ctx.lineWidth = 1.5 * view.scale;
+
+            if (isCircular) {
+                // --- Circular Polarization with Arrow ---
+                const radius = 4 * view.scale;
+                const arrowSize = 2.5 * view.scale;
+                const isRightHanded = seg.stokes[3] > 0;
+
+                // Draw arc with a gap at the top
+                ctx.beginPath();
+                ctx.arc(0, 0, radius, -Math.PI/2 + 0.4, -Math.PI/2 - 0.4, false);
+                ctx.stroke();
+
+                // Draw arrow head at the top gap
+                ctx.beginPath();
+                const ax = 0; const ay = -radius;
+                ctx.moveTo(ax, ay);
+                if (isRightHanded) {
+                    // CW: Arrow points right at top
+                    ctx.lineTo(ax - arrowSize, ay - arrowSize/2);
+                    ctx.moveTo(ax, ay);
+                    ctx.lineTo(ax - arrowSize, ay + arrowSize/2);
+                } else {
+                    // CCW: Arrow points left at top
+                    ctx.lineTo(ax + arrowSize, ay - arrowSize/2);
+                    ctx.moveTo(ax, ay);
+                    ctx.lineTo(ax + arrowSize, ay + arrowSize/2);
+                }
+                ctx.stroke();
+
+            } else {
+                // --- Linear Polarization ---
+                // Rotate by (RayNormal + StokesAngle)
+                ctx.rotate(rayNormalAngle + stokesAngle);
+                
+                ctx.beginPath();
+                const len = 5 * view.scale; // Half length
+                ctx.moveTo(-len, 0);
+                ctx.lineTo(len, 0);
+                ctx.stroke();
+            }
+
+            ctx.restore();
+        }
     });
 }
 
