@@ -625,7 +625,7 @@ function drawElement(el) {
     const isSelected = selection.has(el);
     ctx.save(); ctx.translate(pos.x, pos.y); ctx.rotate(el.rotation); ctx.scale(sc, sc);
 
-    // Highlight Selection (Red for invalid, White for valid)
+    // Highlight Selection
     if (el.type === 'board' && invalidBoardPlacement && isSelected) {
         ctx.shadowColor = 'red'; ctx.shadowBlur = 20; ctx.strokeStyle = 'rgba(255, 0, 0, 0.8)'; ctx.lineWidth = 3; ctx.strokeRect(-el.width/2, -el.height/2, el.width, el.height); ctx.shadowBlur = 0;
     } else if (isSelected) {
@@ -636,14 +636,29 @@ function drawElement(el) {
         ctx.shadowBlur = 0;
     }
 
-    // --- Draw Component Graphics ---
+    // Draw Component Graphics
     if (el.type === 'board') {
         ctx.fillStyle = '#1f2937'; ctx.fillRect(-el.width/2, -el.height/2, el.width, el.height);
+        
+        // [V2.7.5] Image Clipping Update
         if (el.imgData && el.imgConfig.visible) {
-            ctx.save(); ctx.globalAlpha = el.imgConfig.opacity;
-            ctx.drawImage(el.imgData, el.imgConfig.x - el.imgConfig.w/2, el.imgConfig.y - el.imgConfig.h/2, el.imgConfig.w, el.imgConfig.h);
-            ctx.restore();
+            ctx.save(); // Save state before clipping
+            
+            // Define Clipping Path (The Board Area)
+            ctx.beginPath();
+            ctx.rect(-el.width/2, -el.height/2, el.width, el.height);
+            ctx.clip(); // Enforce clip
+            
+            ctx.globalAlpha = el.imgConfig.opacity;
+            
+            // Existing Image Drawing Logic
+            ctx.translate(el.imgConfig.x, el.imgConfig.y);
+            ctx.rotate(el.imgConfig.rotation || 0);
+            ctx.drawImage(el.imgData, -el.imgConfig.w/2, -el.imgConfig.h/2, el.imgConfig.w, el.imgConfig.h);
+            
+            ctx.restore(); // Restore to remove clip
         }
+        
         ctx.strokeStyle = '#374151'; ctx.lineWidth = 2/sc; ctx.strokeRect(-el.width/2, -el.height/2, el.width, el.height);
         if(el.locked) { ctx.font = '16px sans-serif'; ctx.fillStyle = 'rgba(255,255,255,0.2)'; ctx.fillText('🔒', -8, 6); }
         const gx = GRID_PITCH_MM; const startX = -el.width/2 + 12.5; const startY = -el.height/2 + 12.5;
@@ -661,12 +676,11 @@ function drawElement(el) {
     else if (el.type === 'glass') { ctx.fillStyle = 'rgba(100, 200, 255, 0.3)'; ctx.strokeStyle = 'rgba(100, 200, 255, 0.6)'; ctx.lineWidth = 0.5; ctx.fillRect(-el.width/2, -el.height/2, el.width, el.height); ctx.strokeRect(-el.width/2, -el.height/2, el.width, el.height); }
     else if (el.type === 'hwp' || el.type === 'qwp') { const color = el.type === 'hwp' ? 'rgba(74, 222, 128, 0.4)' : 'rgba(251, 146, 60, 0.4)'; const border = el.type === 'hwp' ? '#4ade80' : '#fb923c'; ctx.fillStyle = color; ctx.strokeStyle = border; ctx.lineWidth = 0.5; ctx.fillRect(-el.width/2, -el.height/2, el.width, el.height); ctx.strokeRect(-el.width/2, -el.height/2, el.width, el.height); ctx.beginPath(); ctx.strokeStyle = 'rgba(255,255,255,0.8)'; ctx.moveTo(0, -el.height/2 + 2); ctx.lineTo(0, el.height/2 - 2); ctx.stroke(); ctx.save(); ctx.translate(el.width+2, 0); ctx.rotate(-Math.PI/2); ctx.fillStyle = border; ctx.font = '10px sans-serif'; const label = el.type === 'hwp' ? '\u03BB/2' : '\u03BB/4'; ctx.fillText(label, -el.height/2, 4); ctx.restore(); }
 
-    // [V2.7.1] Draw Title Label (For ANY component)
+    // Draw Title Label
     if (el.title) {
         ctx.fillStyle = el.type === 'board' ? '#9ca3af' : '#9ca3af'; 
         ctx.font = '10px sans-serif'; 
         ctx.textAlign = 'left'; 
-        // Draw slightly above the component
         const textY = el.type === 'board' ? (-el.height/2 - 5) : (-el.height/2 - 8);
         const textX = el.type === 'board' ? (-el.width/2 + 5) : (-el.width/2);
         ctx.fillText(el.title, textX, textY); 
@@ -688,26 +702,26 @@ function drawElement(el) {
             ctx.fillStyle='white'; ctx.font=`${8/sc}px sans-serif`; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('↻', snapLocal.x, snapLocal.y);
         }
     } 
-    // [V2.7.1] Board Handles (Move + Rotate)
+    // Board Handles
     else if (isSelected && el.type === 'board' && !el.locked) {
         const mh = el.getMoveHandlePosition();
-        
-        // 1. Move Handle (Blue Box)
+        // Move Handle
         ctx.fillStyle = '#3b82f6'; ctx.fillRect(mh.x, mh.y, 15, 15);
         ctx.strokeStyle = 'white'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(mh.x+7.5, mh.y+3); ctx.lineTo(mh.x+7.5, mh.y+12); ctx.moveTo(mh.x+3, mh.y+7.5); ctx.lineTo(mh.x+12, mh.y+7.5); ctx.stroke();
         
-        // 2. [NEW] Rotate Handle (Purple Box to the right of Move Handle)
-        // Offset: 18px to the right
-        ctx.fillStyle = '#9333ea'; // Purple
+        // Rotate Handle
+        ctx.fillStyle = '#9333ea'; 
         ctx.fillRect(mh.x + 18, mh.y, 15, 15); 
         ctx.fillStyle = 'white'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = '10px sans-serif';
         ctx.fillText('↻', mh.x + 18 + 7.5, mh.y + 7.5);
 
-        // 3. Resize Handle
+        // Resize Handle
         const rh = el.getResizeHandlePosition(); ctx.beginPath(); ctx.rect(rh.x - 5, rh.y - 5, 10, 10); ctx.fillStyle = isResizing ? '#f87171' : '#9ca3af'; ctx.fill(); ctx.strokeStyle = 'white'; ctx.lineWidth = 1/sc; ctx.stroke();
     }
     ctx.restore();
-}/**
+}
+
+/**
  * Calculates the orientation angle of the polarization ellipse.
  * @param {Array} stokes - The Stokes vector [I, Q, U, V]
  * @returns {number} Angle in radians
