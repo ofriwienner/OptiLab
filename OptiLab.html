@@ -53,7 +53,7 @@
     <input type="file" id="fileInput" class="hidden" onchange="importState(this)">
 
     <!-- Sidebar -->
-    <div class="w-64 flex-shrink-0 bg-gray-800 border-r border-gray-700 flex flex-col shadow-xl z-10 select-none flex h-full z-50">
+    <div id="ui-sidebar" class="w-64 flex-shrink-0 bg-gray-800 border-r border-gray-700 flex flex-col shadow-xl z-10 select-none flex h-full z-50">
         <div class="p-3 border-b border-gray-700">
             <h1 class="text-lg font-bold text-blue-400 flex items-center gap-2">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
@@ -1006,13 +1006,13 @@ function updateUI() {
     btnContainer.innerHTML = '';
     
     if(p){ 
-        // 1. Existing Rotation Slider
+        // 1. Rotation Slider
         let deg = Math.round(toDeg(p.rotation)%360); 
         if(deg<0) deg+=360; 
         rotationSlider.value = deg; 
         rotationValueDisplay.innerText = deg+'°'; 
         
-        // Laser UI Controls
+        // Laser Controls
         if (p.type === 'laser') {
             const div = document.createElement('div');
             div.className = "mt-2 border-t border-gray-600 pt-2";
@@ -1024,8 +1024,10 @@ function updateUI() {
             select.className = "w-full bg-gray-700 border border-gray-600 rounded px-1 py-1 text-[10px] text-white cursor-pointer";
             select.style.userSelect = 'auto';      
             select.style.webkitUserSelect = 'auto'; 
+            // Note: Select needs native bubbling for the menu to work on some browsers, 
+            // but our Shield might catch it. If dropdown fails, we re-enable propagation here.
             select.onmousedown = (e) => e.stopPropagation(); 
-            select.onclick = (e) => e.stopPropagation();
+            
             select.onchange = (e) => { 
                 p.polAngle = parseInt(e.target.value); 
                 draw(); 
@@ -1058,55 +1060,36 @@ function updateUI() {
                 btnContainer.appendChild(rotBtn);
             }
             
-            // Upload Reference Label (Already Fixed)
+            // Upload Reference Label (Clean - No inline stopPropagation)
             const imgLabel = document.createElement('label');
             imgLabel.htmlFor = 'imgUpload'; 
             imgLabel.className = "block w-full py-1 bg-blue-700/50 border border-blue-600 rounded text-[10px] text-blue-100 text-center cursor-pointer mb-1 hover:bg-blue-700 select-none";
             imgLabel.innerText = "Upload Reference";
-            imgLabel.onmousedown = (e) => e.stopPropagation();
-            imgLabel.onmouseup = (e) => e.stopPropagation(); // Critical
-            imgLabel.onclick = (e) => e.stopPropagation();
             btnContainer.appendChild(imgLabel);
             
-            // [V2.7.3 FIX] Apply "The Fix" to all image buttons
+            // Image Controls (Clean - No inline stopPropagation)
              if (p.imgData) {
                  const calibBtn = document.createElement('button');
                  calibBtn.className = "w-full py-1 bg-yellow-600/50 border border-yellow-500 rounded text-[10px] text-yellow-100 mb-1 hover:bg-yellow-600 cursor-pointer mt-1";
                  calibBtn.innerText = "Calibrate Image";
-                 
-                 // FIX: Add onmouseup stopPropagation
-                 calibBtn.onmousedown = (e) => e.stopPropagation();
-                 calibBtn.onmouseup = (e) => e.stopPropagation(); // <--- ADDED
-                 calibBtn.onclick = (e) => { e.stopPropagation(); window.startCalibration(); };
-                 
+                 calibBtn.onclick = window.startCalibration;
                  btnContainer.appendChild(calibBtn);
 
                  const slideDiv = document.createElement('div');
                  slideDiv.className = "mt-1";
-                 slideDiv.onmousedown = (e) => e.stopPropagation(); 
                  slideDiv.innerHTML = `<label class="text-[9px] text-gray-400 block">Opacity</label><input type="range" min="0" max="1" step="0.1" value="${p.imgConfig.opacity}" class="w-full accent-blue-500 h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer" oninput="window.updateOpacity(this.value)">`;
                  btnContainer.appendChild(slideDiv);
 
                  const togBtn = document.createElement('button');
                  togBtn.className = "w-full py-1 bg-gray-700 border border-gray-600 rounded text-[10px] text-gray-300 mb-1 hover:bg-gray-600 mt-1 cursor-pointer";
                  togBtn.innerText = p.imgConfig.visible ? "Hide Image" : "Show Image";
-                 
-                 // FIX: Add onmouseup stopPropagation
-                 togBtn.onmousedown = (e) => e.stopPropagation();
-                 togBtn.onmouseup = (e) => e.stopPropagation(); // <--- ADDED
-                 togBtn.onclick = (e) => { e.stopPropagation(); window.toggleImage(); };
-                 
+                 togBtn.onclick = window.toggleImage;
                  btnContainer.appendChild(togBtn);
 
                  const rmBtn = document.createElement('button');
                  rmBtn.className = "w-full py-1 bg-red-900/30 border border-red-800 rounded text-[10px] text-red-300 mb-1 hover:bg-red-900 cursor-pointer";
                  rmBtn.innerText = "Remove Image";
-                 
-                 // FIX: Add onmouseup stopPropagation
-                 rmBtn.onmousedown = (e) => e.stopPropagation();
-                 rmBtn.onmouseup = (e) => e.stopPropagation(); // <--- ADDED
-                 rmBtn.onclick = (e) => { e.stopPropagation(); window.removeImage(); };
-                 
+                 rmBtn.onclick = window.removeImage;
                  btnContainer.appendChild(rmBtn);
              }
         }
@@ -1660,6 +1643,29 @@ canvas.addEventListener('dblclick', (e) => {
         draw(); 
     }
 });
+
+// [V2.7.4] Global UI Shield
+// Protects all sidebar buttons from "Death by Redraw" (Event Bubbling)
+const uiSidebar = document.getElementById('ui-sidebar');
+if (uiSidebar) {
+    ['mousedown', 'mouseup', 'click'].forEach(evtType => {
+        uiSidebar.addEventListener(evtType, (e) => {
+            // Intelligent Shield:
+            // If the user is currently dragging/rotating an object on the canvas,
+            // we MUST let the event bubble up so the 'window' listeners can detect
+            // the mouse release and end the drag operation.
+            if (isDragging || isRotating || isResizing || view.isPanning) {
+                return; 
+            }
+            
+            // Otherwise (Normal clicking on sidebar):
+            // Stop the event here. Do not let it bubble to Window.
+            // This prevents the Window from firing 'updateUI()' and destroying
+            // the button we are currently clicking.
+            e.stopPropagation();
+        });
+    });
+}
 
 // [V2.7.2 FIX] Connect the hidden file input to the handler
 document.getElementById('imgUpload').addEventListener('change', (e) => handleImageUpload(e.target));
