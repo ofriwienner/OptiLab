@@ -474,8 +474,11 @@ const MuellerMath = {
 };
 // --- 4. Physics Logic ---
 function traceRay(ray, depth, results) {
-    if (depth > MAX_BOUNCES || ray.intensity < 0.05) return;
+    if (depth > MAX_BOUNCES || ray.intensity < 0.01) return; // Cutoff slightly raised for matrix precision
+
     let closestHit = null; let closestDist = Infinity; let hitObject = null; let hitSegment = null;
+    
+    // 1. Find Intersection
     elements.forEach(el => {
         if (el.type === 'laser' || el.type === 'board') return;
         el.getSegments().forEach(seg => {
@@ -485,39 +488,106 @@ function traceRay(ray, depth, results) {
     });
 
     if (closestHit) {
-        // [Step 2 Update] Added 'stokes: ray.stokes' to results
+        // Log segment
         results.push({ x1: ray.x, y1: ray.y, x2: closestHit.x, y2: closestHit.y, color: ray.color + ray.intensity + ')', stokes: ray.stokes });
+        
+        // Calculate Normal & Incidence
         const segVec = closestHit.segVector;
         let nx = -segVec.y; let ny = segVec.x; const nl = Math.sqrt(nx*nx+ny*ny); nx/=nl; ny/=nl;
         const inc = {x: ray.dx, y: ray.dy}; const dp = dot(inc, {x:nx, y:ny});
-        if (selection.has(hitObject) && !lastHitOnSelected && (hitObject.type.includes('mirror') || ['splitter', 'pbs', 'aom', 'glass', 'lens'].includes(hitObject.type))) lastHitOnSelected = { el: hitObject, incoming: inc };
+        
+        // Selection Debug Highlight
+        if (selection.has(hitObject) && !lastHitOnSelected && (hitObject.type.includes('mirror') || ['splitter', 'pbs', 'aom', 'glass', 'lens'].includes(hitObject.type))) {
+             lastHitOnSelected = { el: hitObject, incoming: inc };
+        }
 
+        // --- MUELLER MATRIX LOGIC START ---
+        
         if (hitSegment.type === 'mirror-front' && dp < 0) {
-            const rx = inc.x - 2 * dp * nx; const ry = inc.y - 2 * dp * ny;
-            // [Step 2 Update] Pass 'stokes: ray.stokes'
-            traceRay({ ...ray, x: closestHit.x, y: closestHit.y, dx: rx, dy: ry, intensity: ray.intensity * 0.95, stokes: ray.stokes }, depth + 1, results);
+            // Logic: Mirrors
+            // Apply MuellerMath.MATRICES.mirror
+            const newStokes = MuellerMath.interact(ray.stokes, MuellerMath.MATRICES.MIRROR);
+            
+            // Geometric Reflection
+            const rx = inc.x - 2 * dp * nx; 
+            const ry = inc.y - 2 * dp * ny;
+            
+            traceRay({ ...ray, x: closestHit.x, y: closestHit.y, dx: rx, dy: ry, intensity: newStokes[0], stokes: newStokes }, depth + 1, results);
+
         } else if (['splitter', 'pbs'].includes(hitSegment.type)) {
-             const rx = inc.x - 2 * dp * nx; const ry = inc.y - 2 * dp * ny;
-             // [Step 2 Update] Pass 'stokes: ray.stokes' to both paths
-             traceRay({ ...ray, x: closestHit.x, y: closestHit.y, dx: rx, dy: ry, intensity: ray.intensity * 0.5, stokes: ray.stokes }, depth + 1, results);
-             traceRay({ ...ray, x: closestHit.x + inc.x*0.1, y: closestHit.y + inc.y*0.1, dx: inc.x, dy: inc.y, intensity: ray.intensity * 0.5, stokes: ray.stokes }, depth + 1, results);
-        } else if (hitSegment.type === 'aom') {
-            if (dp < 0) {
-                // [Step 2 Update] Pass 'stokes: ray.stokes'
-                traceRay({ x: closestHit.x + inc.x * 0.1, y: closestHit.y + inc.y * 0.1, dx: inc.x, dy: inc.y, intensity: ray.intensity * 0.3, color: ray.color, stokes: ray.stokes }, depth + 1, results);
-                const diff = rotatePoint(inc, -0.035);
-                traceRay({ x: closestHit.x + diff.x * 0.1, y: closestHit.y + diff.y * 0.1, dx: diff.x, dy: diff.y, intensity: ray.intensity * 0.7, color: ray.color, stokes: ray.stokes }, depth + 1, results);
-            } else traceRay({ x: closestHit.x + inc.x * 0.1, y: closestHit.y + inc.y * 0.1, dx: inc.x, dy: inc.y, intensity: ray.intensity, color: ray.color, stokes: ray.stokes }, depth + 1, results);
-        } else if (['hwp', 'qwp', 'glass', 'lens'].includes(hitObject.type)) {
-             // [Step 2 Update] Pass 'stokes: ray.stokes'
-             traceRay({ x: closestHit.x + inc.x*0.1, y: closestHit.y + inc.y*0.1, dx: inc.x, dy: inc.y, intensity: ray.intensity * 0.95, color: ray.color, stokes: ray.stokes }, depth + 1, results);
+             const rx = inc.x - 2 * dp * nx; 
+             const ry = inc.y - 2 * dp * ny;
+
+             if (hitSegment.type === 'pbs') {
+                 // Logic: PBS
+                 // Transmitted Ray: Apply polarizer matrix (Horizontal)
+                 const matTrans = MuellerMath.rotateComponent(MuellerMath.MATRICES.POLARIZER_H, hitObject.rotation);
+                 const stokesTrans = MuellerMath.interact(ray.stokes, matTrans);
+                 
+                 // Reflected Ray: Apply a Vertical polarizer matrix (Standard polarizer rotated by 90°)
+                 // We rotate the horizontal polarizer by 90 degrees (+ object rotation) to get vertical behavior
+                 const matRefl = MuellerMath.rotateComponent(MuellerMath.MATRICES.POLARIZER_H, hitObject.rotation + Math.PI/2);
+                 const stokesRefl = MuellerMath.interact(ray.stokes, matRefl);
+                 
+                 // Recurse Transmitted
+                 traceRay({ ...ray, x: closestHit.x + inc.x*0.1, y: closestHit.y + inc.y*0.1, dx: inc.x, dy: inc.y, intensity: stokesTrans[0], stokes: stokesTrans }, depth + 1, results);
+                 
+                 // Recurse Reflected
+                 traceRay({ ...ray, x: closestHit.x, y: closestHit.y, dx: rx, dy: ry, intensity: stokesRefl[0], stokes: stokesRefl }, depth + 1, results);
+             
+             } else {
+                 // Standard Splitter (Non-PBS) - Preserving 50/50 split of intensity, keeping polarization
+                 // Manually scaling stokes for intensity split
+                 const splitStokes = ray.stokes.map(val => val * 0.5);
+                 
+                 traceRay({ ...ray, x: closestHit.x, y: closestHit.y, dx: rx, dy: ry, intensity: splitStokes[0], stokes: splitStokes }, depth + 1, results);
+                 traceRay({ ...ray, x: closestHit.x + inc.x*0.1, y: closestHit.y + inc.y*0.1, dx: inc.x, dy: inc.y, intensity: splitStokes[0], stokes: splitStokes }, depth + 1, results);
+             }
+
+        } else if (['hwp', 'qwp'].includes(hitObject.type)) {
+             // Logic: Waveplates (HWP/QWP)
+             // Select the correct base matrix
+             const baseMatrix = hitObject.type === 'hwp' ? MuellerMath.MATRICES.HWP_H : MuellerMath.MATRICES.QWP_H;
+             
+             // Angle Calculation
+             const theta = hitObject.rotation + (hitObject.axisAngle || 0);
+             // TODO (Step 5): Decide if we should remove el.rotation here to decouple physical mount from internal axis.
+             
+             // Interaction: Rotate the matrix by theta and interact
+             const rotMatrix = MuellerMath.rotateComponent(baseMatrix, theta);
+             const newStokes = MuellerMath.interact(ray.stokes, rotMatrix);
+             
+             traceRay({ ...ray, x: closestHit.x + inc.x*0.1, y: closestHit.y + inc.y*0.1, dx: inc.x, dy: inc.y, intensity: newStokes[0], stokes: newStokes, color: ray.color }, depth + 1, results);
+
+        } else if (['glass', 'lens', 'aom'].includes(hitObject.type) || hitObject.type === 'aom') {
+             // Pass-through elements (Identity / Intensity loss logic preserved or simplified)
+             // For now, passing stokes through 
+             let modStokes = ray.stokes;
+             let modInt = ray.intensity;
+
+             if (hitSegment.type === 'aom') {
+                 // AOM logic (diffraction) - preserving intensity scaling but passing stokes
+                 if (dp < 0) {
+                     const s0 = ray.stokes.map(v => v * 0.3);
+                     const s1 = ray.stokes.map(v => v * 0.7);
+                     traceRay({ x: closestHit.x + inc.x * 0.1, y: closestHit.y + inc.y * 0.1, dx: inc.x, dy: inc.y, intensity: s0[0], stokes: s0, color: ray.color }, depth + 1, results);
+                     
+                     const diff = rotatePoint(inc, -0.035);
+                     traceRay({ x: closestHit.x + diff.x * 0.1, y: closestHit.y + diff.y * 0.1, dx: diff.x, dy: diff.y, intensity: s1[0], stokes: s1, color: ray.color }, depth + 1, results);
+                     return; 
+                 }
+             } else {
+                 // Glass/Lens: small loss
+                 modStokes = ray.stokes.map(v => v * 0.95);
+             }
+
+             traceRay({ x: closestHit.x + inc.x*0.1, y: closestHit.y + inc.y*0.1, dx: inc.x, dy: inc.y, intensity: modStokes[0], stokes: modStokes, color: ray.color }, depth + 1, results);
         }
     } else {
-        // [Step 2 Update] Added 'stokes: ray.stokes' to infinity ray
+        // Infinity
         results.push({ x1: ray.x, y1: ray.y, x2: ray.x + ray.dx * 2000, y2: ray.y + ray.dy * 2000, color: ray.color + ray.intensity + ')', stokes: ray.stokes });
     }
 }
-
 function castRays() {
     lastHitOnSelected = null;
     let raysToDraw = [];
