@@ -183,6 +183,10 @@
  * OPTICAL TABLE SIMULATOR v17.0 (Consolidated Order)
  */
 
+ // TODOs: 
+ // TODO: change the physical rotation of the waveplates to optical rotation
+ // TODO: drop down to select polarization of the laser
+
 // 1. Globals and Config
 const canvas = document.getElementById('opticalBench');
 const ctx = canvas.getContext('2d');
@@ -564,6 +568,7 @@ function traceRay(ray, depth, results) {
         results.push({ x1: ray.x, y1: ray.y, x2: ray.x + ray.dx * 2000, y2: ray.y + ray.dy * 2000, color: ray.color + ray.intensity + ')', stokes: ray.stokes });
     }
 }
+
 function castRays() {
     lastHitOnSelected = null;
     let raysToDraw = [];
@@ -571,15 +576,25 @@ function castRays() {
     lasers.forEach(laser => {
         const dir = rotatePoint({ x: 1, y: 0 }, laser.rotation);
         const start = rotatePoint({ x: laser.width/2, y: 0 }, laser.rotation); 
-        // [Step 2 Update] Initialize ray with stokes property (Horizontal Default)
+        
+        // [Step 5.1 Update] Calculate Source Stokes from UI Angle
+        const theta = toRad(laser.polAngle || 0);
+        
+        // Interact unpolarized light [1,0,0,0] with a rotated polarizer to get source state
+        // Uses existing V1_1.html names: interact, rotateComponent, MATRICES.POLARIZER_H
+        const sourceStokes = MuellerMath.interact(
+            [1, 0, 0, 0], 
+            MuellerMath.rotateComponent(MuellerMath.MATRICES.POLARIZER_H, theta)
+        );
+
         let ray = { 
             x: laser.x + start.x, 
             y: laser.y + start.y, 
             dx: dir.x, 
             dy: dir.y, 
-            intensity: 1.0, 
+            intensity: sourceStokes[0], 
             color: 'rgba(255, 50, 50, ',
-            stokes: MuellerMath.STOKES.HORIZONTAL 
+            stokes: sourceStokes 
         };
         traceRay(ray, 0, raysToDraw);
     });
@@ -883,8 +898,57 @@ function updateUI() {
     const p = Array.from(selection).pop(); 
     const btnContainer = document.getElementById('dynamic-buttons');
     btnContainer.innerHTML = '';
+    
     if(p){ 
-        let deg = Math.round(toDeg(p.rotation)%360); if(deg<0)deg+=360; rotationSlider.value=deg; rotationValueDisplay.innerText=deg+'°'; 
+        // 1. Existing Rotation Slider Update
+        let deg = Math.round(toDeg(p.rotation)%360); 
+        if(deg<0) deg+=360; 
+        rotationSlider.value = deg; 
+        rotationValueDisplay.innerText = deg+'°'; 
+        
+        // ===============================================
+        // [Step 5.1] Laser UI Controls (FIXED)
+        // ===============================================
+        if (p.type === 'laser') {
+            const div = document.createElement('div');
+            div.className = "mt-2 border-t border-gray-600 pt-2";
+            
+            const label = document.createElement('label');
+            label.className = "text-[9px] text-gray-400 block mb-1";
+            label.innerText = "Source Polarization";
+            div.appendChild(label);
+            
+            const select = document.createElement('select');
+            select.className = "w-full bg-gray-700 border border-gray-600 rounded px-1 py-1 text-[10px] text-white cursor-pointer";
+            
+            // --- THE FIX IS HERE ---
+            // Stop the click from bubbling up to the canvas/window
+            select.onmousedown = (e) => e.stopPropagation(); 
+            select.onclick = (e) => e.stopPropagation();
+            // -----------------------
+
+            select.onchange = (e) => { 
+                p.polAngle = parseInt(e.target.value); 
+                draw(); 
+            };
+            
+            const optH = document.createElement('option');
+            optH.value = "0"; optH.innerText = "Horizontal (0°)";
+            if ((p.polAngle || 0) === 0) optH.selected = true;
+            
+            const optV = document.createElement('option');
+            optV.value = "90"; optV.innerText = "Vertical (90°)";
+            if (p.polAngle === 90) optV.selected = true;
+            
+            select.appendChild(optH);
+            select.appendChild(optV);
+            div.appendChild(select);
+            btnContainer.appendChild(div);
+        }
+
+        // ===============================================
+        // Existing Board Controls (No Changes)
+        // ===============================================
         if (p.type === 'board') {
             const lockBtn = document.createElement('button');
             lockBtn.className = `w-full py-1 text-[10px] rounded border transition mb-1 cursor-pointer ${p.locked ? 'bg-red-900/50 border-red-600 text-red-100' : 'bg-green-900/50 border-green-600 text-green-100'}`;
@@ -915,6 +979,8 @@ function updateUI() {
                 
                 const slideDiv = document.createElement('div');
                 slideDiv.className = "mt-1";
+                // Added stopPropagation to this slider too, just in case
+                slideDiv.onmousedown = (e) => e.stopPropagation(); 
                 slideDiv.innerHTML = `<label class="text-[9px] text-gray-400 block">Opacity</label><input type="range" min="0" max="1" step="0.1" value="${p.imgConfig.opacity}" class="w-full accent-blue-500 h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer" oninput="window.updateOpacity(this.value)">`;
                 btnContainer.appendChild(slideDiv);
                 
