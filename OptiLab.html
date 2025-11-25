@@ -76,9 +76,8 @@
                     <input type="text" id="boardTitle" placeholder="Title" class="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1 text-[10px] text-white">
                     <select id="boardSizeSelect" class="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1 text-[10px] text-white" onchange="updateBoardInputs()">
                         <option value="300x300">Small (300x300)</option>
-                        <option value="300x450">Medium (300x450)</option>
-                        <option value="450x600">Big (450x600)</option>
-                        <option value="600x450" selected>Wide (600x450)</option>
+                        <option value="330x482.6" selected>Medium (330x482.6)</option>                        <option value="450x600">Big (450x600)</option>
+                        <option value="600x450">Wide (600x450)</option>
                         <option value="custom">Custom</option>
                     </select>
                     <div class="flex gap-1">
@@ -188,6 +187,8 @@
  // TODO: fix bug in intensities
  // TODO: Solution Cycling - add toggle between optional angles feature (there is a saved optional prompt)
  // TODO soon: align beams to grid insted of in between the grid,in the q feature also move the mirror a little to align to grid lines!
+ // TODO: Show block size by grid size or by mm size
+ // TODO: default block size will be selected from the options and not a magic number
 
 // 1. Globals and Config
 const canvas = document.getElementById('opticalBench');
@@ -1674,7 +1675,7 @@ document.getElementById('imgUpload').addEventListener('change', (e) => handleIma
     const center = screenToWorld(canvas.width/2, canvas.height/2);
     const nx = Math.round(center.x / GRID_PITCH_MM) * GRID_PITCH_MM;
     const ny = Math.round(center.y / GRID_PITCH_MM) * GRID_PITCH_MM;
-    const b = new Element('board', nx, ny, 600, 450, 'Main Board');
+    const b = new Element('board', nx, ny, 330, 482.6, 'Main Board');
     elements.push(b);
     draw();
 })();
