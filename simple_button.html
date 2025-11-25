@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>File Upload Test</title>
+    <style>
+        body { font-family: sans-serif; padding: 50px; text-align: center; background: #f0f0f0; }
+        
+        .box {
+            background: white;
+            padding: 20px;
+            margin: 20px auto;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            max-width: 400px;
+        }
+
+        /* Style for the Label to look like a button */
+        .btn-style {
+            display: inline-block;
+            background: #3b82f6;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            border: none;
+            font-size: 16px;
+            text-decoration: none;
+        }
+        .btn-style:hover { background: #2563eb; }
+
+        /* Method 2 Button specific */
+        .btn-js { background: #ef4444; }
+        .btn-js:hover { background: #dc2626; }
+    </style>
+</head>
+<body>
+
+    <div class="box">
+        <h3>Method 1: Native Label</h3>
+        <p>This links directly to the input without JS.</p>
+        
+        <input type="file" id="input1" style="display:none;" onchange="fileSelected('Method 1', this)">
+        
+        <label for="input1" class="btn-style">
+            Upload (Label)
+        </label>
+    </div>
+
+    <div class="box">
+        <h3>Method 2: JS Click</h3>
+        <p>This uses javascript .click()</p>
+        
+        <input type="file" id="input2" style="display:none;" onchange="fileSelected('Method 2', this)">
+        
+        <button class="btn-style btn-js" onclick="triggerJS()">
+            Upload (JS Click)
+        </button>
+    </div>
+
+    <script>
+        function triggerJS() {
+            console.log("Attempting to click input 2...");
+            document.getElementById('input2').click();
+        }
+
+        function fileSelected(method, input) {
+            if (input.files && input.files[0]) {
+                alert("SUCCESS! \n" + method + " worked.\nSelected: " + input.files[0].name);
+            }
+        }
+    </script>
+
+</body>
+</html>
