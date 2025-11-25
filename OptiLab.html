@@ -223,6 +223,7 @@ let lastHitOnSelected = null;
 let invalidBoardPlacement = false; 
 let originalBoardState = null; 
 const keys = {}; 
+let alignPreference = 0; // [V2.5.2] Toggles which beam to align to
 
 let calibrationState = 0; 
 let calibData = { board: null, p1Img: null, p1Board: null, p2Img: null, p2Board: null };
@@ -810,54 +811,77 @@ function draw() {
 }
 
 // --- 6. Global Logic (Defined Before Listeners) ---
+// [V2.5.1 Update] Improved Auto-Align for AOM/Small Deviations
+// [V2.5.1 Update] Improved Auto-Align for AOM/Small Deviations
 function tryAutoAlign(element) {
-    const tempElements = elements.filter(e => e !== element);
-    let closestRay = null; let minDistance = 20; 
+    // 1. Setup: Let rays pass through the element to find what hits it
     const idx = elements.indexOf(element);
-    if (idx > -1) {
-        elements.splice(idx, 1);
-        const rays = castRays(); 
-        elements.splice(idx, 0, element); 
-        rays.forEach(ray => {
-            const APx = element.x - ray.x1; const APy = element.y - ray.y1;
-            const C = ray.x2 - ray.x1; const D = ray.y2 - ray.y1;
-            const len_sq = C * C + D * D;
-            let t = -1;
-            if (len_sq !== 0) t = (APx * C + APy * D) / len_sq;
-            let xx, yy;
-            if (t < 0) { xx = ray.x1; yy = ray.y1; } else if (t > 1) { xx = ray.x2; yy = ray.y2; } else { xx = ray.x1 + t * C; yy = ray.y1 + t * D; }
-            const dx = xx - element.x; const dy = yy - element.y;
-            const dist = Math.sqrt(dx*dx + dy*dy);
-            if (dist < minDistance) { minDistance = dist; closestRay = ray; }
-        });
-    }
-    if (closestRay) {
-        const rdx = closestRay.x2 - closestRay.x1; const rdy = closestRay.y2 - closestRay.y1;
-        const len = Math.sqrt(rdx*rdx + rdy*rdy); const inc = {x: rdx/len, y: rdy/len};
+    if (idx > -1) elements.splice(idx, 1);
+    const rays = castRays(); 
+    if (idx > -1) elements.splice(idx, 0, element);
+    let candidates = [];
+    let minDistance = 30; // Catch beams within 30mm
+    // 2. Find ALL rays passing near the element center
+    rays.forEach(ray => {
+        const APx = element.x - ray.x1; const APy = element.y - ray.y1;
+        const C = ray.x2 - ray.x1; const D = ray.y2 - ray.y1;
+        const len_sq = C * C + D * D;
+        let t = -1;
+        if (len_sq !== 0) t = (APx * C + APy * D) / len_sq;
+        
+        let closestX, closestY;
+        if (t < 0) { closestX = ray.x1; closestY = ray.y1; }
+        else if (t > 1) { closestX = ray.x2; closestY = ray.y2; }
+        else { closestX = ray.x1 + t * C; closestY = ray.y1 + t * D; }
+        
+        const dist = Math.sqrt((element.x - closestX)**2 + (element.y - closestY)**2);
+        
+        if (dist < minDistance) {
+            candidates.push({ ray: ray, dist: dist });
+        }
+    });
+    // [V2.5.2] Sort by distance and select based on preference
+    candidates.sort((a, b) => a.dist - b.dist);
+    
+    if (candidates.length > 0) {
+        // Modulo operator (%) loops the preference index: 0, 1, 2, 0, 1...
+        const selected = candidates[alignPreference % candidates.length].ray;
+        const bestMatch = selected;
+        // 3. Calculate Alignment for the SELECTED ray
+        const rdx = bestMatch.x2 - bestMatch.x1; 
+        const rdy = bestMatch.y2 - bestMatch.y1;
+        const len = Math.sqrt(rdx*rdx + rdy*rdy);
+        const inc = {x: rdx/len, y: rdy/len};
         if (['mirror', 'mirror-d'].includes(element.type)) {
-            const cardinal = [{x:1,y:0}, {x:-1,y:0}, {x:0,y:1}, {x:0,y:-1}];
-            let bestRot = element.rotation; let bestDiff = Infinity;
-            cardinal.forEach(target => {
-                const dotTI = dot(target, inc);
-                if (Math.abs(dotTI) > 0.9) return; 
-                let nx = target.x - inc.x; let ny = target.y - inc.y;
+            const cardinals = [{x:1,y:0}, {x:-1,y:0}, {x:0,y:1}, {x:0,y:-1}];
+            let bestRot = element.rotation;
+            let bestDiff = Infinity;
+            cardinals.forEach(target => {
+                let nx = target.x - inc.x;
+                let ny = target.y - inc.y;
                 const nl = Math.sqrt(nx*nx + ny*ny);
+                
                 if(nl > 0.001) {
                     nx/=nl; ny/=nl;
-                    if (dot({x:nx, y:ny}, inc) < 0) {
-                        let ang = Math.atan2(nx, -ny);
-                        while(ang - element.rotation > Math.PI) ang-=2*Math.PI;
-                        while(ang - element.rotation < -Math.PI) ang+=2*Math.PI;
-                        if(Math.abs(ang - element.rotation) < bestDiff) { bestDiff = Math.abs(ang - element.rotation); bestRot = ang; }
+                    if (dot({x:nx, y:ny}, inc) < 0.05) { 
+                        let ang = Math.atan2(nx, -ny); 
+                        while(ang - element.rotation > Math.PI) ang -= 2*Math.PI;
+                        while(ang - element.rotation < -Math.PI) ang += 2*Math.PI;
+                        const diff = Math.abs(ang - element.rotation);
+                        if(diff < bestDiff) { bestDiff = diff; bestRot = ang; }
                     }
                 }
             });
-            if (bestDiff !== Infinity) element.rotation = bestRot;
-        } else if (['splitter', 'pbs', 'aom', 'hwp', 'qwp', 'glass', 'detector', 'blocker'].includes(element.type)) {
+            if (bestDiff < Math.PI/4) {
+                element.rotation = bestRot;
+            }
+        } 
+        else if (['splitter', 'pbs', 'aom', 'hwp', 'qwp', 'glass', 'detector', 'blocker'].includes(element.type)) {
              element.rotation = Math.round(element.rotation / (Math.PI/2)) * (Math.PI/2);
         }
     }
 }
+
 
 function cycleSnapRotation(el, inc) {
     const len = Math.sqrt(inc.x*inc.x + inc.y*inc.y); const I = {x: inc.x/len, y: inc.y/len};
@@ -1241,7 +1265,23 @@ window.addEventListener('mouseup', () => {
     isDragging = false; isRotating = false; isSelecting = false; isResizing = false; view.isPanning = false; canvas.style.cursor = 'crosshair'; updateUI(); draw();
 });
 canvas.addEventListener('wheel', (e) => { e.preventDefault(); const zoom = 0.1; const m = getMousePos(e); const wB = screenToWorld(m.x, m.y); view.scale *= (e.deltaY < 0) ? (1+zoom) : (1-zoom); view.scale = Math.max(0.1, Math.min(view.scale, 5)); const wA = screenToWorld(m.x, m.y); view.x += (wA.x - wB.x)*PIXELS_PER_MM*view.scale; view.y += (wA.y - wB.y)*PIXELS_PER_MM*view.scale; debugInfo.innerText = `Scale: ${Math.round(view.scale*100)}%`; draw(); });
-window.addEventListener('keydown', (e) => { keys[e.key]=true; if(e.key==='Shift')shiftPressed=true; if(e.key==='Control'||e.key==='Meta')ctrlPressed=true; if(selection.size>0 && (e.key==='Delete'||e.key==='Backspace')) deleteSelected(); });
+window.addEventListener('keydown', (e) => { 
+    keys[e.key] = true; 
+    if (e.key === 'Shift') shiftPressed = true; 
+    if (e.key === 'Control' || e.key === 'Meta') ctrlPressed = true; 
+    
+    // [V2.5.2] Cycle Alignment Target
+    if (e.key === 'q' || e.key === 'Q') {
+        alignPreference++;
+        const p = Array.from(selection).pop();
+        if (p && ['mirror', 'mirror-d'].includes(p.type)) {
+            tryAutoAlign(p);
+            draw();
+        }
+    }
+
+    if (selection.size > 0 && (e.key === 'Delete' || e.key === 'Backspace')) deleteSelected(); 
+});
 window.addEventListener('keyup', (e) => { keys[e.key]=false; if(e.key==='Shift')shiftPressed=false; if(e.key==='Control'||e.key==='Meta')ctrlPressed=false; });
 canvas.addEventListener('dblclick', (e) => { 
     const m = getMousePos(e);
