@@ -352,6 +352,28 @@ function getAomDirectionVector(el) {
     return normalize(rotatePoint({ x: 0, y: 1 }, el.rotation));
 }
 
+function ensureLensOptics(lens) {
+    if (!lens || lens.type !== 'lens') return;
+    if (!lens.optics) lens.optics = { focalLength: GRID_PITCH_MM * 5 };
+    if (typeof lens.optics.focalLength !== 'number' || !isFinite(lens.optics.focalLength)) {
+        lens.optics.focalLength = GRID_PITCH_MM * 5;
+    }
+    lens.optics.focalLength = snapLensFocalLength(lens.optics.focalLength);
+}
+
+function getLensAxisVector(lens) {
+    return normalize(rotatePoint({ x: 1, y: 0 }, lens.rotation || 0));
+}
+
+function snapLensFocalLength(value) {
+    let step = GRID_PITCH_MM;
+    if (ctrlPressed) step = GRID_PITCH_MM * 0.1;
+    else if (shiftPressed) step = GRID_PITCH_MM * 0.5;
+    if (step <= 0) step = GRID_PITCH_MM;
+    const snapped = Math.max(step, Math.round(value / step) * step);
+    return snapped;
+}
+
 // 3. Class Definitions
 class Element {
     constructor(type, xMM, yMM, w, h, title) {
@@ -367,6 +389,7 @@ class Element {
         this.imgData = null; 
         this.imgConfig = { visible: true, opacity: 0.5, x: 0, y: 0, w: 0, h: 0 };
         this.axisAngle = null;
+        this.optics = null;
         if (type !== 'board') this.setupType(type);
     }
     setupType(type) {
@@ -377,7 +400,10 @@ class Element {
             case 'splitter': this.width = 30; this.height = 30; this.rotation = 0; break;
             case 'pbs': this.width = 30; this.height = 30; this.rotation = 0; break;
             case 'aom': this.width = 40; this.height = 20; this.rotation = 0; break;
-            case 'lens': this.width = 15; this.height = 40; this.rotation = 0; break;
+            case 'lens':
+                this.width = 15; this.height = 40; this.rotation = 0;
+                this.optics = { focalLength: GRID_PITCH_MM * 5 };
+                break;
             case 'blocker': this.width = 25; this.height = 25; break;
             case 'detector': this.width = 30; this.height = 30; this.rotation = 0; break;
             case 'glass': this.width = 20; this.height = 50; break;
@@ -1032,6 +1058,32 @@ function drawRays(rays) {
     });
 }
 
+function drawLensFocusDots() {
+    const lenses = elements.filter(el => el.type === 'lens');
+    if (!lenses.length) return;
+    ctx.save();
+    ctx.fillStyle = '#fbbf24';
+    ctx.strokeStyle = '#fde68a';
+    ctx.lineWidth = 1;
+    lenses.forEach(lens => {
+        ensureLensOptics(lens);
+        const axis = getLensAxisVector(lens);
+        const focal = Math.max(GRID_PITCH_MM * 0.1, lens.optics.focalLength || GRID_PITCH_MM);
+        const points = [
+            { x: lens.x + axis.x * focal, y: lens.y + axis.y * focal },
+            { x: lens.x - axis.x * focal, y: lens.y - axis.y * focal }
+        ];
+        points.forEach(pt => {
+            const s = worldToScreen(pt.x, pt.y);
+            ctx.beginPath();
+            ctx.arc(s.x, s.y, 4, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+        });
+    });
+    ctx.restore();
+}
+
 function drawMarquee() {
     if (!isSelecting || !selectionRect) return;
     ctx.save(); ctx.strokeStyle = '#3b82f6'; ctx.fillStyle = 'rgba(59, 130, 246, 0.2)'; ctx.lineWidth = 1;
@@ -1087,6 +1139,7 @@ function draw() {
     elements.forEach(el => { if (el.type !== 'board' && selection.has(el)) drawElement(el); });
     const rays = castRays();
     drawRays(rays);
+    drawLensFocusDots();
     drawMarquee();
     drawHints(); // [V2.5.3] Draw UI Hints on top
 }
@@ -1276,6 +1329,52 @@ function updateUI() {
                 updateUI();
             };
             btnContainer.appendChild(alignBtn);
+        }
+
+        if (p.type === 'lens') {
+            ensureLensOptics(p);
+            const lensBox = document.createElement('div');
+            lensBox.className = "mt-2 border-t border-gray-600 pt-2 space-y-2";
+            const title = document.createElement('div');
+            title.className = "text-[10px] uppercase text-gray-400";
+            title.innerText = "Lens Settings";
+            lensBox.appendChild(title);
+
+            const focalRow = document.createElement('div');
+            focalRow.className = "flex items-center justify-between text-[10px] text-gray-300";
+            const focalLabel = document.createElement('span');
+            focalLabel.innerText = "Focal Length";
+            const focalValue = document.createElement('span');
+            focalValue.className = "font-mono";
+            focalValue.innerText = `${Math.round(p.optics.focalLength)} mm`;
+            focalRow.appendChild(focalLabel);
+            focalRow.appendChild(focalValue);
+            lensBox.appendChild(focalRow);
+
+            const slider = document.createElement('input');
+            slider.type = 'range';
+            slider.min = GRID_PITCH_MM;
+            slider.max = GRID_PITCH_MM * 40;
+            slider.step = GRID_PITCH_MM / 10;
+            slider.value = p.optics.focalLength;
+            slider.className = "w-full accent-amber-400 h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer";
+            slider.oninput = (e) => {
+                let val = parseFloat(e.target.value);
+                if (isNaN(val)) return;
+                const snapped = snapLensFocalLength(val);
+                p.optics.focalLength = snapped;
+                focalValue.innerText = `${Math.round(snapped)} mm`;
+                slider.value = snapped;
+                draw();
+            };
+            lensBox.appendChild(slider);
+
+            const hint = document.createElement('p');
+            hint.className = "text-[9px] text-gray-500";
+            hint.innerText = "Snap: 1×grid | Shift=0.5×grid | Ctrl=0.1×grid";
+            lensBox.appendChild(hint);
+
+            btnContainer.appendChild(lensBox);
         }
 
         // Board Controls
@@ -1596,6 +1695,11 @@ function rehydrateElement(data) {
         el.axisAngle = clampWaveplateAngle(data.axisAngle);
     } else if (isWaveplateElement(el)) {
         el.axisAngle = clampWaveplateAngle(el.rotation || toRad(45));
+    }
+    if (data.optics) {
+        el.optics = data.optics;
+    } else if (el.type === 'lens') {
+        ensureLensOptics(el);
     }
     if (data.imgConfig) { el.imgConfig = data.imgConfig; } 
     return el; 
