@@ -374,6 +374,78 @@ function snapLensFocalLength(value) {
     return snapped;
 }
 
+/**
+ * Computes the exit ray direction after passing through a thin lens.
+ * Uses the thin lens equation: 1/f = 1/s + 1/s'
+ * 
+ * @param {Object} ray - Incoming ray with x, y, dx, dy
+ * @param {Object} lens - The lens element
+ * @param {Object} hit - Hit point on the lens
+ * @returns {Object} Normalized exit direction {x, y}
+ */
+function computeLensRefraction(ray, lens, hit) {
+    ensureLensOptics(lens);
+    const f = lens.optics.focalLength;
+    
+    // Get lens coordinate system
+    const axisDir = getLensAxisVector(lens);  // Direction along optical axis (perpendicular to lens surface)
+    const tangentDir = { x: -axisDir.y, y: axisDir.x };  // Direction along lens surface
+    
+    // Incoming ray direction (normalized)
+    const incDir = normalize({ x: ray.dx, y: ray.dy });
+    
+    // Check if ray is traveling along +axis or -axis direction
+    const axialComponent = dot(incDir, axisDir);
+    
+    // If ray is nearly perpendicular to axis (parallel to lens surface), just pass through
+    if (Math.abs(axialComponent) < 0.01) {
+        return incDir;
+    }
+    
+    // Compute hit point offset from lens center along tangent (lateral offset y)
+    const relHit = { x: hit.x - lens.x, y: hit.y - lens.y };
+    const yOffset = dot(relHit, tangentDir);
+    
+    // If ray passes through center, it goes straight through
+    if (Math.abs(yOffset) < 0.1) {
+        return incDir;
+    }
+    
+    // Compute the angle of incidence relative to axis
+    const tangentComponent = dot(incDir, tangentDir);
+    
+    // For thin lens approximation:
+    // The deflection angle is: delta_theta = -y / f
+    // where y is the lateral offset and f is focal length
+    // 
+    // New tangent component: tan(theta_out) ≈ tan(theta_in) - y/f
+    // For small angles: theta_out ≈ theta_in - y/f
+    
+    const thetaIn = Math.atan2(tangentComponent, Math.abs(axialComponent));
+    const deflection = -yOffset / f;
+    const thetaOut = thetaIn + deflection;
+    
+    // Reconstruct the exit direction
+    // Preserve the sign of axial component (ray continues in same general direction)
+    const signAx = axialComponent > 0 ? 1 : -1;
+    const newAxial = Math.cos(thetaOut) * signAx;
+    const newTangent = Math.sin(thetaOut);
+    
+    const outDir = {
+        x: axisDir.x * newAxial + tangentDir.x * newTangent,
+        y: axisDir.y * newAxial + tangentDir.y * newTangent
+    };
+    
+    const result = normalize(outDir);
+    
+    // Sanity check - if result is invalid, just pass through
+    if (!isFinite(result.x) || !isFinite(result.y)) {
+        return incDir;
+    }
+    
+    return result;
+}
+
 // 3. Class Definitions
 class Element {
     constructor(type, xMM, yMM, w, h, title) {
@@ -467,9 +539,20 @@ class Element {
                 type: 'aom',
                 normal
             });
+        } else if (this.type === 'lens') {
+            // Lens as a single center-line segment (thin lens approximation)
+            const start = rotatePoint({ x: 0, y: -this.height/2 }, this.rotation);
+            const end = rotatePoint({ x: 0, y: this.height/2 }, this.rotation);
+            const normal = normalize(rotatePoint({ x: 1, y: 0 }, this.rotation));
+            segments.push({
+                p1: { x: cx + start.x, y: cy + start.y },
+                p2: { x: cx + end.x, y: cy + end.y },
+                type: 'lens',
+                normal
+            });
         } else {
             let intType = 'blocker';
-            if (['glass', 'lens'].includes(this.type)) intType = this.type === 'glass' ? 'refractor' : 'lens';
+            if (this.type === 'glass') intType = 'refractor';
             if (this.type === 'detector') intType = 'blocker';
             for (let i = 0; i < 4; i++) { segments.push({ p1: worldCorners[i], p2: worldCorners[(i + 1) % 4], type: intType }); }
         }
@@ -706,7 +789,12 @@ function traceRay(ray, depth, results) {
              traceRay({ x: closestHit.x + incDir.x * 0.1, y: closestHit.y + incDir.y * 0.1, dx: incDir.x, dy: incDir.y, intensity: straightStokes[0], stokes: straightStokes, color: ray.color }, depth + 1, results);
              traceRay({ x: closestHit.x + deflectedDir.x * 0.1, y: closestHit.y + deflectedDir.y * 0.1, dx: deflectedDir.x, dy: deflectedDir.y, intensity: diffractedStokes[0], stokes: diffractedStokes, color: ray.color }, depth + 1, results);
              return;
-        } else if (['glass', 'lens'].includes(hitObject.type)) {
+        } else if (hitObject.type === 'lens' && hitSegment.type === 'lens') {
+             // Thin lens refraction
+             const outDir = computeLensRefraction(ray, hitObject, closestHit);
+             const modStokes = ray.stokes.map(v => v * 0.98);  // Small intensity loss
+             traceRay({ x: closestHit.x + outDir.x * 0.1, y: closestHit.y + outDir.y * 0.1, dx: outDir.x, dy: outDir.y, intensity: modStokes[0], stokes: modStokes, color: ray.color }, depth + 1, results);
+        } else if (hitObject.type === 'glass') {
              const modStokes = ray.stokes.map(v => v * 0.95);
              traceRay({ x: closestHit.x + inc.x*0.1, y: closestHit.y + inc.y*0.1, dx: inc.x, dy: inc.y, intensity: modStokes[0], stokes: modStokes, color: ray.color }, depth + 1, results);
         }
