@@ -352,6 +352,11 @@ function getAomDirectionVector(el) {
     return normalize(rotatePoint({ x: 0, y: 1 }, el.rotation));
 }
 
+function isAomEnabled(el) {
+    if (!el || el.type !== 'aom') return false;
+    return el.aomEnabled !== false; // Default to true
+}
+
 function ensureLensOptics(lens) {
     if (!lens || lens.type !== 'lens') return;
     if (!lens.optics) lens.optics = { focalLength: GRID_PITCH_MM * 5 };
@@ -778,16 +783,49 @@ function traceRay(ray, depth, results) {
              const incDir = normalize(inc);
              const mainDir = getAomDirectionVector(hitObject);
              const alignment = dot(incDir, mainDir);
+             
+             // Block if beam is ~perpendicular to main direction
              if (Math.abs(alignment) < 0.15) {
                  return;
              }
-             const straightStokes = ray.stokes.map(v => v * 0.3);
-             const diffractedStokes = ray.stokes.map(v => v * 0.7);
+             
+             // If AOM is OFF, just pass through with small loss
+             if (!isAomEnabled(hitObject)) {
+                 const passStokes = ray.stokes.map(v => v * 0.95);
+                 traceRay({ x: closestHit.x + incDir.x * 0.1, y: closestHit.y + incDir.y * 0.1, dx: incDir.x, dy: incDir.y, intensity: passStokes[0], stokes: passStokes, color: ray.color }, depth + 1, results);
+                 return;
+             }
+             
              const shiftAngle = 0.035;
-             const rotation = alignment > 0 ? -shiftAngle : shiftAngle;
-             const deflectedDir = rotatePoint(incDir, rotation);
-             traceRay({ x: closestHit.x + incDir.x * 0.1, y: closestHit.y + incDir.y * 0.1, dx: incDir.x, dy: incDir.y, intensity: straightStokes[0], stokes: straightStokes, color: ray.color }, depth + 1, results);
-             traceRay({ x: closestHit.x + deflectedDir.x * 0.1, y: closestHit.y + deflectedDir.y * 0.1, dx: deflectedDir.x, dy: deflectedDir.y, intensity: diffractedStokes[0], stokes: diffractedStokes, color: ray.color }, depth + 1, results);
+             const signedTheta = alignment > 0 ? -shiftAngle : shiftAngle;
+             
+             // Compute the "straight" direction (parallel to grid, aligned with mainDir)
+             const straightDir = alignment > 0 ? mainDir : { x: -mainDir.x, y: -mainDir.y };
+             
+             // Compute the angle of incidence relative to the main direction
+             // incAngle = angle between incDir and straightDir
+             const incAngle = Math.acos(Math.min(1, Math.abs(dot(incDir, straightDir))));
+             
+             // Tolerance for "entering straight" vs "entering at angle"
+             const angleTolerance = 0.02; // ~1 degree
+             
+             if (incAngle < angleTolerance) {
+                 // CASE 1: Beam enters straight → exits straight + deflected
+                 const straightStokes = ray.stokes.map(v => v * 0.3);
+                 const diffractedStokes = ray.stokes.map(v => v * 0.7);
+                 const deflectedDir = rotatePoint(straightDir, signedTheta);
+                 
+                 // Straight-through beam
+                 traceRay({ x: closestHit.x + straightDir.x * 0.1, y: closestHit.y + straightDir.y * 0.1, dx: straightDir.x, dy: straightDir.y, intensity: straightStokes[0], stokes: straightStokes, color: ray.color }, depth + 1, results);
+                 // Deflected beam
+                 traceRay({ x: closestHit.x + deflectedDir.x * 0.1, y: closestHit.y + deflectedDir.y * 0.1, dx: deflectedDir.x, dy: deflectedDir.y, intensity: diffractedStokes[0], stokes: diffractedStokes, color: ray.color }, depth + 1, results);
+             } else {
+                 // CASE 2: Beam enters at angle → exits straight only (corrected back to parallel)
+                 const correctedStokes = ray.stokes.map(v => v * 0.7);
+                 
+                 // Output goes straight (parallel to grid)
+                 traceRay({ x: closestHit.x + straightDir.x * 0.1, y: closestHit.y + straightDir.y * 0.1, dx: straightDir.x, dy: straightDir.y, intensity: correctedStokes[0], stokes: correctedStokes, color: ray.color }, depth + 1, results);
+             }
              return;
         } else if (hitObject.type === 'lens' && hitSegment.type === 'lens') {
              // Thin lens refraction
@@ -909,7 +947,23 @@ function drawElement(el) {
         else { ctx.fillStyle = 'cyan'; ctx.fillRect(-w, -0.5, w, 1); ctx.fillStyle = 'black'; ctx.fillRect(0, -0.5, w, 1); } 
     }
     else if (['splitter', 'pbs'].includes(el.type)) { const col = el.type === 'pbs' ? 'rgba(168, 85, 247, 0.15)' : 'rgba(255, 255, 0, 0.1)'; const borderCol = el.type === 'pbs' ? 'rgba(168, 85, 247, 0.6)' : 'rgba(255, 255, 0, 0.5)'; ctx.fillStyle = col; ctx.strokeStyle = borderCol; ctx.lineWidth = 0.5; ctx.fillRect(-el.width/2, -el.height/2, el.width, el.height); ctx.strokeRect(-el.width/2, -el.height/2, el.width, el.height); ctx.strokeStyle = el.type === 'pbs' ? 'rgba(168, 85, 247, 0.9)' : 'rgba(255, 255, 0, 0.9)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(-el.width/2, -el.height/2); ctx.lineTo(el.width/2, el.height/2); ctx.stroke(); if(el.type === 'pbs') { ctx.beginPath(); ctx.strokeStyle='white'; ctx.lineWidth=0.5; ctx.moveTo(0, -5); ctx.lineTo(0, 5); ctx.stroke(); ctx.beginPath(); ctx.arc(5, 0, 1, 0, Math.PI*2); ctx.stroke(); } }
-    else if (el.type === 'aom') { ctx.fillStyle = 'rgba(239, 68, 68, 0.15)'; ctx.strokeStyle = 'rgba(239, 68, 68, 0.5)'; ctx.lineWidth = 0.5; ctx.fillRect(-el.width/2, -el.height/2, el.width, el.height); ctx.strokeRect(-el.width/2, -el.height/2, el.width, el.height); ctx.fillStyle = '#b91c1c'; ctx.fillRect(-el.width/2 + 2, el.height/2 - 2, el.width - 4, 3); ctx.fillStyle = 'rgba(239, 68, 68, 0.8)'; ctx.font = '6px sans-serif'; ctx.fillText("AOM", -6, 2); }
+    else if (el.type === 'aom') { 
+        const aomOn = isAomEnabled(el);
+        const bgColor = aomOn ? 'rgba(239, 68, 68, 0.15)' : 'rgba(100, 100, 100, 0.15)';
+        const borderColor = aomOn ? 'rgba(239, 68, 68, 0.5)' : 'rgba(100, 100, 100, 0.5)';
+        const barColor = aomOn ? '#b91c1c' : '#555';
+        const textColor = aomOn ? 'rgba(239, 68, 68, 0.8)' : 'rgba(150, 150, 150, 0.8)';
+        ctx.fillStyle = bgColor; 
+        ctx.strokeStyle = borderColor; 
+        ctx.lineWidth = 0.5; 
+        ctx.fillRect(-el.width/2, -el.height/2, el.width, el.height); 
+        ctx.strokeRect(-el.width/2, -el.height/2, el.width, el.height); 
+        ctx.fillStyle = barColor; 
+        ctx.fillRect(-el.width/2 + 2, el.height/2 - 2, el.width - 4, 3); 
+        ctx.fillStyle = textColor; 
+        ctx.font = '6px sans-serif'; 
+        ctx.fillText(aomOn ? "AOM" : "OFF", -6, 2); 
+    }
     else if (el.type === 'lens') { ctx.fillStyle = 'rgba(147, 197, 253, 0.3)'; ctx.strokeStyle = 'rgba(147, 197, 253, 0.8)'; ctx.lineWidth = 0.5; ctx.beginPath(); ctx.ellipse(0, 0, el.width/2, el.height/2, 0, 0, 2 * Math.PI); ctx.fill(); ctx.stroke(); }
     else if (el.type === 'blocker') { ctx.fillStyle = '#111'; ctx.strokeStyle = '#555'; ctx.lineWidth = 1; ctx.fillRect(-el.width/2, -el.height/2, el.width, el.height); ctx.strokeRect(-el.width/2, -el.height/2, el.width, el.height); ctx.strokeStyle = '#333'; ctx.beginPath(); ctx.arc(0,0, 5, 0, Math.PI*2); ctx.stroke(); }
     else if (el.type === 'detector') { ctx.fillStyle = '#222'; ctx.strokeStyle = '#fca5a5'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(0, 0, el.width/2, 0, Math.PI*2); ctx.fill(); ctx.stroke(); ctx.fillStyle = '#fee2e2'; ctx.beginPath(); ctx.arc(0,0, 5, 0, Math.PI*2); ctx.fill(); }
@@ -1147,13 +1201,14 @@ function drawRays(rays) {
 }
 
 function drawLensFocusDots() {
-    const lenses = elements.filter(el => el.type === 'lens');
-    if (!lenses.length) return;
+    // Only show focal dots for selected lenses
+    const selectedLenses = elements.filter(el => el.type === 'lens' && selection.has(el));
+    if (!selectedLenses.length) return;
     ctx.save();
     ctx.fillStyle = '#fbbf24';
     ctx.strokeStyle = '#fde68a';
     ctx.lineWidth = 1;
-    lenses.forEach(lens => {
+    selectedLenses.forEach(lens => {
         ensureLensOptics(lens);
         const axis = getLensAxisVector(lens);
         const focal = Math.max(GRID_PITCH_MM * 0.1, lens.optics.focalLength || GRID_PITCH_MM);
@@ -1417,6 +1472,33 @@ function updateUI() {
                 updateUI();
             };
             btnContainer.appendChild(alignBtn);
+        }
+
+        if (p.type === 'aom') {
+            const aomBox = document.createElement('div');
+            aomBox.className = "mt-2 border-t border-gray-600 pt-2 space-y-2";
+            const title = document.createElement('div');
+            title.className = "text-[10px] uppercase text-gray-400";
+            title.innerText = "AOM Settings";
+            aomBox.appendChild(title);
+
+            const enabled = isAomEnabled(p);
+            const toggleBtn = document.createElement('button');
+            toggleBtn.className = `w-full py-1 text-[10px] rounded border transition cursor-pointer ${enabled ? 'bg-green-700/50 border-green-600 text-green-100 hover:bg-green-700' : 'bg-red-900/50 border-red-600 text-red-100 hover:bg-red-900'}`;
+            toggleBtn.innerText = enabled ? 'AOM ON' : 'AOM OFF';
+            toggleBtn.onclick = () => {
+                p.aomEnabled = !isAomEnabled(p);
+                draw();
+                updateUI();
+            };
+            aomBox.appendChild(toggleBtn);
+
+            const hint = document.createElement('p');
+            hint.className = "text-[9px] text-gray-500";
+            hint.innerText = enabled ? "Diffracts incoming beam" : "Beam passes through";
+            aomBox.appendChild(hint);
+
+            btnContainer.appendChild(aomBox);
         }
 
         if (p.type === 'lens') {
