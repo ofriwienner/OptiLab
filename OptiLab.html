@@ -210,6 +210,9 @@ const view = { x: 50, y: 50, scale: 0.5, isPanning: false, startPanX: 0, startPa
 const tableConfig = { widthMM: 2400, heightMM: 1800 };
 const MAX_BOUNCES = 30;
 const SNAP_ROTATION = 45; 
+const WAVEPLATE_KNOB_OFFSET_MM = 18;
+const WAVEPLATE_KNOB_RADIUS_MM = 6;
+const WAVEPLATE_FINE_STEP_DEG = 5;
 
 let elements = [];
 let selection = new Set();
@@ -217,6 +220,8 @@ let isDragging = false;
 let isRotating = false;
 let isResizing = false; 
 let isSelecting = false; 
+let isAdjustingAxis = false;
+let axisAdjustTarget = null;
 let selectionRect = null; 
 let dragOffsets = new Map(); 
 let draggedChildren = new Map(); 
@@ -268,6 +273,85 @@ function getParentBoard(comp) {
     return null;
 }
 
+function isWaveplateElement(el) {
+    return !!el && (el.type === 'hwp' || el.type === 'qwp');
+}
+
+function normalizeAngleRad(angle) {
+    if (!isFinite(angle)) return 0;
+    const TWO_PI = Math.PI * 2;
+    angle = angle % TWO_PI;
+    if (angle < 0) angle += TWO_PI;
+    return angle;
+}
+
+function clampWaveplateAngle(angleRad) {
+    let normalized = normalizeAngleRad(angleRad);
+    if (normalized > Math.PI) normalized -= Math.PI;
+    return normalized;
+}
+
+function snapWaveplateAngle(angleRad) {
+    const step = Math.PI / 4; // 45°
+    return clampWaveplateAngle(Math.round(angleRad / step) * step);
+}
+
+function getWaveplateAxisAngle(el) {
+    if (!isWaveplateElement(el)) return 0;
+    if (typeof el.axisAngle !== 'number') {
+        return clampWaveplateAngle(el.rotation || toRad(45));
+    }
+    return clampWaveplateAngle(el.axisAngle);
+}
+
+function getSignedWaveplateAngle(el) {
+    const axis = getWaveplateAxisAngle(el);
+    return axis > Math.PI / 2 ? axis - Math.PI : axis;
+}
+
+function formatAxisAngleDeg(angleRad) {
+    let deg = Math.round(toDeg(clampWaveplateAngle(angleRad)));
+    if (deg < 0) deg += 180;
+    if (deg > 180) deg -= 180;
+    return deg;
+}
+
+function updateWaveplateAxisFromPoint(el, worldPoint) {
+    if (!isWaveplateElement(el)) return false;
+    const knobWorld = el.getAxisKnobWorldPosition();
+    const angle = Math.atan2(worldPoint.y - knobWorld.y, worldPoint.x - knobWorld.x);
+    let normalized = clampWaveplateAngle(angle);
+    if (!shiftPressed) {
+        normalized = snapWaveplateAngle(normalized);
+    } else {
+        const fineStep = toRad(WAVEPLATE_FINE_STEP_DEG);
+        normalized = clampWaveplateAngle(Math.round(normalized / fineStep) * fineStep);
+    }
+    if (typeof el.axisAngle !== 'number' || Math.abs(el.axisAngle - normalized) > 0.0005) {
+        el.axisAngle = normalized;
+        return true;
+    }
+    return false;
+}
+
+function getWaveplateKnobHit(mousePoint) {
+    const waveplates = elements.filter(isWaveplateElement).reverse();
+    for (let el of waveplates) {
+        const knobWorld = el.getAxisKnobWorldPosition();
+        const knobScreen = worldToScreen(knobWorld.x, knobWorld.y);
+        const radiusPx = Math.max(8, WAVEPLATE_KNOB_RADIUS_MM * view.scale * PIXELS_PER_MM);
+        const dx = mousePoint.x - knobScreen.x;
+        const dy = mousePoint.y - knobScreen.y;
+        if (dx*dx + dy*dy <= radiusPx * radiusPx) return el;
+    }
+    return null;
+}
+
+function getAomDirectionVector(el) {
+    if (!el || el.type !== 'aom') return { x: 0, y: 1 };
+    return normalize(rotatePoint({ x: 0, y: 1 }, el.rotation));
+}
+
 // 3. Class Definitions
 class Element {
     constructor(type, xMM, yMM, w, h, title) {
@@ -282,6 +366,7 @@ class Element {
         this.locked = false; 
         this.imgData = null; 
         this.imgConfig = { visible: true, opacity: 0.5, x: 0, y: 0, w: 0, h: 0 };
+        this.axisAngle = null;
         if (type !== 'board') this.setupType(type);
     }
     setupType(type) {
@@ -296,7 +381,10 @@ class Element {
             case 'blocker': this.width = 25; this.height = 25; break;
             case 'detector': this.width = 30; this.height = 30; this.rotation = 0; break;
             case 'glass': this.width = 20; this.height = 50; break;
-            case 'hwp': case 'qwp': this.width = 5; this.height = 30; break;
+            case 'hwp': case 'qwp':
+                this.width = 5; this.height = 30;
+                this.axisAngle = clampWaveplateAngle(toRad(45));
+                break;
         }
     }
     getHandlePosition() {
@@ -307,6 +395,11 @@ class Element {
     getResizeHandlePosition() { return { x: this.width/2, y: this.height/2 }; }
     getMoveHandlePosition() { return { x: -this.width/2, y: -this.height/2 }; }
     getSnapButtonPosition() { const dist = this.width/2 + 15; return rotatePoint({x: dist, y: -15}, this.rotation); }
+    getAxisKnobWorldPosition() {
+        const local = { x: 0, y: -this.height/2 - WAVEPLATE_KNOB_OFFSET_MM };
+        const rotated = rotatePoint(local, this.rotation);
+        return { x: this.x + rotated.x, y: this.y + rotated.y };
+    }
     getSegments() {
         if (this.type === 'board') return []; 
         const cx = this.x; const cy = this.y; const w = this.width; const h = this.height;
@@ -328,9 +421,29 @@ class Element {
         } else if (['splitter', 'pbs'].includes(this.type)) {
             const p1 = rotatePoint({x: -this.width/2, y: -this.height/2}, this.rotation); const p2 = rotatePoint({x: this.width/2, y: this.height/2}, this.rotation);
             segments.push({ p1: {x: p1.x + cx, y: p1.y + cy}, p2: {x: p2.x + cx, y: p2.y + cy}, type: this.type === 'pbs' ? 'pbs' : 'splitter' });
+        } else if (this.type === 'hwp' || this.type === 'qwp') {
+            const start = rotatePoint({ x: 0, y: -this.height/2 }, this.rotation);
+            const end = rotatePoint({ x: 0, y: this.height/2 }, this.rotation);
+            const normal = normalize(rotatePoint({ x: 1, y: 0 }, this.rotation));
+            segments.push({
+                p1: { x: cx + start.x, y: cy + start.y },
+                p2: { x: cx + end.x, y: cy + end.y },
+                type: 'waveplate',
+                normal
+            });
+        } else if (this.type === 'aom') {
+            const start = rotatePoint({ x: -this.width/2, y: 0 }, this.rotation);
+            const end = rotatePoint({ x: this.width/2, y: 0 }, this.rotation);
+            const normal = normalize(rotatePoint({ x: 0, y: 1 }, this.rotation));
+            segments.push({
+                p1: { x: cx + start.x, y: cy + start.y },
+                p2: { x: cx + end.x, y: cy + end.y },
+                type: 'aom',
+                normal
+            });
         } else {
             let intType = 'blocker';
-            if (['glass', 'aom', 'lens', 'hwp', 'qwp'].includes(this.type)) intType = this.type === 'glass' ? 'refractor' : (this.type === 'aom' ? 'aom' : (this.type === 'lens' ? 'lens' : 'waveplate'));
+            if (['glass', 'lens'].includes(this.type)) intType = this.type === 'glass' ? 'refractor' : 'lens';
             if (this.type === 'detector') intType = 'blocker';
             for (let i = 0; i < 4; i++) { segments.push({ p1: worldCorners[i], p2: worldCorners[(i + 1) % 4], type: intType }); }
         }
@@ -539,36 +652,36 @@ function traceRay(ray, depth, results) {
              }
 
         } else if (['hwp', 'qwp'].includes(hitObject.type)) {
-             // FIXED LOGIC: Only apply matrix on ENTRY (dp > 0). 
-             // On EXIT (dp < 0), just pass through.
-             
-             if (dp > 0) {
-                 // Entering: Apply Matrix
-                 const baseMatrix = hitObject.type === 'hwp' ? MuellerMath.MATRICES.HWP_H : MuellerMath.MATRICES.QWP_H;
-                 const theta = hitObject.rotation + (hitObject.axisAngle || 0);
-                 const rotMatrix = MuellerMath.rotateComponent(baseMatrix, theta);
-                 const newStokes = MuellerMath.interact(ray.stokes, rotMatrix);
-                 
-                 traceRay({ ...ray, x: closestHit.x + inc.x*0.1, y: closestHit.y + inc.y*0.1, dx: inc.x, dy: inc.y, intensity: newStokes[0], stokes: newStokes, color: ray.color }, depth + 1, results);
-             } else {
-                 // Exiting: Pass Through (Identity) to avoid double rotation
-                 traceRay({ ...ray, x: closestHit.x + inc.x*0.1, y: closestHit.y + inc.y*0.1, dx: inc.x, dy: inc.y, intensity: ray.intensity, stokes: ray.stokes, color: ray.color }, depth + 1, results);
-             }
-
-        } else if (['glass', 'lens', 'aom'].includes(hitObject.type) || hitObject.type === 'aom') {
-             let modStokes = ray.stokes;
-             if (hitSegment.type === 'aom') {
-                 if (dp < 0) {
-                     const s0 = ray.stokes.map(v => v * 0.3);
-                     const s1 = ray.stokes.map(v => v * 0.7);
-                     traceRay({ x: closestHit.x + inc.x * 0.1, y: closestHit.y + inc.y * 0.1, dx: inc.x, dy: inc.y, intensity: s0[0], stokes: s0, color: ray.color }, depth + 1, results);
-                     const diff = rotatePoint(inc, -0.035);
-                     traceRay({ x: closestHit.x + diff.x * 0.1, y: closestHit.y + diff.y * 0.1, dx: diff.x, dy: diff.y, intensity: s1[0], stokes: s1, color: ray.color }, depth + 1, results);
-                     return; 
+             const baseMatrix = hitObject.type === 'hwp' ? MuellerMath.MATRICES.HWP_H : MuellerMath.MATRICES.QWP_H;
+             let theta = getSignedWaveplateAngle(hitObject);
+             if (hitSegment.type === 'waveplate') {
+                 const normal = hitSegment.normal || normalize({ x: -segVec.y, y: segVec.x });
+                 const dir = dot(inc, normal);
+                 if (dir < 0) {
+                     theta = -theta;
                  }
-             } else {
-                 modStokes = ray.stokes.map(v => v * 0.95);
              }
+             const rotMatrix = MuellerMath.rotateComponent(baseMatrix, theta);
+             const newStokes = MuellerMath.interact(ray.stokes, rotMatrix);
+             
+             traceRay({ ...ray, x: closestHit.x + inc.x*0.1, y: closestHit.y + inc.y*0.1, dx: inc.x, dy: inc.y, intensity: newStokes[0], stokes: newStokes, color: ray.color }, depth + 1, results);
+        } else if (hitObject.type === 'aom') {
+             const incDir = normalize(inc);
+             const mainDir = getAomDirectionVector(hitObject);
+             const alignment = dot(incDir, mainDir);
+             if (Math.abs(alignment) < 0.15) {
+                 return;
+             }
+             const straightStokes = ray.stokes.map(v => v * 0.3);
+             const diffractedStokes = ray.stokes.map(v => v * 0.7);
+             const shiftAngle = 0.035;
+             const rotation = alignment > 0 ? -shiftAngle : shiftAngle;
+             const deflectedDir = rotatePoint(incDir, rotation);
+             traceRay({ x: closestHit.x + incDir.x * 0.1, y: closestHit.y + incDir.y * 0.1, dx: incDir.x, dy: incDir.y, intensity: straightStokes[0], stokes: straightStokes, color: ray.color }, depth + 1, results);
+             traceRay({ x: closestHit.x + deflectedDir.x * 0.1, y: closestHit.y + deflectedDir.y * 0.1, dx: deflectedDir.x, dy: deflectedDir.y, intensity: diffractedStokes[0], stokes: diffractedStokes, color: ray.color }, depth + 1, results);
+             return;
+        } else if (['glass', 'lens'].includes(hitObject.type)) {
+             const modStokes = ray.stokes.map(v => v * 0.95);
              traceRay({ x: closestHit.x + inc.x*0.1, y: closestHit.y + inc.y*0.1, dx: inc.x, dy: inc.y, intensity: modStokes[0], stokes: modStokes, color: ray.color }, depth + 1, results);
         }
     } else {
@@ -687,7 +800,79 @@ function drawElement(el) {
     else if (el.type === 'blocker') { ctx.fillStyle = '#111'; ctx.strokeStyle = '#555'; ctx.lineWidth = 1; ctx.fillRect(-el.width/2, -el.height/2, el.width, el.height); ctx.strokeRect(-el.width/2, -el.height/2, el.width, el.height); ctx.strokeStyle = '#333'; ctx.beginPath(); ctx.arc(0,0, 5, 0, Math.PI*2); ctx.stroke(); }
     else if (el.type === 'detector') { ctx.fillStyle = '#222'; ctx.strokeStyle = '#fca5a5'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(0, 0, el.width/2, 0, Math.PI*2); ctx.fill(); ctx.stroke(); ctx.fillStyle = '#fee2e2'; ctx.beginPath(); ctx.arc(0,0, 5, 0, Math.PI*2); ctx.fill(); }
     else if (el.type === 'glass') { ctx.fillStyle = 'rgba(100, 200, 255, 0.3)'; ctx.strokeStyle = 'rgba(100, 200, 255, 0.6)'; ctx.lineWidth = 0.5; ctx.fillRect(-el.width/2, -el.height/2, el.width, el.height); ctx.strokeRect(-el.width/2, -el.height/2, el.width, el.height); }
-    else if (el.type === 'hwp' || el.type === 'qwp') { const color = el.type === 'hwp' ? 'rgba(74, 222, 128, 0.4)' : 'rgba(251, 146, 60, 0.4)'; const border = el.type === 'hwp' ? '#4ade80' : '#fb923c'; ctx.fillStyle = color; ctx.strokeStyle = border; ctx.lineWidth = 0.5; ctx.fillRect(-el.width/2, -el.height/2, el.width, el.height); ctx.strokeRect(-el.width/2, -el.height/2, el.width, el.height); ctx.beginPath(); ctx.strokeStyle = 'rgba(255,255,255,0.8)'; ctx.moveTo(0, -el.height/2 + 2); ctx.lineTo(0, el.height/2 - 2); ctx.stroke(); ctx.save(); ctx.translate(el.width+2, 0); ctx.rotate(-Math.PI/2); ctx.fillStyle = border; ctx.font = '10px sans-serif'; const label = el.type === 'hwp' ? '\u03BB/2' : '\u03BB/4'; ctx.fillText(label, -el.height/2, 4); ctx.restore(); }
+    else if (el.type === 'hwp' || el.type === 'qwp') { 
+        const color = el.type === 'hwp' ? 'rgba(74, 222, 128, 0.4)' : 'rgba(251, 146, 60, 0.4)'; 
+        const border = el.type === 'hwp' ? '#4ade80' : '#fb923c'; 
+        ctx.fillStyle = color; 
+        ctx.strokeStyle = border; 
+        ctx.lineWidth = 0.5; 
+        ctx.fillRect(-el.width/2, -el.height/2, el.width, el.height); 
+        ctx.strokeRect(-el.width/2, -el.height/2, el.width, el.height); 
+        ctx.beginPath(); 
+        ctx.strokeStyle = 'rgba(255,255,255,0.8)'; 
+        ctx.moveTo(0, -el.height/2 + 2); 
+        ctx.lineTo(0, el.height/2 - 2); 
+        ctx.stroke(); 
+        ctx.save(); 
+        ctx.translate(el.width+2, 0); 
+        ctx.rotate(-Math.PI/2); 
+        ctx.fillStyle = border; 
+        ctx.font = '10px sans-serif'; 
+        const label = el.type === 'hwp' ? '\u03BB/2' : '\u03BB/4'; 
+        ctx.fillText(label, -el.height/2, 4); 
+        ctx.restore(); 
+
+        // Direction indicator
+        ctx.save();
+        ctx.translate(el.width/2 + 2, 0);
+        ctx.fillStyle = 'rgba(250, 204, 21, 0.25)';
+        ctx.strokeStyle = '#facc15';
+        ctx.lineWidth = 0.6;
+        ctx.beginPath();
+        ctx.moveTo(-3, -4);
+        ctx.lineTo(3, 0);
+        ctx.lineTo(-3, 4);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = '#fde68a';
+        ctx.font = '6px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('IN', -3, 0);
+        ctx.restore();
+
+        // Waveplate axis knob
+        ctx.save();
+        ctx.translate(0, -el.height/2 - WAVEPLATE_KNOB_OFFSET_MM);
+        ctx.rotate(-el.rotation);
+        const knobRadius = WAVEPLATE_KNOB_RADIUS_MM;
+        ctx.beginPath();
+        ctx.arc(0, 0, knobRadius, 0, Math.PI * 2);
+        ctx.fillStyle = isAdjustingAxis && axisAdjustTarget === el ? '#1d4ed8' : '#111827';
+        ctx.strokeStyle = isSelected ? '#bfdbfe' : '#475569';
+        ctx.lineWidth = 0.6;
+        ctx.fill();
+        ctx.stroke();
+
+        const axisAngle = getWaveplateAxisAngle(el);
+        ctx.save();
+        ctx.rotate(axisAngle);
+        ctx.strokeStyle = '#facc15';
+        ctx.lineWidth = 0.6;
+        ctx.beginPath();
+        ctx.moveTo(-knobRadius * 0.8, 0);
+        ctx.lineTo(knobRadius * 0.8, 0);
+        ctx.stroke();
+        ctx.restore();
+
+        ctx.fillStyle = '#cbd5f5';
+        ctx.font = '8px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'bottom';
+        ctx.fillText(`${formatAxisAngleDeg(axisAngle)}°`, 0, -knobRadius - 2);
+        ctx.restore();
+    }
 
     // Draw Title Label
     if (el.title) {
@@ -1071,6 +1256,28 @@ function updateUI() {
             btnContainer.appendChild(div);
         }
 
+        if (isWaveplateElement(p)) {
+            const axisRow = document.createElement('div');
+            axisRow.className = "flex items-center justify-between text-[10px] text-gray-300 mt-2";
+            axisRow.innerHTML = `<span>Waveplate Axis</span><span class="font-mono">${formatAxisAngleDeg(getWaveplateAxisAngle(p))}°</span>`;
+            btnContainer.appendChild(axisRow);
+
+            const axisHint = document.createElement('p');
+            axisHint.className = "text-[9px] text-gray-500";
+            axisHint.innerText = "Use the knob above the plate to set axis.";
+            btnContainer.appendChild(axisHint);
+
+            const alignBtn = document.createElement('button');
+            alignBtn.className = "w-full py-1 bg-gray-700 border border-gray-600 rounded text-[10px] text-gray-200 hover:bg-gray-600 transition cursor-pointer";
+            alignBtn.innerText = "Match Axis to Body";
+            alignBtn.onclick = () => {
+                p.axisAngle = clampWaveplateAngle(p.rotation || 0);
+                draw();
+                updateUI();
+            };
+            btnContainer.appendChild(alignBtn);
+        }
+
         // Board Controls
         if (p.type === 'board') {
             const lockBtn = document.createElement('button');
@@ -1377,7 +1584,22 @@ function startSidebarDrag(e, type) {
 
 function allowDrop(e) { e.preventDefault(); }
 function handleDrop(e) { e.preventDefault(); }
-function rehydrateElement(data) { const el = new Element(data.type, data.x, data.y, data.width, data.height, data.title); el.id = data.id; el.rotation = data.rotation; el.width = data.width; el.height = data.height; el.isFlipped = data.isFlipped || false; el.locked = data.locked || false; if (data.imgConfig) { el.imgConfig = data.imgConfig; } return el; }
+function rehydrateElement(data) { 
+    const el = new Element(data.type, data.x, data.y, data.width, data.height, data.title); 
+    el.id = data.id; 
+    el.rotation = data.rotation; 
+    el.width = data.width; 
+    el.height = data.height; 
+    el.isFlipped = data.isFlipped || false; 
+    el.locked = data.locked || false; 
+    if (typeof data.axisAngle === 'number') {
+        el.axisAngle = clampWaveplateAngle(data.axisAngle);
+    } else if (isWaveplateElement(el)) {
+        el.axisAngle = clampWaveplateAngle(el.rotation || toRad(45));
+    }
+    if (data.imgConfig) { el.imgConfig = data.imgConfig; } 
+    return el; 
+}
 
 // --- Missing Functions Implementation (Added for Stability) ---
 function saveState() {
@@ -1463,6 +1685,18 @@ canvas.addEventListener('mousedown', (e) => {
     }
 
     const w = screenToWorld(m.x, m.y);
+    const knobTarget = getWaveplateKnobHit(m);
+    if (knobTarget) {
+        selection.clear();
+        selection.add(knobTarget);
+        axisAdjustTarget = knobTarget;
+        isAdjustingAxis = true;
+        canvas.style.cursor = 'grabbing';
+        updateWaveplateAxisFromPoint(knobTarget, w);
+        updateUI();
+        draw();
+        return;
+    }
     const primary = Array.from(selection).pop();
     
     if (primary) {
@@ -1567,6 +1801,14 @@ canvas.addEventListener('mousemove', (e) => {
     mouseCoordsDisplay.innerText = `X: ${Math.round(w.x)}mm Y: ${Math.round(w.y)}mm`;
     if (calibrationState > 0) return; 
     if (view.isPanning) { view.x = m.x - view.startPanX; view.y = m.y - view.startPanY; draw(); return; }
+    if (isAdjustingAxis && axisAdjustTarget) {
+        const changed = updateWaveplateAxisFromPoint(axisAdjustTarget, w);
+        if (changed) {
+            draw();
+            updateUI();
+        }
+        return;
+    }
     if (isRotating) {
         const p = Array.from(selection).pop();
         if (p) {
@@ -1661,7 +1903,16 @@ window.addEventListener('mouseup', () => {
         });
         selectionRect = null;
     }
-    isDragging = false; isRotating = false; isSelecting = false; isResizing = false; view.isPanning = false; canvas.style.cursor = 'crosshair'; updateUI(); draw();
+    isDragging = false; 
+    isRotating = false; 
+    isSelecting = false; 
+    isResizing = false; 
+    isAdjustingAxis = false;
+    axisAdjustTarget = null;
+    view.isPanning = false; 
+    canvas.style.cursor = 'crosshair'; 
+    updateUI(); 
+    draw();
 });
 canvas.addEventListener('wheel', (e) => { e.preventDefault(); const zoom = 0.1; const m = getMousePos(e); const wB = screenToWorld(m.x, m.y); view.scale *= (e.deltaY < 0) ? (1+zoom) : (1-zoom); view.scale = Math.max(0.1, Math.min(view.scale, 5)); const wA = screenToWorld(m.x, m.y); view.x += (wA.x - wB.x)*PIXELS_PER_MM*view.scale; view.y += (wA.y - wB.y)*PIXELS_PER_MM*view.scale; debugInfo.innerText = `Scale: ${Math.round(view.scale*100)}%`; draw(); });
 window.addEventListener('keydown', (e) => { 
@@ -1743,7 +1994,7 @@ if (uiSidebar) {
             // If the user is currently dragging/rotating an object on the canvas,
             // we MUST let the event bubble up so the 'window' listeners can detect
             // the mouse release and end the drag operation.
-            if (isDragging || isRotating || isResizing || view.isPanning) {
+            if (isDragging || isRotating || isResizing || view.isPanning || isAdjustingAxis) {
                 return; 
             }
             
