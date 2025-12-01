@@ -288,11 +288,13 @@ function normalizeAngleRad(angle) {
 function clampWaveplateAngle(angleRad) {
     let normalized = normalizeAngleRad(angleRad);
     if (normalized > Math.PI) normalized -= Math.PI;
+    if (normalized >= Math.PI - 1e-6) normalized = 0;
     return normalized;
 }
 
-function snapWaveplateAngle(angleRad) {
-    const step = Math.PI / 4; // 45°
+function snapWaveplateAngle(angleRad, stepRad) {
+    const step = stepRad || (Math.PI / 4);
+    if (step <= 0) return clampWaveplateAngle(angleRad);
     return clampWaveplateAngle(Math.round(angleRad / step) * step);
 }
 
@@ -321,12 +323,10 @@ function updateWaveplateAxisFromPoint(el, worldPoint) {
     const knobWorld = el.getAxisKnobWorldPosition();
     const angle = Math.atan2(worldPoint.y - knobWorld.y, worldPoint.x - knobWorld.x);
     let normalized = clampWaveplateAngle(angle);
-    if (!shiftPressed) {
-        normalized = snapWaveplateAngle(normalized);
-    } else {
-        const fineStep = toRad(WAVEPLATE_FINE_STEP_DEG);
-        normalized = clampWaveplateAngle(Math.round(normalized / fineStep) * fineStep);
-    }
+    let stepRad = Math.PI / 4; // 45°
+    if (ctrlPressed) stepRad = toRad(WAVEPLATE_FINE_STEP_DEG); // 5°
+    else if (shiftPressed) stepRad = Math.PI / 8; // 22.5°
+    normalized = snapWaveplateAngle(normalized, stepRad);
     if (typeof el.axisAngle !== 'number' || Math.abs(el.axisAngle - normalized) > 0.0005) {
         el.axisAngle = normalized;
         return true;
