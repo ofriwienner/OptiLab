@@ -357,6 +357,28 @@ function isAomEnabled(el) {
     return el.aomEnabled !== false; // Default to true
 }
 
+function getAomToggleHit(mousePoint) {
+    // Only check selected AOMs
+    const selectedAoms = elements.filter(el => el.type === 'aom' && selection.has(el));
+    for (let el of selectedAoms) {
+        // Toggle button is at (0, -height/2 - 12) in local coords, then rotated
+        const localPos = { x: 0, y: -el.height/2 - 12 };
+        const rotated = rotatePoint(localPos, el.rotation);
+        const btnWorld = { x: el.x + rotated.x, y: el.y + rotated.y };
+        const btnScreen = worldToScreen(btnWorld.x, btnWorld.y);
+        
+        // Button is 20x10 in world mm, scale to screen
+        const sc = view.scale * PIXELS_PER_MM;
+        const btnW = 20 * sc / 2;
+        const btnH = 10 * sc / 2;
+        
+        if (Math.abs(mousePoint.x - btnScreen.x) < btnW && Math.abs(mousePoint.y - btnScreen.y) < btnH) {
+            return el;
+        }
+    }
+    return null;
+}
+
 function ensureLensOptics(lens) {
     if (!lens || lens.type !== 'lens') return;
     if (!lens.optics) lens.optics = { focalLength: GRID_PITCH_MM * 5 };
@@ -877,6 +899,33 @@ function castRays() {
 function drawGrid() {
     ctx.fillStyle = '#0f172a';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // Draw global table grid (dots at each grid intersection)
+    // Grid is aligned to world coordinates with offset 12.5mm (half grid)
+    const sc = view.scale * PIXELS_PER_MM;
+    const gridStep = GRID_PITCH_MM;
+    const gridOffset = 12.5; // Half grid offset to match board holes
+    
+    // Calculate visible world bounds
+    const topLeft = screenToWorld(0, 0);
+    const bottomRight = screenToWorld(canvas.width, canvas.height);
+    
+    // Find first grid point within view
+    const startX = Math.floor((topLeft.x - gridOffset) / gridStep) * gridStep + gridOffset;
+    const startY = Math.floor((topLeft.y - gridOffset) / gridStep) * gridStep + gridOffset;
+    const endX = bottomRight.x + gridStep;
+    const endY = bottomRight.y + gridStep;
+    
+    ctx.fillStyle = 'rgba(50, 50, 70, 0.6)';
+    
+    for (let wx = startX; wx < endX; wx += gridStep) {
+        for (let wy = startY; wy < endY; wy += gridStep) {
+            const sp = worldToScreen(wx, wy);
+            ctx.beginPath();
+            ctx.arc(sp.x, sp.y, 1.2 * view.scale, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    }
 }
 
 function createDragImage(type) {
@@ -926,9 +975,37 @@ function drawElement(el) {
         
         ctx.strokeStyle = '#374151'; ctx.lineWidth = 2/sc; ctx.strokeRect(-el.width/2, -el.height/2, el.width, el.height);
         if(el.locked) { ctx.font = '16px sans-serif'; ctx.fillStyle = 'rgba(255,255,255,0.2)'; ctx.fillText('🔒', -8, 6); }
-        const gx = GRID_PITCH_MM; const startX = -el.width/2 + 12.5; const startY = -el.height/2 + 12.5;
+        
+        // Draw board grid aligned to global grid (not rotated with board)
+        // Counter-rotate to draw in world coordinates
+        ctx.save();
+        ctx.rotate(-el.rotation); // Undo board rotation
+        
+        const gx = GRID_PITCH_MM;
+        const gridOffset = 12.5;
+        
+        // Board bounds in world coords
+        const boardLeft = el.x - el.width/2;
+        const boardRight = el.x + el.width/2;
+        const boardTop = el.y - el.height/2;
+        const boardBottom = el.y + el.height/2;
+        
+        // Find grid points that fall within board bounds (in world coords)
+        const startWX = Math.ceil((boardLeft - gridOffset) / gx) * gx + gridOffset;
+        const startWY = Math.ceil((boardTop - gridOffset) / gx) * gx + gridOffset;
+        
         ctx.fillStyle = '#111';
-        for(let x=startX; x < el.width/2; x+=gx) { for(let y=startY; y < el.height/2; y+=gx) { ctx.beginPath(); ctx.arc(x, y, 1.2, 0, Math.PI*2); ctx.fill(); } }
+        for (let wx = startWX; wx < boardRight; wx += gx) {
+            for (let wy = startWY; wy < boardBottom; wy += gx) {
+                // Convert world point to local (relative to board center, but unrotated)
+                const lx = wx - el.x;
+                const ly = wy - el.y;
+                ctx.beginPath();
+                ctx.arc(lx, ly, 1.2, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+        ctx.restore();
     }
     else if (el.type === 'laser') { ctx.fillStyle = '#333'; ctx.fillRect(-el.width/2, -el.height/2, el.width, el.height); ctx.fillStyle = 'red'; ctx.fillRect(el.width/2 - 2, -1.5, 2, 3); ctx.fillStyle = '#999'; ctx.font = '8px sans-serif'; ctx.fillText("LASER", -15, 3); } 
     else if (el.type === 'mirror') { 
@@ -963,6 +1040,28 @@ function drawElement(el) {
         ctx.fillStyle = textColor; 
         ctx.font = '6px sans-serif'; 
         ctx.fillText(aomOn ? "AOM" : "OFF", -6, 2); 
+        
+        // On-canvas toggle button (shown when selected)
+        if (isSelected) {
+            ctx.save();
+            ctx.translate(0, -el.height/2 - 12);
+            ctx.rotate(-el.rotation); // Counter-rotate so text is upright
+            const btnW = 20, btnH = 10;
+            ctx.fillStyle = aomOn ? 'rgba(34, 197, 94, 0.9)' : 'rgba(239, 68, 68, 0.9)';
+            ctx.strokeStyle = 'white';
+            ctx.lineWidth = 0.5;
+            ctx.beginPath();
+            if (ctx.roundRect) ctx.roundRect(-btnW/2, -btnH/2, btnW, btnH, 2);
+            else ctx.rect(-btnW/2, -btnH/2, btnW, btnH);
+            ctx.fill();
+            ctx.stroke();
+            ctx.fillStyle = 'white';
+            ctx.font = '6px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(aomOn ? 'ON' : 'OFF', 0, 0);
+            ctx.restore();
+        }
     }
     else if (el.type === 'lens') { ctx.fillStyle = 'rgba(147, 197, 253, 0.3)'; ctx.strokeStyle = 'rgba(147, 197, 253, 0.8)'; ctx.lineWidth = 0.5; ctx.beginPath(); ctx.ellipse(0, 0, el.width/2, el.height/2, 0, 0, 2 * Math.PI); ctx.fill(); ctx.stroke(); }
     else if (el.type === 'blocker') { ctx.fillStyle = '#111'; ctx.strokeStyle = '#555'; ctx.lineWidth = 1; ctx.fillRect(-el.width/2, -el.height/2, el.width, el.height); ctx.strokeRect(-el.width/2, -el.height/2, el.width, el.height); ctx.strokeStyle = '#333'; ctx.beginPath(); ctx.arc(0,0, 5, 0, Math.PI*2); ctx.stroke(); }
@@ -1971,6 +2070,16 @@ canvas.addEventListener('mousedown', (e) => {
         draw();
         return;
     }
+    
+    // AOM toggle button hit test
+    const aomToggleTarget = getAomToggleHit(m);
+    if (aomToggleTarget) {
+        aomToggleTarget.aomEnabled = !isAomEnabled(aomToggleTarget);
+        updateUI();
+        draw();
+        return;
+    }
+    
     const primary = Array.from(selection).pop();
     
     if (primary) {
