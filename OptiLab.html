@@ -788,9 +788,12 @@ function traceRay(ray, depth, results) {
              }
 
         } else if (['hwp', 'qwp'].includes(hitObject.type)) {
+             // Waveplate physics: Use ONLY axisAngle (from knob), NOT rotation + axisAngle
+             // The axisAngle is independent of physical rotation and controlled by the knob
              const baseMatrix = hitObject.type === 'hwp' ? MuellerMath.MATRICES.HWP_H : MuellerMath.MATRICES.QWP_H;
-             let theta = getSignedWaveplateAngle(hitObject);
+             let theta = getSignedWaveplateAngle(hitObject); // Returns axisAngle (0-180°), not rotation + axisAngle
              if (hitSegment.type === 'waveplate') {
+                 // Bidirectional: If beam enters from opposite direction, invert the angle
                  const normal = hitSegment.normal || normalize({ x: -segVec.y, y: segVec.x });
                  const dir = dot(inc, normal);
                  if (dir < 0) {
@@ -811,12 +814,15 @@ function traceRay(ray, depth, results) {
                  return;
              }
              
-             // If AOM is OFF, just pass through with small loss
+             // CRITICAL: Check if AOM is enabled BEFORE applying diffraction physics
+             // If AOM is OFF, beam passes straight through with small loss (no diffraction)
              if (!isAomEnabled(hitObject)) {
                  const passStokes = ray.stokes.map(v => v * 0.95);
                  traceRay({ x: closestHit.x + incDir.x * 0.1, y: closestHit.y + incDir.y * 0.1, dx: incDir.x, dy: incDir.y, intensity: passStokes[0], stokes: passStokes, color: ray.color }, depth + 1, results);
                  return;
              }
+             
+             // AOM is ON: Apply diffraction physics below
              
              const shiftAngle = 0.035;
              const signedTheta = alignment > 0 ? -shiftAngle : shiftAngle;
