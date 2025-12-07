@@ -231,7 +231,8 @@ let ctrlPressed = false;
 let lastHitOnSelected = null; 
 let invalidBoardPlacement = false; 
 let originalBoardState = null; 
-const keys = {}; 
+const keys = {};
+let clipboard = null; // Store copied elements for paste 
 // --- Global Variables ---
 let alignPreference = 0;     // Toggles alignment options
 let hasCycleOptions = false; // [V2.5.3] Tracks if 'Q' key will do anything
@@ -1943,6 +1944,101 @@ function addBoard() { const w = parseInt(document.getElementById('boardW').value
 function updateBoardInputs() { const s = document.getElementById('boardSizeSelect'); if (s.value !== 'custom') { const [w, h] = s.value.split('x'); document.getElementById('boardW').value = w; document.getElementById('boardH').value = h; } }
 function deleteSelected() { if(selection.size>0){ elements=elements.filter(e=>!selection.has(e)); selection.clear(); draw(); }}
 function clearAll() { elements=[]; selection.clear(); draw(); }
+function copySelected() {
+    if (selection.size === 0) return;
+    // Serialize selected elements with all their properties
+    clipboard = Array.from(selection).map(el => {
+        const data = {
+            type: el.type,
+            x: el.x,
+            y: el.y,
+            width: el.width,
+            height: el.height,
+            rotation: el.rotation,
+            title: el.title || '',
+            isFlipped: el.isFlipped || false,
+            locked: el.locked || false,
+            imgConfig: el.imgConfig || null
+        };
+        // Preserve special properties
+        if (isWaveplateElement(el) && typeof el.axisAngle === 'number') {
+            data.axisAngle = el.axisAngle;
+        }
+        if (el.type === 'aom' && typeof el.aomEnabled === 'boolean') {
+            data.aomEnabled = el.aomEnabled;
+        }
+        if (el.type === 'lens' && el.optics) {
+            data.optics = { focalLength: el.optics.focalLength };
+        }
+        if (el.type === 'laser' && typeof el.polAngle === 'number') {
+            data.polAngle = el.polAngle;
+        }
+        return data;
+    });
+}
+function pasteElements() {
+    if (!clipboard || clipboard.length === 0) return;
+    
+    // Calculate center of copied elements
+    let centerX = 0, centerY = 0;
+    clipboard.forEach(data => {
+        centerX += data.x;
+        centerY += data.y;
+    });
+    centerX /= clipboard.length;
+    centerY /= clipboard.length;
+    
+    // Get current mouse position or center of view for paste location
+    const pasteX = screenToWorld(canvas.width / 2, canvas.height / 2).x;
+    const pasteY = screenToWorld(canvas.width / 2, canvas.height / 2).y;
+    
+    // Calculate offset
+    const offsetX = pasteX - centerX;
+    const offsetY = pasteY - centerY;
+    
+    // Add grid offset to avoid exact overlap (one grid step)
+    const gridOffset = GRID_PITCH_MM;
+    const finalOffsetX = offsetX + gridOffset;
+    const finalOffsetY = offsetY + gridOffset;
+    
+    // Clear selection and create new elements
+    selection.clear();
+    const pastedElements = [];
+    
+    clipboard.forEach(data => {
+        const el = new Element(data.type, data.x + finalOffsetX, data.y + finalOffsetY, data.width, data.height, data.title);
+        // Generate new ID
+        el.id = Date.now() + Math.random();
+        // Restore properties
+        el.rotation = data.rotation;
+        el.isFlipped = data.isFlipped || false;
+        el.locked = data.locked || false;
+        if (data.imgConfig) el.imgConfig = data.imgConfig;
+        
+        // Restore special properties
+        if (isWaveplateElement(el) && typeof data.axisAngle === 'number') {
+            el.axisAngle = data.axisAngle;
+        }
+        if (el.type === 'aom' && typeof data.aomEnabled === 'boolean') {
+            el.aomEnabled = data.aomEnabled;
+        }
+        if (el.type === 'lens' && data.optics) {
+            el.optics = { focalLength: data.optics.focalLength };
+        }
+        if (el.type === 'laser' && typeof data.polAngle === 'number') {
+            el.polAngle = data.polAngle;
+        }
+        
+        elements.push(el);
+        pastedElements.push(el);
+    });
+    
+    // Select all pasted elements
+    pastedElements.forEach(el => selection.add(el));
+    
+    updateUI();
+    draw();
+}
 function resetView() { view.scale=0.5; view.x=(canvas.width-tableConfig.widthMM*PIXELS_PER_MM*view.scale)/2; view.y=(canvas.height-tableConfig.heightMM*PIXELS_PER_MM*view.scale)/2; draw(); }
 // [V2.7.5.3] Modified startSidebarDrag with Board-Relative Snapping
 function startSidebarDrag(e, type) { 
@@ -2063,6 +2159,8 @@ window.updateBoardInputs = updateBoardInputs;
 window.deleteSelected = deleteSelected;
 window.clearAll = clearAll;
 window.resetView = resetView;
+window.copySelected = copySelected;
+window.pasteElements = pasteElements;
 window.startSidebarDrag = startSidebarDrag;
 window.allowDrop = allowDrop;
 window.handleDrop = handleDrop;
@@ -2345,6 +2443,22 @@ window.addEventListener('keydown', (e) => {
     keys[e.key] = true; 
     if (e.key === 'Shift') shiftPressed = true; 
     if (e.key === 'Control' || e.key === 'Meta') ctrlPressed = true; 
+    
+    // Copy/Paste: Handle Cmd+C (Mac) / Ctrl+C (Windows) and Cmd+V / Ctrl+V
+    const isCopy = (e.key === 'c' || e.key === 'C') && (e.metaKey || e.ctrlKey);
+    const isPaste = (e.key === 'v' || e.key === 'V') && (e.metaKey || e.ctrlKey);
+    
+    if (isCopy && selection.size > 0) {
+        e.preventDefault();
+        copySelected();
+        return;
+    }
+    
+    if (isPaste) {
+        e.preventDefault();
+        pasteElements();
+        return;
+    }
     
     // [V2.5.2] Cycle Alignment Target
     if (e.key === 'q' || e.key === 'Q') {
