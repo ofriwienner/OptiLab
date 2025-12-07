@@ -1988,25 +1988,27 @@ function pasteElements() {
     centerX /= clipboard.length;
     centerY /= clipboard.length;
     
-    // Get current mouse position or center of view for paste location
-    const pasteX = screenToWorld(canvas.width / 2, canvas.height / 2).x;
-    const pasteY = screenToWorld(canvas.width / 2, canvas.height / 2).y;
+    // Get current mouse position or center of view for initial paste location
+    const mouseWorld = lastMousePos.x > 0 && lastMousePos.y > 0 
+        ? screenToWorld(lastMousePos.x, lastMousePos.y)
+        : screenToWorld(canvas.width / 2, canvas.height / 2);
     
-    // Calculate offset
-    const offsetX = pasteX - centerX;
-    const offsetY = pasteY - centerY;
+    const pasteX = mouseWorld.x;
+    const pasteY = mouseWorld.y;
     
-    // Add grid offset to avoid exact overlap (one grid step)
-    const gridOffset = GRID_PITCH_MM;
-    const finalOffsetX = offsetX + gridOffset;
-    const finalOffsetY = offsetY + gridOffset;
-    
-    // Clear selection and create new elements
+    // Clear selection and create new elements at initial position
     selection.clear();
     const pastedElements = [];
+    const relativeOffsets = []; // Store relative positions from center
     
     clipboard.forEach(data => {
-        const el = new Element(data.type, data.x + finalOffsetX, data.y + finalOffsetY, data.width, data.height, data.title);
+        // Calculate relative offset from center of copied group
+        const relX = data.x - centerX;
+        const relY = data.y - centerY;
+        relativeOffsets.push({ x: relX, y: relY });
+        
+        // Create element at initial paste position
+        const el = new Element(data.type, pasteX + relX, pasteY + relY, data.width, data.height, data.title);
         // Generate new ID
         el.id = Date.now() + Math.random();
         // Restore properties
@@ -2035,6 +2037,21 @@ function pasteElements() {
     
     // Select all pasted elements
     pastedElements.forEach(el => selection.add(el));
+    
+    // Enter placement mode: set up dragging so elements follow mouse
+    isDragging = true;
+    dragOffsets.clear();
+    
+    // Set drag offsets so elements maintain their relative positions
+    pastedElements.forEach((el, idx) => {
+        const rel = relativeOffsets[idx];
+        // The offset is the difference between element position and mouse position
+        // Since elements are already positioned relative to paste center, we calculate offset from mouse
+        dragOffsets.set(el, { 
+            dx: el.x - pasteX,  // Offset from mouse position
+            dy: el.y - pasteY 
+        });
+    });
     
     updateUI();
     draw();
