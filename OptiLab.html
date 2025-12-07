@@ -2635,8 +2635,9 @@ document.getElementById('imgUpload').addEventListener('change', (e) => handleIma
     canvas.width=container.clientWidth; canvas.height=container.clientHeight; 
     updateTableSize(); resetView(); 
     const center = screenToWorld(canvas.width/2, canvas.height/2);
-    const nx = Math.round(center.x / GRID_PITCH_MM) * GRID_PITCH_MM;
-    const ny = Math.round(center.y / GRID_PITCH_MM) * GRID_PITCH_MM;
+    // Align with global grid using 12.5mm offset (same as global grid snapping)
+    const nx = Math.round((center.x - HALF_GRID_MM)/GRID_PITCH_MM)*GRID_PITCH_MM + HALF_GRID_MM;
+    const ny = Math.round((center.y - HALF_GRID_MM)/GRID_PITCH_MM)*GRID_PITCH_MM + HALF_GRID_MM;
     const b = new Element('board', nx, ny, 330, 482.6, 'Main Board');
     elements.push(b);
     draw();
