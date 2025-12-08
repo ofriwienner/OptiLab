@@ -442,10 +442,22 @@ function handleMouseMove(e) {
 
 /**
  * Complete fiber connection between source and target
- * @param {Object} targetCoupler - Target fiber coupler
+ * Supports: fiber-coupler ↔ fiber-coupler, amplifier ↔ fiber-coupler
+ * @param {Object} target - Target element (fiber coupler or amplifier)
  */
-function completeFiberConnection(targetCoupler) {
-    if (!fiberConnectSource || !targetCoupler) return;
+function completeFiberConnection(target) {
+    if (!fiberConnectSource || !target) return;
+    
+    // Validate connection: amplifiers can only connect to fiber couplers, not to other amplifiers
+    const sourceIsAmp = fiberConnectSource.type === 'amplifier';
+    const targetIsAmp = target.type === 'amplifier';
+    if (sourceIsAmp && targetIsAmp) {
+        // Can't connect two amplifiers
+        isFiberConnecting = false;
+        fiberConnectSource = null;
+        fiberConnectMousePos = null;
+        return;
+    }
     
     // Unpair existing connections
     if (fiberConnectSource.pairedWith) {
@@ -455,8 +467,8 @@ function completeFiberConnection(targetCoupler) {
             oldPaired.fiberColor = null;
         }
     }
-    if (targetCoupler.pairedWith) {
-        const oldPaired = elements.find(el => el.id === targetCoupler.pairedWith);
+    if (target.pairedWith) {
+        const oldPaired = elements.find(el => el.id === target.pairedWith);
         if (oldPaired) {
             oldPaired.pairedWith = null;
             oldPaired.fiberColor = null;
@@ -464,17 +476,17 @@ function completeFiberConnection(targetCoupler) {
     }
 
     fiberConnectSource.fiberColor = null;
-    targetCoupler.fiberColor = null;
+    target.fiberColor = null;
 
     const fiberColor = getNextFiberColor();
-    fiberConnectSource.pairedWith = targetCoupler.id;
+    fiberConnectSource.pairedWith = target.id;
     fiberConnectSource.fiberColor = fiberColor;
-    targetCoupler.pairedWith = fiberConnectSource.id;
-    targetCoupler.fiberColor = fiberColor;
+    target.pairedWith = fiberConnectSource.id;
+    target.fiberColor = fiberColor;
     
     selection.clear();
     selection.add(fiberConnectSource);
-    selection.add(targetCoupler);
+    selection.add(target);
 
     // Reset fiber connecting state
     isFiberConnecting = false;
@@ -521,9 +533,10 @@ function handleMouseUp() {
 
     draggedChildren.clear();
 
-    // Complete marquee selection
+    // Complete marquee selection (exclude boards)
     if (isSelecting && selectionRect) {
         elements.forEach(el => {
+            if (el.type === 'board') return; // Don't select boards via marquee
             const p = worldToScreen(el.x, el.y);
             if (p.x >= selectionRect.x && p.x <= selectionRect.x + selectionRect.w &&
                 p.y >= selectionRect.y && p.y <= selectionRect.y + selectionRect.h) {

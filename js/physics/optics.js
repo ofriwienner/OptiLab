@@ -159,10 +159,12 @@ function getAomToggleHit(mousePoint) {
 /**
  * Get fiber coupler connector pin hit test
  * The connector pin is the small rectangle with arrow on the side of the fiber coupler
+ * Also checks amplifier output pins
  * @param {Object} mousePoint - Screen coordinates
- * @returns {Object|null} Hit fiber coupler or null
+ * @returns {Object|null} Hit fiber coupler/amplifier or null
  */
 function getFiberConnectorPinHit(mousePoint) {
+    // Check fiber couplers
     const fiberCouplers = elements.filter(el => el.type === 'fiber-coupler').reverse();
     for (let el of fiberCouplers) {
         // Connector pin is at (el.width/2 + 4, 0) in local coords, extends to +10
@@ -182,6 +184,26 @@ function getFiberConnectorPinHit(mousePoint) {
             return el;
         }
     }
+    
+    // Check amplifiers (fiber input pins on the left side)
+    const amplifiers = elements.filter(el => el.type === 'amplifier').reverse();
+    for (let el of amplifiers) {
+        // Input pin is at (-el.width/2 - 7, 0) in local coords
+        const localPos = { x: -el.width / 2 - 7, y: 0 };
+        const rotated = rotatePoint(localPos, el.rotation);
+        const pinWorld = { x: el.x + rotated.x, y: el.y + rotated.y };
+        const pinScreen = worldToScreen(pinWorld.x, pinWorld.y);
+        
+        const sc = view.scale * PIXELS_PER_MM;
+        const hitW = 14 * sc / 2;
+        const hitH = 10 * sc / 2;
+        
+        if (Math.abs(mousePoint.x - pinScreen.x) < hitW && 
+            Math.abs(mousePoint.y - pinScreen.y) < hitH) {
+            return el;
+        }
+    }
+    
     return null;
 }
 

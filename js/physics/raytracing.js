@@ -254,23 +254,43 @@ function traceRay(ray, depth, results) {
             }, depth + 1, results);
 
         } else if (hitObject.type === 'fiber-coupler' && hitSegment.type === 'fiber-input') {
-            // Fiber coupler teleportation
+            // Fiber coupler - check what it's paired with
             if (hitObject.pairedWith) {
-                const pairedCoupler = elements.find(el => el.id === hitObject.pairedWith);
-                if (pairedCoupler) {
-                    const fiberStokes = ray.stokes.map(v => v * 0.9);
-                    const outX = pairedCoupler.x;
-                    const outY = pairedCoupler.y;
-                    const outDir = rotatePoint({ x: 1, y: 0 }, pairedCoupler.rotation);
-                    traceRay({
-                        x: outX + outDir.x * (pairedCoupler.width / 2 + 0.1),
-                        y: outY + outDir.y * (pairedCoupler.width / 2 + 0.1),
-                        dx: outDir.x,
-                        dy: outDir.y,
-                        intensity: fiberStokes[0],
-                        stokes: fiberStokes,
-                        color: ray.color
-                    }, depth + 1, results);
+                const pairedElement = elements.find(el => el.id === hitObject.pairedWith);
+                if (pairedElement) {
+                    if (pairedElement.type === 'amplifier') {
+                        // Paired with amplifier: amplify and output direct beam from amplifier
+                        const gain = pairedElement.gain || 2.0;
+                        const ampStokes = ray.stokes.map(v => v * gain * 0.9); // gain + fiber loss
+                        const outX = pairedElement.x;
+                        const outY = pairedElement.y;
+                        // Output from amplifier's right side (direct beam output)
+                        const outDir = rotatePoint({ x: 1, y: 0 }, pairedElement.rotation);
+                        traceRay({
+                            x: outX + outDir.x * (pairedElement.width / 2 + 0.1),
+                            y: outY + outDir.y * (pairedElement.width / 2 + 0.1),
+                            dx: outDir.x,
+                            dy: outDir.y,
+                            intensity: ampStokes[0],
+                            stokes: ampStokes,
+                            color: ray.color
+                        }, depth + 1, results);
+                    } else {
+                        // Paired with another fiber coupler: teleport to it
+                        const fiberStokes = ray.stokes.map(v => v * 0.9);
+                        const outX = pairedElement.x;
+                        const outY = pairedElement.y;
+                        const outDir = rotatePoint({ x: 1, y: 0 }, pairedElement.rotation);
+                        traceRay({
+                            x: outX + outDir.x * (pairedElement.width / 2 + 0.1),
+                            y: outY + outDir.y * (pairedElement.width / 2 + 0.1),
+                            dx: outDir.x,
+                            dy: outDir.y,
+                            intensity: fiberStokes[0],
+                            stokes: fiberStokes,
+                            color: ray.color
+                        }, depth + 1, results);
+                    }
                 }
             }
 

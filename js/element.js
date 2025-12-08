@@ -88,6 +88,13 @@ class Element {
                 this.pairedWith = null;
                 this.fiberColor = null;
                 break;
+            case 'amplifier':
+                this.width = 50;
+                this.height = 30;
+                this.pairedWith = null;  // ID of connected fiber coupler
+                this.fiberColor = null;  // Color when connected
+                this.gain = 2.0;         // Amplification factor
+                break;
         }
     }
 
@@ -252,6 +259,10 @@ class Element {
                 type: 'fiber-input',
                 normal
             });
+        } else if (this.type === 'amplifier') {
+            // Amplifier has fiber input (left) and direct laser output (right)
+            // No ray interaction segments needed - light comes in via fiber connection
+            // and outputs as a new ray from the output face
         } else {
             let intType = 'blocker';
             if (this.type === 'glass') intType = 'refractor';

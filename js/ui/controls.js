@@ -580,6 +580,17 @@ function updateBoardInputs() {
  */
 function deleteSelected() {
     if (selection.size > 0) {
+        // Before deleting, disconnect any paired fiber connections
+        selection.forEach(el => {
+            if ((el.type === 'fiber-coupler' || el.type === 'amplifier') && el.pairedWith) {
+                const paired = elements.find(p => p.id === el.pairedWith);
+                if (paired) {
+                    paired.pairedWith = null;
+                    paired.fiberColor = null;
+                }
+            }
+        });
+        
         elements = elements.filter(e => !selection.has(e));
         selection.clear();
         draw();

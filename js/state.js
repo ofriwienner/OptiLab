@@ -39,6 +39,13 @@ function rehydrateElement(data) {
         if (data.fiberColor) el.fiberColor = data.fiberColor;
     }
 
+    // Amplifier pairing, color, and gain
+    if (el.type === 'amplifier') {
+        if (data.pairedWith) el.pairedWith = data.pairedWith;
+        if (data.fiberColor) el.fiberColor = data.fiberColor;
+        if (typeof data.gain === 'number') el.gain = data.gain;
+    }
+
     // Laser polarization
     if (el.type === 'laser' && typeof data.polAngle === 'number') {
         el.polAngle = data.polAngle;

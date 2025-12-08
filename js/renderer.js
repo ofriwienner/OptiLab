@@ -121,6 +121,8 @@ function drawElement(el) {
         drawGlass(el);
     } else if (el.type === 'fiber-coupler') {
         drawFiberCoupler(el);
+    } else if (el.type === 'amplifier') {
+        drawAmplifier(el);
     } else if (el.type === 'hwp' || el.type === 'qwp') {
         drawWaveplate(el, isSelected);
     }
@@ -425,6 +427,82 @@ function drawFiberCoupler(el) {
         ctx.stroke();
         ctx.setLineDash([]);
     }
+}
+
+/**
+ * Draw amplifier element
+ * Fiber input on left, direct laser output on right
+ */
+function drawAmplifier(el) {
+    // Use gray for unconnected amplifier, otherwise use the assigned fiber color
+    const fiberColor = el.pairedWith ? (el.fiberColor || '#ffa500') : '#6b7280';
+    const hexToRgba = (hex, alpha) => {
+        const r = parseInt(hex.slice(1, 3), 16);
+        const g = parseInt(hex.slice(3, 5), 16);
+        const b = parseInt(hex.slice(5, 7), 16);
+        return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    };
+    
+    // Main body - dark rectangle
+    ctx.fillStyle = '#1a1a2e';
+    ctx.strokeStyle = '#4a4a6a';
+    ctx.lineWidth = 2;
+    ctx.fillRect(-el.width / 2, -el.height / 2, el.width, el.height);
+    ctx.strokeRect(-el.width / 2, -el.height / 2, el.width, el.height);
+    
+    // Fiber input connector on left
+    ctx.fillStyle = hexToRgba(fiberColor, 0.3);
+    ctx.strokeStyle = fiberColor;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(-el.width / 2, 0, 6, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    
+    // Input pin (pointing left)
+    ctx.fillStyle = fiberColor;
+    ctx.fillRect(-el.width / 2 - 10, -3, 6, 6);
+    
+    // Input arrow (pointing into amplifier)
+    ctx.beginPath();
+    ctx.moveTo(-el.width / 2 - 11, -4);
+    ctx.lineTo(-el.width / 2 - 16, 0);
+    ctx.lineTo(-el.width / 2 - 11, 4);
+    ctx.strokeStyle = fiberColor;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    
+    // Connection indicator ring when paired
+    if (el.pairedWith) {
+        ctx.strokeStyle = fiberColor;
+        ctx.lineWidth = 2;
+        ctx.setLineDash([3, 2]);
+        ctx.beginPath();
+        ctx.arc(-el.width / 2, 0, 10, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.setLineDash([]);
+    }
+    
+    // Gain medium indicator (glowing center)
+    const gradient = ctx.createLinearGradient(-el.width / 4, 0, el.width / 4, 0);
+    gradient.addColorStop(0, 'rgba(239, 68, 68, 0.1)');
+    gradient.addColorStop(0.5, 'rgba(239, 68, 68, 0.4)');
+    gradient.addColorStop(1, 'rgba(239, 68, 68, 0.1)');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(-el.width / 4, -el.height / 3, el.width / 2, el.height * 2 / 3);
+    
+    // "AMP" label
+    ctx.fillStyle = '#9ca3af';
+    ctx.font = '8px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('AMP', 0, 3);
+    
+    // Direct laser output on right (red aperture)
+    ctx.fillStyle = 'rgba(239, 68, 68, 0.4)';
+    ctx.fillRect(el.width / 2 - 4, -el.height / 4, 4, el.height / 2);
+    ctx.strokeStyle = '#ef4444';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(el.width / 2 - 4, -el.height / 4, 4, el.height / 2);
 }
 
 /**
@@ -802,10 +880,13 @@ function drawHints() {
  * Draw fiber cables between paired couplers
  */
 function drawFiberCables() {
-    const fiberCouplers = elements.filter(el => el.type === 'fiber-coupler' && el.pairedWith);
+    // Include both fiber couplers and amplifiers with fiber connections
+    const fiberElements = elements.filter(el => 
+        (el.type === 'fiber-coupler' || el.type === 'amplifier') && el.pairedWith
+    );
     const drawnPairs = new Set();
 
-    fiberCouplers.forEach(coupler => {
+    fiberElements.forEach(coupler => {
         if (!coupler.pairedWith) return;
         const pairKey = [coupler.id, coupler.pairedWith].sort().join('-');
         if (drawnPairs.has(pairKey)) return;
@@ -875,16 +956,10 @@ function drawFiberConnectingLine() {
         return;
     }
 
-    // Highlight all other fiber coupler pins
-    const otherCouplers = elements.filter(el => el.type === 'fiber-coupler' && el !== fiberConnectSource);
-    otherCouplers.forEach(fc => {
-        // Get pin position in world coords
-        const localPos = { x: fc.width / 2 + 4, y: 0 };
-        const rotated = rotatePoint(localPos, fc.rotation);
-        const pinWorld = { x: fc.x + rotated.x, y: fc.y + rotated.y };
-        const pinScreen = worldToScreen(pinWorld.x, pinWorld.y);
-        
-        // Draw pulsing highlight circle around pin
+    const sourceIsAmplifier = fiberConnectSource.type === 'amplifier';
+    
+    // Helper to draw pin highlight
+    const drawPinHighlight = (pinScreen) => {
         ctx.save();
         const pulseScale = 1 + 0.15 * Math.sin(Date.now() / 150);
         const radius = 12 * view.scale * PIXELS_PER_MM * pulseScale;
@@ -902,7 +977,30 @@ function drawFiberConnectingLine() {
         ctx.lineWidth = 2;
         ctx.stroke();
         ctx.restore();
+    };
+
+    // Highlight fiber coupler pins (always available)
+    const otherCouplers = elements.filter(el => el.type === 'fiber-coupler' && el !== fiberConnectSource);
+    otherCouplers.forEach(fc => {
+        const localPos = { x: fc.width / 2 + 4, y: 0 };
+        const rotated = rotatePoint(localPos, fc.rotation);
+        const pinWorld = { x: fc.x + rotated.x, y: fc.y + rotated.y };
+        const pinScreen = worldToScreen(pinWorld.x, pinWorld.y);
+        drawPinHighlight(pinScreen);
     });
+    
+    // Highlight amplifier input pins (only if source is a fiber coupler, not another amplifier)
+    if (!sourceIsAmplifier) {
+        const amplifiers = elements.filter(el => el.type === 'amplifier' && el !== fiberConnectSource);
+        amplifiers.forEach(amp => {
+            // Input pin is on the left side
+            const localPos = { x: -amp.width / 2 - 7, y: 0 };
+            const rotated = rotatePoint(localPos, amp.rotation);
+            const pinWorld = { x: amp.x + rotated.x, y: amp.y + rotated.y };
+            const pinScreen = worldToScreen(pinWorld.x, pinWorld.y);
+            drawPinHighlight(pinScreen);
+        });
+    }
 
     // Draw connecting line if mouse position is available
     if (fiberConnectMousePos) {
