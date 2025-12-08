@@ -37,8 +37,6 @@
         .icon-aom { width: 18px; height: 12px; background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.5); position: relative; }
         .icon-aom::after { content:''; position: absolute; bottom: -2px; left: 2px; width: 14px; height: 2px; background: #b91c1c; }
         .icon-lens { width: 6px; height: 18px; background: rgba(147, 197, 253, 0.3); border: 1px solid rgba(147, 197, 253, 0.8); border-radius: 50%; }
-        .icon-fiber-coupler { width: 14px; height: 14px; background: rgba(255, 165, 0, 0.3); border: 2px solid #ffa500; border-radius: 50%; position: relative; }
-        .icon-fiber-coupler::after { content:''; position: absolute; right: -4px; top: 5px; width: 6px; height: 2px; background: #ffa500; }
         
         .calibration-modal {
             position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
@@ -131,9 +129,6 @@
                 </div>
                  <div onmousedown="startSidebarDrag(event, 'glass')" class="tool-item flex flex-col items-center gap-3 px-3 py-2 bg-gray-700 rounded border border-gray-600 text-sm">
                     <div class="icon-container"><div class="icon-glass"></div></div> <span>Glass</span>
-                </div>
-                <div onmousedown="startSidebarDrag(event, 'fiber-coupler')" class="tool-item flex flex-col items-center p-1 bg-gray-700 rounded border border-gray-600 text-[10px]">
-                    <div class="icon-container"><div class="icon-fiber-coupler"></div></div> <span>Fiber</span>
                 </div>
             </div>
 
@@ -238,37 +233,6 @@ let invalidBoardPlacement = false;
 let originalBoardState = null; 
 const keys = {};
 let clipboard = null; // Store copied elements for paste 
-// --- Fiber Coupler Connection State ---
-let isFiberConnecting = false;
-let fiberConnectSource = null;
-let fiberConnectMousePos = null;
-// Fiber color palette for different fiber pairs
-const FIBER_COLORS = [
-    '#ffa500', // Orange
-    '#22d3ee', // Cyan
-    '#a855f7', // Purple
-    '#22c55e', // Green
-    '#f43f5e', // Rose
-    '#eab308', // Yellow
-    '#3b82f6', // Blue
-    '#ec4899', // Pink
-    '#14b8a6', // Teal
-    '#f97316', // Orange-red
-];
-
-function getNextFiberColor() {
-    // Find colors already in use by paired fiber couplers
-    const usedColors = new Set();
-    elements.filter(el => el.type === 'fiber-coupler' && el.fiberColor).forEach(el => {
-        usedColors.add(el.fiberColor);
-    });
-    // Return first unused color, or cycle back
-    for (const color of FIBER_COLORS) {
-        if (!usedColors.has(color)) return color;
-    }
-    // All colors used, return first one
-    return FIBER_COLORS[0];
-}
 // --- Global Variables ---
 let alignPreference = 0;     // Toggles alignment options
 let hasCycleOptions = false; // [V2.5.3] Tracks if 'Q' key will do anything
@@ -547,11 +511,6 @@ class Element {
                 this.width = 5; this.height = 30;
                 this.axisAngle = clampWaveplateAngle(toRad(45));
                 break;
-            case 'fiber-coupler':
-                this.width = 25; this.height = 25;
-                this.pairedWith = null; // ID of paired fiber coupler
-                this.fiberColor = null; // Color assigned when paired
-                break;
         }
     }
     getHandlePosition() {
@@ -617,17 +576,6 @@ class Element {
                 p1: { x: cx + start.x, y: cy + start.y },
                 p2: { x: cx + end.x, y: cy + end.y },
                 type: 'lens',
-                normal
-            });
-        } else if (this.type === 'fiber-coupler') {
-            // Fiber coupler input face - a line segment across the face
-            const start = rotatePoint({ x: 0, y: -this.height/2 }, this.rotation);
-            const end = rotatePoint({ x: 0, y: this.height/2 }, this.rotation);
-            const normal = normalize(rotatePoint({ x: 1, y: 0 }, this.rotation));
-            segments.push({
-                p1: { x: cx + start.x, y: cy + start.y },
-                p2: { x: cx + end.x, y: cy + end.y },
-                type: 'fiber-input',
                 normal
             });
         } else {
@@ -913,30 +861,6 @@ function traceRay(ray, depth, results) {
              const outDir = computeLensRefraction(ray, hitObject, closestHit);
              const modStokes = ray.stokes.map(v => v * 0.98);  // Small intensity loss
              traceRay({ x: closestHit.x + outDir.x * 0.1, y: closestHit.y + outDir.y * 0.1, dx: outDir.x, dy: outDir.y, intensity: modStokes[0], stokes: modStokes, color: ray.color }, depth + 1, results);
-        } else if (hitObject.type === 'fiber-coupler' && hitSegment.type === 'fiber-input') {
-             // Fiber coupler: teleport beam to paired coupler
-             if (hitObject.pairedWith) {
-                 const pairedCoupler = elements.find(el => el.id === hitObject.pairedWith);
-                 if (pairedCoupler) {
-                     // Apply intensity loss through fiber (~10%)
-                     const fiberStokes = ray.stokes.map(v => v * 0.9);
-                     // Emit from paired coupler's position in the OUTPUT COUPLER'S direction
-                     const outX = pairedCoupler.x;
-                     const outY = pairedCoupler.y;
-                     // Output direction follows the paired coupler's rotation (fiber port direction)
-                     const outDir = rotatePoint({ x: 1, y: 0 }, pairedCoupler.rotation);
-                     traceRay({ 
-                         x: outX + outDir.x * (pairedCoupler.width/2 + 0.1), 
-                         y: outY + outDir.y * (pairedCoupler.width/2 + 0.1), 
-                         dx: outDir.x, 
-                         dy: outDir.y, 
-                         intensity: fiberStokes[0], 
-                         stokes: fiberStokes, 
-                         color: ray.color 
-                     }, depth + 1, results);
-                 }
-             }
-             // If not paired, beam is absorbed (no continuation)
         } else if (hitObject.type === 'glass') {
              const modStokes = ray.stokes.map(v => v * 0.95);
              traceRay({ x: closestHit.x + inc.x*0.1, y: closestHit.y + inc.y*0.1, dx: inc.x, dy: inc.y, intensity: modStokes[0], stokes: modStokes, color: ray.color }, depth + 1, results);
@@ -1152,53 +1076,6 @@ function drawElement(el) {
     else if (el.type === 'blocker') { ctx.fillStyle = '#111'; ctx.strokeStyle = '#555'; ctx.lineWidth = 1; ctx.fillRect(-el.width/2, -el.height/2, el.width, el.height); ctx.strokeRect(-el.width/2, -el.height/2, el.width, el.height); ctx.strokeStyle = '#333'; ctx.beginPath(); ctx.arc(0,0, 5, 0, Math.PI*2); ctx.stroke(); }
     else if (el.type === 'detector') { ctx.fillStyle = '#222'; ctx.strokeStyle = '#fca5a5'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(0, 0, el.width/2, 0, Math.PI*2); ctx.fill(); ctx.stroke(); ctx.fillStyle = '#fee2e2'; ctx.beginPath(); ctx.arc(0,0, 5, 0, Math.PI*2); ctx.fill(); }
     else if (el.type === 'glass') { ctx.fillStyle = 'rgba(100, 200, 255, 0.3)'; ctx.strokeStyle = 'rgba(100, 200, 255, 0.6)'; ctx.lineWidth = 0.5; ctx.fillRect(-el.width/2, -el.height/2, el.width, el.height); ctx.strokeRect(-el.width/2, -el.height/2, el.width, el.height); }
-    else if (el.type === 'fiber-coupler') {
-        // Get fiber color (use assigned color or default orange)
-        const fiberColor = el.fiberColor || '#ffa500';
-        // Convert hex to rgba for fill with alpha
-        const hexToRgba = (hex, alpha) => {
-            const r = parseInt(hex.slice(1, 3), 16);
-            const g = parseInt(hex.slice(3, 5), 16);
-            const b = parseInt(hex.slice(5, 7), 16);
-            return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-        };
-        const fillColor = hexToRgba(fiberColor, 0.3);
-        
-        // Draw circular fiber coupler body
-        ctx.fillStyle = fillColor;
-        ctx.strokeStyle = fiberColor;
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.arc(0, 0, el.width/2, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.stroke();
-        // Draw fiber port indicator (output direction)
-        ctx.fillStyle = fiberColor;
-        ctx.fillRect(el.width/2 - 2, -3, 6, 6);
-        // Draw direction arrow
-        ctx.beginPath();
-        ctx.moveTo(el.width/2 + 5, -4);
-        ctx.lineTo(el.width/2 + 10, 0);
-        ctx.lineTo(el.width/2 + 5, 4);
-        ctx.strokeStyle = fiberColor;
-        ctx.lineWidth = 1.5;
-        ctx.stroke();
-        // Draw inner circle (core)
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
-        ctx.beginPath();
-        ctx.arc(0, 0, el.width/4, 0, Math.PI * 2);
-        ctx.fill();
-        // Show pairing status with colored ring
-        if (el.pairedWith) {
-            ctx.strokeStyle = fiberColor;
-            ctx.lineWidth = 2;
-            ctx.setLineDash([4, 2]);
-            ctx.beginPath();
-            ctx.arc(0, 0, el.width/2 + 4, 0, Math.PI * 2);
-            ctx.stroke();
-            ctx.setLineDash([]);
-        }
-    }
     else if (el.type === 'hwp' || el.type === 'qwp') { 
         const color = el.type === 'hwp' ? 'rgba(74, 222, 128, 0.4)' : 'rgba(251, 146, 60, 0.4)'; 
         const border = el.type === 'hwp' ? '#4ade80' : '#fb923c'; 
@@ -1528,103 +1405,8 @@ function drawHints() {
     ctx.restore();
 }
 
-function drawFiberCables() {
-    // Draw curved fiber cables between paired couplers
-    const fiberCouplers = elements.filter(el => el.type === 'fiber-coupler' && el.pairedWith);
-    const drawnPairs = new Set();
-    
-    fiberCouplers.forEach(coupler => {
-        if (!coupler.pairedWith) return;
-        // Avoid drawing same cable twice
-        const pairKey = [coupler.id, coupler.pairedWith].sort().join('-');
-        if (drawnPairs.has(pairKey)) return;
-        drawnPairs.add(pairKey);
-        
-        const paired = elements.find(el => el.id === coupler.pairedWith);
-        if (!paired) return;
-        
-        // Get fiber color (use coupler's color or default orange)
-        const fiberColor = coupler.fiberColor || '#ffa500';
-        
-        // Get screen positions
-        const p1 = worldToScreen(coupler.x, coupler.y);
-        const p2 = worldToScreen(paired.x, paired.y);
-        
-        // Calculate control point for curved cable (perpendicular offset)
-        const midX = (p1.x + p2.x) / 2;
-        const midY = (p1.y + p2.y) / 2;
-        const dx = p2.x - p1.x;
-        const dy = p2.y - p1.y;
-        const dist = Math.sqrt(dx*dx + dy*dy);
-        // Curve offset proportional to distance
-        const curveOffset = Math.min(dist * 0.3, 100);
-        // Perpendicular direction
-        const perpX = -dy / dist;
-        const perpY = dx / dist;
-        const cpX = midX + perpX * curveOffset;
-        const cpY = midY + perpY * curveOffset;
-        
-        // Draw cable outer glow
-        ctx.save();
-        ctx.strokeStyle = fiberColor;
-        ctx.lineWidth = 4 * view.scale;
-        ctx.setLineDash([8 * view.scale, 4 * view.scale]);
-        ctx.lineCap = 'round';
-        ctx.globalAlpha = 0.4;
-        ctx.beginPath();
-        ctx.moveTo(p1.x, p1.y);
-        ctx.quadraticCurveTo(cpX, cpY, p2.x, p2.y);
-        ctx.stroke();
-        
-        // Draw main cable
-        ctx.globalAlpha = 1;
-        ctx.strokeStyle = fiberColor;
-        ctx.lineWidth = 2.5 * view.scale;
-        ctx.beginPath();
-        ctx.moveTo(p1.x, p1.y);
-        ctx.quadraticCurveTo(cpX, cpY, p2.x, p2.y);
-        ctx.stroke();
-        
-        // Draw inner cable highlight
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
-        ctx.lineWidth = 1 * view.scale;
-        ctx.beginPath();
-        ctx.moveTo(p1.x, p1.y);
-        ctx.quadraticCurveTo(cpX, cpY, p2.x, p2.y);
-        ctx.stroke();
-        ctx.setLineDash([]);
-        ctx.restore();
-    });
-}
-
-function drawFiberConnectingLine() {
-    // Draw line from source coupler to mouse during fiber connection
-    if (!isFiberConnecting || !fiberConnectSource || !fiberConnectMousePos) return;
-    
-    const p1 = worldToScreen(fiberConnectSource.x, fiberConnectSource.y);
-    const p2 = fiberConnectMousePos;
-    
-    ctx.save();
-    ctx.strokeStyle = '#ffa500';
-    ctx.lineWidth = 2;
-    ctx.setLineDash([6, 4]);
-    ctx.lineCap = 'round';
-    ctx.beginPath();
-    ctx.moveTo(p1.x, p1.y);
-    ctx.lineTo(p2.x, p2.y);
-    ctx.stroke();
-    ctx.setLineDash([]);
-    
-    // Draw hint at mouse position
-    ctx.fillStyle = 'rgba(255, 165, 0, 0.8)';
-    ctx.font = '12px sans-serif';
-    ctx.fillText('Drop on another Fiber Coupler', p2.x + 15, p2.y - 10);
-    ctx.restore();
-}
-
 function draw() {
     drawGrid();
-    drawFiberCables(); // Draw cables below elements
     elements.forEach(el => { if (el.type === 'board') drawElement(el); });
     elements.forEach(el => { if (el.type !== 'board' && !selection.has(el)) drawElement(el); });
     elements.forEach(el => { if (el.type !== 'board' && selection.has(el)) drawElement(el); });
@@ -1632,7 +1414,6 @@ function draw() {
     drawRays(rays);
     drawLensFocusDots();
     drawMarquee();
-    drawFiberConnectingLine(); // Draw fiber connecting line on top
     drawHints(); // [V2.5.3] Draw UI Hints on top
 }
 
@@ -1894,73 +1675,6 @@ function updateUI() {
             lensBox.appendChild(hint);
 
             btnContainer.appendChild(lensBox);
-        }
-
-        // Fiber Coupler Controls
-        if (p.type === 'fiber-coupler') {
-            const fiberBox = document.createElement('div');
-            fiberBox.className = "mt-2 border-t border-gray-600 pt-2 space-y-2";
-            const title = document.createElement('div');
-            title.className = "text-[10px] uppercase text-gray-400";
-            title.innerText = "Fiber Coupler";
-            fiberBox.appendChild(title);
-
-            // Pairing status with color indicator
-            const statusRow = document.createElement('div');
-            statusRow.className = "flex items-center justify-between text-[10px] text-gray-300";
-            const statusLabel = document.createElement('span');
-            statusLabel.innerText = "Status";
-            const statusWrapper = document.createElement('div');
-            statusWrapper.className = "flex items-center gap-2";
-            if (p.pairedWith && p.fiberColor) {
-                const colorDot = document.createElement('span');
-                colorDot.style.width = '10px';
-                colorDot.style.height = '10px';
-                colorDot.style.borderRadius = '50%';
-                colorDot.style.backgroundColor = p.fiberColor;
-                colorDot.style.display = 'inline-block';
-                statusWrapper.appendChild(colorDot);
-            }
-            const statusValue = document.createElement('span');
-            statusValue.className = "font-mono";
-            if (p.pairedWith) {
-                const paired = elements.find(el => el.id === p.pairedWith);
-                statusValue.innerText = paired ? (paired.title || 'Paired') : 'Paired';
-                statusValue.style.color = p.fiberColor || '#4ade80';
-            } else {
-                statusValue.innerText = 'Not paired';
-                statusValue.style.color = '#fca5a5';
-            }
-            statusWrapper.appendChild(statusValue);
-            statusRow.appendChild(statusLabel);
-            statusRow.appendChild(statusWrapper);
-            fiberBox.appendChild(statusRow);
-
-            // Connect/Disconnect button
-            if (p.pairedWith) {
-                const disconnectBtn = document.createElement('button');
-                disconnectBtn.className = "w-full py-1 bg-red-900/50 border border-red-600 rounded text-[10px] text-red-100 hover:bg-red-900 cursor-pointer";
-                disconnectBtn.innerText = "Disconnect";
-                disconnectBtn.onclick = () => {
-                    const paired = elements.find(el => el.id === p.pairedWith);
-                    if (paired) {
-                        paired.pairedWith = null;
-                        paired.fiberColor = null;
-                    }
-                    p.pairedWith = null;
-                    p.fiberColor = null;
-                    draw();
-                    updateUI();
-                };
-                fiberBox.appendChild(disconnectBtn);
-            } else {
-                const connectHint = document.createElement('p');
-                connectHint.className = "text-[9px] text-gray-500";
-                connectHint.innerText = "Ctrl+Click or Right-Click to connect to another fiber coupler";
-                fiberBox.appendChild(connectHint);
-            }
-
-            btnContainer.appendChild(fiberBox);
         }
 
         // Board Controls
@@ -2402,11 +2116,6 @@ function rehydrateElement(data) {
     if (el.type === 'aom' && typeof data.aomEnabled === 'boolean') {
         el.aomEnabled = data.aomEnabled;
     }
-    // Fiber coupler pairing and color
-    if (el.type === 'fiber-coupler') {
-        if (data.pairedWith) el.pairedWith = data.pairedWith;
-        if (data.fiberColor) el.fiberColor = data.fiberColor;
-    }
     if (data.imgConfig) { el.imgConfig = data.imgConfig; } 
     return el; 
 }
@@ -2517,27 +2226,6 @@ canvas.addEventListener('mousedown', (e) => {
         updateUI();
         draw();
         return;
-    }
-    
-    // Fiber coupler connection - Ctrl+click or right-click on fiber coupler
-    if (ctrlPressed || e.button === 2) {
-        const fiberCouplers = elements.filter(el => el.type === 'fiber-coupler').reverse();
-        for (let fc of fiberCouplers) {
-            const dx = fc.x - w.x; const dy = fc.y - w.y;
-            const r = fc.width / 1.5;
-            if (dx*dx + dy*dy < r*r) {
-                // Start fiber connecting
-                isFiberConnecting = true;
-                fiberConnectSource = fc;
-                fiberConnectMousePos = m;
-                selection.clear();
-                selection.add(fc);
-                updateUI();
-                draw();
-                e.preventDefault();
-                return;
-            }
-        }
     }
     
     const primary = Array.from(selection).pop();
@@ -2653,14 +2341,6 @@ canvas.addEventListener('mousemove', (e) => {
     lastMousePos = m; const w = screenToWorld(m.x, m.y);
     mouseCoordsDisplay.innerText = `X: ${Math.round(w.x)}mm Y: ${Math.round(w.y)}mm`;
     if (calibrationState > 0) return; 
-    
-    // Fiber connecting - update mouse position for visual feedback
-    if (isFiberConnecting && fiberConnectSource) {
-        fiberConnectMousePos = m;
-        draw();
-        return;
-    }
-    
     if (view.isPanning) { view.x = m.x - view.startPanX; view.y = m.y - view.startPanY; draw(); return; }
     if (isAdjustingAxis && axisAdjustTarget) {
         const changed = updateWaveplateAxisFromPoint(axisAdjustTarget, w);
@@ -2744,59 +2424,6 @@ canvas.addEventListener('mousemove', (e) => {
 });
 
 window.addEventListener('mouseup', () => {
-    // Complete fiber connection if in connecting mode
-    if (isFiberConnecting && fiberConnectSource && fiberConnectMousePos) {
-        const w = screenToWorld(fiberConnectMousePos.x, fiberConnectMousePos.y);
-        // Find fiber coupler under mouse (excluding source)
-        const fiberCouplers = elements.filter(el => el.type === 'fiber-coupler' && el !== fiberConnectSource).reverse();
-        let targetCoupler = null;
-        for (let fc of fiberCouplers) {
-            const dx = fc.x - w.x; const dy = fc.y - w.y;
-            const r = fc.width / 1.5;
-            if (dx*dx + dy*dy < r*r) {
-                targetCoupler = fc;
-                break;
-            }
-        }
-        
-        if (targetCoupler) {
-            // Unpair both couplers from any existing pairings first
-            if (fiberConnectSource.pairedWith) {
-                const oldPaired = elements.find(el => el.id === fiberConnectSource.pairedWith);
-                if (oldPaired) {
-                    oldPaired.pairedWith = null;
-                    oldPaired.fiberColor = null;
-                }
-            }
-            if (targetCoupler.pairedWith) {
-                const oldPaired = elements.find(el => el.id === targetCoupler.pairedWith);
-                if (oldPaired) {
-                    oldPaired.pairedWith = null;
-                    oldPaired.fiberColor = null;
-                }
-            }
-            // Clear old colors
-            fiberConnectSource.fiberColor = null;
-            targetCoupler.fiberColor = null;
-            // Create new pairing (bidirectional) with assigned color
-            const fiberColor = getNextFiberColor();
-            fiberConnectSource.pairedWith = targetCoupler.id;
-            fiberConnectSource.fiberColor = fiberColor;
-            targetCoupler.pairedWith = fiberConnectSource.id;
-            targetCoupler.fiberColor = fiberColor;
-            selection.clear();
-            selection.add(fiberConnectSource);
-        }
-        
-        // Reset fiber connecting state
-        isFiberConnecting = false;
-        fiberConnectSource = null;
-        fiberConnectMousePos = null;
-        updateUI();
-        draw();
-        return;
-    }
-    
     if ((isResizing || isDragging) && invalidBoardPlacement) {
         const p = Array.from(selection).pop();
         if (p && originalBoardState) {
@@ -2823,16 +2450,12 @@ window.addEventListener('mouseup', () => {
     isResizing = false; 
     isAdjustingAxis = false;
     axisAdjustTarget = null;
-    isFiberConnecting = false;
-    fiberConnectSource = null;
-    fiberConnectMousePos = null;
     view.isPanning = false; 
     canvas.style.cursor = 'crosshair'; 
     updateUI(); 
     draw();
 });
 canvas.addEventListener('wheel', (e) => { e.preventDefault(); const zoom = 0.1; const m = getMousePos(e); const wB = screenToWorld(m.x, m.y); view.scale *= (e.deltaY < 0) ? (1+zoom) : (1-zoom); view.scale = Math.max(0.1, Math.min(view.scale, 5)); const wA = screenToWorld(m.x, m.y); view.x += (wA.x - wB.x)*PIXELS_PER_MM*view.scale; view.y += (wA.y - wB.y)*PIXELS_PER_MM*view.scale; debugInfo.innerText = `Scale: ${Math.round(view.scale*100)}%`; draw(); });
-canvas.addEventListener('contextmenu', (e) => { e.preventDefault(); }); // Prevent context menu for fiber connecting
 window.addEventListener('keydown', (e) => { 
     keys[e.key] = true; 
     if (e.key === 'Shift') shiftPressed = true; 
@@ -3012,9 +2635,8 @@ document.getElementById('imgUpload').addEventListener('change', (e) => handleIma
     canvas.width=container.clientWidth; canvas.height=container.clientHeight; 
     updateTableSize(); resetView(); 
     const center = screenToWorld(canvas.width/2, canvas.height/2);
-    // Align with global grid using 12.5mm offset (same as global grid snapping)
-    const nx = Math.round((center.x - HALF_GRID_MM)/GRID_PITCH_MM)*GRID_PITCH_MM + HALF_GRID_MM;
-    const ny = Math.round((center.y - HALF_GRID_MM)/GRID_PITCH_MM)*GRID_PITCH_MM + HALF_GRID_MM;
+    const nx = Math.round(center.x / GRID_PITCH_MM) * GRID_PITCH_MM;
+    const ny = Math.round(center.y / GRID_PITCH_MM) * GRID_PITCH_MM;
     const b = new Element('board', nx, ny, 330, 482.6, 'Main Board');
     elements.push(b);
     draw();
