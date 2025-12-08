@@ -1094,8 +1094,7 @@ function drawElement(el) {
     else if (el.type === 'mirror') { 
         // Dark gray background for non-reflecting part
         ctx.fillStyle = '#2a2a2a'; 
-        // [V2.7.5.2] Center body vertically: -el.height/2 instead of 0
-        ctx.fillRect(-el.width/2, -el.height/2, el.width, el.height); 
+        ctx.fillRect(-el.width/2, 0, el.width, el.height); 
         ctx.fillStyle = 'cyan'; 
         ctx.fillRect(-el.width/2, -0.5, el.width, 1); 
     }
@@ -1103,8 +1102,7 @@ function drawElement(el) {
         const w = el.width/2; 
         // Dark gray background for non-reflecting part
         ctx.fillStyle = '#2a2a2a'; 
-        // [V2.7.5.2] Center body vertically: -el.height/2 instead of 0
-        ctx.fillRect(-w, -el.height/2, el.width, el.height); 
+        ctx.fillRect(-w, 0, el.width, el.height); 
         if (!el.isFlipped) { ctx.fillStyle = 'cyan'; ctx.fillRect(0, -0.5, w, 1); ctx.fillStyle = '#2a2a2a'; ctx.fillRect(-w, -0.5, w, 1); } 
         else { ctx.fillStyle = 'cyan'; ctx.fillRect(-w, -0.5, w, 1); ctx.fillStyle = '#2a2a2a'; ctx.fillRect(0, -0.5, w, 1); } 
     }
