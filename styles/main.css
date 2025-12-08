@@ -1,0 +1,279 @@
+/**
+ * OptiLab - Optical Table Simulator
+ * Main Stylesheet
+ */
+
+body { 
+    overflow: hidden; 
+    touch-action: none; 
+    user-select: none; 
+}
+
+canvas { 
+    cursor: crosshair; 
+}
+
+/* Scrollbar Styling */
+::-webkit-scrollbar { 
+    width: 4px; 
+}
+
+::-webkit-scrollbar-track { 
+    background: #1f2937; 
+}
+
+::-webkit-scrollbar-thumb { 
+    background: #4b5563; 
+    border-radius: 2px; 
+}
+
+/* Component Tool Items */
+.tool-item { 
+    cursor: grab; 
+    transition: all 0.2s; 
+}
+
+.tool-item:hover { 
+    background-color: #374151; 
+    border-color: #4b5563; 
+}
+
+.tool-item:active { 
+    cursor: grabbing; 
+}
+
+.icon-container { 
+    display: flex; 
+    align-items: center; 
+    justify-content: center; 
+    width: 24px; 
+    height: 24px; 
+}
+
+/* Component Icons */
+.icon-laser { 
+    width: 16px; 
+    height: 10px; 
+    background: #333; 
+    position: relative; 
+}
+
+.icon-laser::after { 
+    content: ''; 
+    position: absolute; 
+    right: -2px; 
+    top: 3px; 
+    width: 2px; 
+    height: 4px; 
+    background: red; 
+}
+
+.icon-mirror { 
+    width: 4px; 
+    height: 18px; 
+    background: #444; 
+    position: relative; 
+    border-left: 2px solid cyan; 
+    transform: rotate(-45deg); 
+}
+
+.icon-mirror-d { 
+    width: 8px; 
+    height: 18px; 
+    background: #444; 
+    position: relative; 
+    transform: rotate(-45deg); 
+}
+
+.icon-mirror-d::before { 
+    content: ''; 
+    position: absolute; 
+    left: 0; 
+    top: 0; 
+    width: 2px; 
+    height: 50%; 
+    background: cyan; 
+}
+
+.icon-mirror-d::after { 
+    content: ''; 
+    position: absolute; 
+    left: 0; 
+    bottom: 0; 
+    width: 2px; 
+    height: 50%; 
+    background: #444; 
+}
+
+.icon-splitter { 
+    width: 16px; 
+    height: 16px; 
+    background: rgba(255, 255, 0, 0.1); 
+    border: 1px dashed rgba(255, 255, 0, 0.5); 
+    position: relative; 
+}
+
+.icon-splitter::after { 
+    content: ''; 
+    position: absolute; 
+    width: 140%; 
+    height: 1px; 
+    background: rgba(255, 255, 0, 0.8); 
+    top: 50%; 
+    left: 50%; 
+    transform: translate(-50%, -50%) rotate(45deg); 
+}
+
+.icon-pbs { 
+    width: 16px; 
+    height: 16px; 
+    background: rgba(168, 85, 247, 0.15); 
+    border: 1px solid rgba(168, 85, 247, 0.6); 
+    position: relative; 
+}
+
+.icon-pbs::after { 
+    content: ''; 
+    position: absolute; 
+    width: 140%; 
+    height: 1px; 
+    background: rgba(168, 85, 247, 0.9); 
+    top: 50%; 
+    left: 50%; 
+    transform: translate(-50%, -50%) rotate(45deg); 
+}
+
+.icon-hwp { 
+    width: 4px; 
+    height: 18px; 
+    background: rgba(74, 222, 128, 0.4); 
+    border: 1px solid #4ade80; 
+    display: flex; 
+    align-items: center; 
+    justify-content: center; 
+}
+
+.icon-hwp::before { 
+    content: 'λ/2'; 
+    font-size: 6px; 
+    color: #4ade80; 
+    transform: rotate(-90deg); 
+    white-space: nowrap;
+}
+
+.icon-qwp { 
+    width: 4px; 
+    height: 18px; 
+    background: rgba(251, 146, 60, 0.4); 
+    border: 1px solid #fb923c; 
+    display: flex; 
+    align-items: center; 
+    justify-content: center; 
+}
+
+.icon-qwp::before { 
+    content: 'λ/4'; 
+    font-size: 6px; 
+    color: #fb923c; 
+    transform: rotate(-90deg); 
+    white-space: nowrap;
+}
+
+.icon-blocker { 
+    width: 14px; 
+    height: 14px; 
+    background: #111; 
+    border: 1px solid #555; 
+}
+
+.icon-detector { 
+    width: 14px; 
+    height: 14px; 
+    background: #222; 
+    border: 2px solid #fca5a5; 
+    border-radius: 50%; 
+    position: relative; 
+}
+
+.icon-detector::after { 
+    content: ''; 
+    position: absolute; 
+    top: 50%; 
+    left: 50%; 
+    transform: translate(-50%, -50%); 
+    width: 6px; 
+    height: 6px; 
+    background: #fee2e2; 
+    border-radius: 50%; 
+}
+
+.icon-glass { 
+    width: 10px; 
+    height: 20px; 
+    background: rgba(100, 200, 255, 0.3); 
+    border: 1px solid rgba(100, 200, 255, 0.6); 
+}
+
+.icon-aom { 
+    width: 18px; 
+    height: 12px; 
+    background: rgba(239, 68, 68, 0.15); 
+    border: 1px solid rgba(239, 68, 68, 0.5); 
+    position: relative; 
+}
+
+.icon-aom::after { 
+    content: ''; 
+    position: absolute; 
+    bottom: -2px; 
+    left: 2px; 
+    width: 14px; 
+    height: 2px; 
+    background: #b91c1c; 
+}
+
+.icon-lens { 
+    width: 6px; 
+    height: 18px; 
+    background: rgba(147, 197, 253, 0.3); 
+    border: 1px solid rgba(147, 197, 253, 0.8); 
+    border-radius: 50%; 
+}
+
+.icon-fiber-coupler { 
+    width: 14px; 
+    height: 14px; 
+    background: rgba(255, 165, 0, 0.3); 
+    border: 2px solid #ffa500; 
+    border-radius: 50%; 
+    position: relative; 
+}
+
+.icon-fiber-coupler::after { 
+    content: ''; 
+    position: absolute; 
+    right: -4px; 
+    top: 5px; 
+    width: 6px; 
+    height: 2px; 
+    background: #ffa500; 
+}
+
+/* Calibration Modal */
+.calibration-modal {
+    position: fixed; 
+    top: 20px; 
+    left: 50%; 
+    transform: translateX(-50%);
+    background: rgba(16, 185, 129, 0.9); 
+    color: white; 
+    padding: 8px 16px; 
+    border-radius: 20px;
+    font-size: 14px; 
+    pointer-events: none; 
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+    z-index: 100; 
+    display: none;
+}
+
+

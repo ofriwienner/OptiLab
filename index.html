@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Optical Table Simulator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="styles/main.css">
+</head>
+<body class="bg-gray-900 text-gray-100 flex h-screen w-screen font-sans text-sm">
+
+    <div id="calibration-msg" class="calibration-modal">Calibration: Click Point 1 on Image</div>
+    <input type="file" id="imgUpload" accept="image/*" style="display: none;">
+    <input type="file" id="fileInput" class="hidden" onchange="importState(this)">
+
+    <!-- Sidebar -->
+    <div id="ui-sidebar" class="w-64 flex-shrink-0 bg-gray-800 border-r border-gray-700 flex flex-col shadow-xl z-10 select-none flex h-full z-50">
+        <div class="p-3 border-b border-gray-700">
+            <h1 class="text-lg font-bold text-blue-400 flex items-center gap-2">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                PhotonLab
+            </h1>
+            <p class="text-[10px] text-gray-400">Optical Bench Simulator</p>
+        </div>
+
+        <div class="flex gap-1 p-2 border-b border-gray-700 bg-gray-800 text-[10px]">
+            <button onclick="saveState()" class="flex-1 py-1 bg-green-700/50 hover:bg-green-700 border border-green-600 rounded text-green-100 transition">Save</button>
+            <button onclick="loadState()" class="flex-1 py-1 bg-green-700/50 hover:bg-green-700 border border-green-600 rounded text-green-100 transition">Load</button>
+            <button onclick="exportState()" class="flex-1 py-1 bg-blue-700/50 hover:bg-blue-700 border border-blue-600 rounded text-blue-100 transition">Exp</button>
+            <label for="fileInput" class="flex-1 py-1 bg-blue-700/50 hover:bg-blue-700 border border-blue-600 rounded text-blue-100 transition text-center cursor-pointer">Imp</label>
+        </div>
+
+        <div class="p-2 flex-1 overflow-y-auto">
+            <div class="mb-4 bg-gray-900/50 p-2 rounded border border-gray-700">
+                <h3 class="text-[10px] font-bold text-gray-400 uppercase mb-1">Create Board</h3>
+                <div class="space-y-1">
+                    <input type="text" id="boardTitle" placeholder="Title" class="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1 text-[10px] text-white">
+                    <select id="boardSizeSelect" class="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1 text-[10px] text-white" onchange="updateBoardInputs()">
+                        <option value="300x300">Small (300x300)</option>
+                        <option value="330x482.6" selected>Medium (330x482.6)</option>
+                        <option value="450x600">Big (450x600)</option>
+                        <option value="600x450">Wide (600x450)</option>
+                        <option value="custom">Custom</option>
+                    </select>
+                    <div class="flex gap-1">
+                        <input type="number" id="boardW" value="600" step="25" class="w-1/2 bg-gray-700 border border-gray-600 rounded px-2 py-1 text-[10px] text-white" placeholder="W">
+                        <input type="number" id="boardH" value="450" step="25" class="w-1/2 bg-gray-700 border border-gray-600 rounded px-2 py-1 text-[10px] text-white" placeholder="H">
+                    </div>
+                    <button onclick="addBoard()" class="w-full py-1 bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] rounded border border-indigo-500 transition">Add Board</button>
+                </div>
+            </div>
+
+            <div class="flex justify-between items-center mb-2">
+                <h2 class="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Components</h2>
+                <span class="text-[9px] text-orange-400">* Visual Only</span>
+            </div>
+            
+            <div class="grid grid-cols-2 gap-1.5">
+                <div onmousedown="startSidebarDrag(event, 'laser')" class="tool-item flex flex-col items-center p-1 bg-gray-700 rounded border border-gray-600 text-[10px]">
+                    <div class="icon-container"><div class="icon-laser"></div></div> <span>Laser</span>
+                </div>
+                <div onmousedown="startSidebarDrag(event, 'mirror')" class="tool-item flex flex-col items-center p-1 bg-gray-700 rounded border border-gray-600 text-[10px]">
+                    <div class="icon-container"><div class="icon-mirror"></div></div> <span>Mirror</span>
+                </div>
+                <div onmousedown="startSidebarDrag(event, 'mirror-d')" class="tool-item flex flex-col items-center p-1 bg-gray-700 rounded border border-gray-600 text-[10px]">
+                    <div class="icon-container"><div class="icon-mirror-d"></div></div> <span>D-Mirror</span>
+                </div>
+                <div onmousedown="startSidebarDrag(event, 'splitter')" class="tool-item flex flex-col items-center p-1 bg-gray-700 rounded border border-gray-600 text-[10px]">
+                    <div class="icon-container"><div class="icon-splitter"></div></div> <span>Splitter</span>
+                </div>
+                <div onmousedown="startSidebarDrag(event, 'pbs')" class="tool-item flex flex-col items-center p-1 bg-gray-700 rounded border border-gray-600 text-[10px]">
+                    <div class="icon-container"><div class="icon-pbs"></div></div> <span>PBS</span>
+                </div>
+                <div onmousedown="startSidebarDrag(event, 'aom')" class="tool-item flex flex-col items-center p-1 bg-gray-700 rounded border border-gray-600 text-[10px]">
+                    <div class="icon-container"><div class="icon-aom"></div></div> <span>AOM</span>
+                </div>
+                <div onmousedown="startSidebarDrag(event, 'lens')" class="tool-item flex flex-col items-center p-1 bg-gray-700 rounded border border-gray-600 text-[10px]">
+                    <div class="icon-container"><div class="icon-lens"></div></div> <span>Lens <span class="text-orange-400">*</span></span>
+                </div>
+                <div onmousedown="startSidebarDrag(event, 'hwp')" class="tool-item flex flex-col items-center p-1 bg-gray-700 rounded border border-gray-600 text-[10px]">
+                    <div class="icon-container"><div class="icon-hwp"></div></div> <span>HWP <span class="text-orange-400">*</span></span>
+                </div>
+                <div onmousedown="startSidebarDrag(event, 'qwp')" class="tool-item flex flex-col items-center p-1 bg-gray-700 rounded border border-gray-600 text-[10px]">
+                    <div class="icon-container"><div class="icon-qwp"></div></div> <span>QWP <span class="text-orange-400">*</span></span>
+                </div>
+                <div onmousedown="startSidebarDrag(event, 'blocker')" class="tool-item flex flex-col items-center p-1 bg-gray-700 rounded border border-gray-600 text-[10px]">
+                    <div class="icon-container"><div class="icon-blocker"></div></div> <span>Blocker</span>
+                </div>
+                <div onmousedown="startSidebarDrag(event, 'detector')" class="tool-item flex flex-col items-center p-1 bg-gray-700 rounded border border-gray-600 text-[10px]">
+                    <div class="icon-container"><div class="icon-detector"></div></div> <span>Detector</span>
+                </div>
+                <div onmousedown="startSidebarDrag(event, 'glass')" class="tool-item flex flex-col items-center gap-3 px-3 py-2 bg-gray-700 rounded border border-gray-600 text-sm">
+                    <div class="icon-container"><div class="icon-glass"></div></div> <span>Glass</span>
+                </div>
+                <div onmousedown="startSidebarDrag(event, 'fiber-coupler')" class="tool-item flex flex-col items-center p-1 bg-gray-700 rounded border border-gray-600 text-[10px]">
+                    <div class="icon-container"><div class="icon-fiber-coupler"></div></div> <span>Fiber</span>
+                </div>
+            </div>
+
+            <h2 class="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-2 mt-4">Controls</h2>
+            <div class="bg-gray-750 rounded p-2 space-y-3">
+                <div id="controls-panel">
+                    <label class="text-[10px] text-gray-400 block mb-1">Rotation</label>
+                    <div class="flex items-center gap-2">
+                        <input type="range" id="rotationSlider" min="0" max="360" value="0" class="flex-1 accent-blue-500 h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer">
+                        <span id="rotationValue" class="text-[10px] w-6 text-right font-mono text-gray-300">0°</span>
+                    </div>
+                    <p class="text-[9px] text-gray-500 mt-1">Drag white handle to rotate</p>
+                    <div id="dynamic-buttons" class="mt-2 pt-1 border-t border-gray-600 space-y-1"></div>
+                </div>
+                
+                <div class="flex gap-1">
+                    <button onclick="deleteSelected()" class="flex-1 py-1 px-2 bg-red-900/50 hover:bg-red-900 text-red-200 text-[10px] rounded border border-red-800 transition">Delete</button>
+                    <button onclick="clearAll()" class="flex-1 py-1 px-2 bg-gray-600 hover:bg-gray-500 text-white text-[10px] rounded border border-gray-500 transition">Clear</button>
+                </div>
+                <div class="flex gap-1 mt-1">
+                    <button onclick="resetView()" class="flex-1 py-1 px-2 bg-blue-900/50 hover:bg-blue-900 text-blue-200 text-[10px] rounded border border-blue-800 transition">Fit Table</button>
+                </div>
+            </div>
+
+            <div class="mt-4 p-2 bg-blue-900/20 border border-blue-800/50 rounded text-[10px] text-blue-200">
+                <p class="font-bold mb-1">Shortcuts:</p>
+                <ul class="list-disc pl-3 space-y-0.5">
+                    <li><strong>Drag:</strong> Snap to Grid</li>
+                    <li><strong>Shift+Drag:</strong> Fine Snap</li>
+                    <li><strong>Ctrl+Drag:</strong> Free Move</li>
+                    <li><strong>Dbl Click Title:</strong> Rename</li>
+                    <li><strong>Shift+Click:</strong> Multi-select</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Canvas Area -->
+    <div class="flex-1 relative bg-gray-950 overflow-hidden" id="canvas-container">
+        <canvas id="opticalBench" ondragover="allowDrop(event)" ondrop="handleDrop(event)"></canvas>
+        <div class="absolute bottom-4 right-4 pointer-events-none">
+            <div class="bg-gray-800/90 backdrop-blur border border-gray-700 rounded p-2 text-xs text-gray-300 shadow-lg text-right">
+                <div id="mouse-coords" class="font-mono text-yellow-400">X: 0mm Y: 0mm</div>
+                <div id="debug-info" class="text-gray-500">Scale: 50%</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript Modules (load order matters) -->
+    <script src="js/config.js"></script>
+    <script src="js/math.js"></script>
+    <script src="js/element.js"></script>
+    <script src="js/physics/mueller.js"></script>
+    <script src="js/physics/optics.js"></script>
+    <script src="js/physics/raytracing.js"></script>
+    <script src="js/renderer.js"></script>
+    <script src="js/ui/calibration.js"></script>
+    <script src="js/ui/controls.js"></script>
+    <script src="js/ui/sidebar.js"></script>
+    <script src="js/state.js"></script>
+    <script src="js/input.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
+
+
