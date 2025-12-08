@@ -103,25 +103,38 @@ function handleMouseDown(e) {
         return;
     }
 
-    // Fiber coupler connection
-    if (ctrlPressed || e.button === 2) {
-        const fiberCouplers = elements.filter(el => el.type === 'fiber-coupler').reverse();
-        for (let fc of fiberCouplers) {
-            const dx = fc.x - w.x;
-            const dy = fc.y - w.y;
-            const r = fc.width / 1.5;
-            if (dx * dx + dy * dy < r * r) {
-                isFiberConnecting = true;
-                fiberConnectSource = fc;
-                fiberConnectMousePos = m;
-                selection.clear();
-                selection.add(fc);
-                updateUI();
-                draw();
-                e.preventDefault();
-                return;
-            }
+    // Fiber coupler connector pin hit test
+    const fiberPinTarget = getFiberConnectorPinHit(m);
+    
+    // If already in connecting mode, check if clicking on another pin to complete connection
+    if (isFiberConnecting && fiberConnectSource) {
+        if (fiberPinTarget && fiberPinTarget !== fiberConnectSource) {
+            // Complete connection to target pin
+            completeFiberConnection(fiberPinTarget);
+            e.preventDefault();
+            return;
+        } else {
+            // Clicked elsewhere - cancel connection mode
+            isFiberConnecting = false;
+            fiberConnectSource = null;
+            fiberConnectMousePos = null;
+            updateUI();
+            draw();
+            // Don't return - allow normal click behavior
         }
+    }
+    
+    // Start fiber connection mode when clicking on a pin
+    if (fiberPinTarget && !isFiberConnecting) {
+        isFiberConnecting = true;
+        fiberConnectSource = fiberPinTarget;
+        fiberConnectMousePos = m;
+        selection.clear();
+        selection.add(fiberPinTarget);
+        updateUI();
+        draw();
+        e.preventDefault();
+        return;
     }
 
     const primary = Array.from(selection).pop();
@@ -244,8 +257,14 @@ function handleMouseDown(e) {
     }
 
     if (clicked) {
+        // If shift/ctrl is pressed on an unselected element, toggle selection
+        // If shift/ctrl is pressed on an already-selected element, allow drag (for fine/free movement)
         if (shiftPressed || ctrlPressed) {
-            selection.has(clicked) ? selection.delete(clicked) : selection.add(clicked);
+            if (!selection.has(clicked)) {
+                // Toggle: add unselected element to selection
+                selection.add(clicked);
+            }
+            // If already selected, don't toggle - allow fine movement drag to proceed
         } else {
             if (!selection.has(clicked)) {
                 selection.clear();
@@ -360,7 +379,19 @@ function handleMouseMove(e) {
                 let newY = rawY;
 
                 // Board-Relative Snapping
-                if (!shiftPressed && !ctrlPressed) {
+                // No modifier = full grid snap
+                // Ctrl/Cmd = half grid snap (fine movement)
+                // Shift = free movement (no snap)
+                if (shiftPressed) {
+                    // Free movement - no snapping
+                    newX = rawX;
+                    newY = rawY;
+                } else if (ctrlPressed) {
+                    // Half grid snap
+                    newX = Math.round(rawX / HALF_GRID_MM) * HALF_GRID_MM;
+                    newY = Math.round(rawY / HALF_GRID_MM) * HALF_GRID_MM;
+                } else {
+                    // Full grid snap
                     const board = elements.find(b => b.type === 'board' && b !== el &&
                         rawX >= b.x - b.width / 2 && rawX <= b.x + b.width / 2 &&
                         rawY >= b.y - b.height / 2 && rawY <= b.y + b.height / 2);
@@ -373,9 +404,6 @@ function handleMouseMove(e) {
                         newX = Math.round((rawX - 12.5) / GRID_PITCH_MM) * GRID_PITCH_MM + 12.5;
                         newY = Math.round((rawY - 12.5) / GRID_PITCH_MM) * GRID_PITCH_MM + 12.5;
                     }
-                } else if (shiftPressed) {
-                    newX = Math.round(newX / HALF_GRID_MM) * HALF_GRID_MM;
-                    newY = Math.round(newY / HALF_GRID_MM) * HALF_GRID_MM;
                 }
 
                 if (el.type === 'board' && checkBoardOverlap(el, newX, newY, el.width, el.height)) {
@@ -413,59 +441,58 @@ function handleMouseMove(e) {
 }
 
 /**
+ * Complete fiber connection between source and target
+ * @param {Object} targetCoupler - Target fiber coupler
+ */
+function completeFiberConnection(targetCoupler) {
+    if (!fiberConnectSource || !targetCoupler) return;
+    
+    // Unpair existing connections
+    if (fiberConnectSource.pairedWith) {
+        const oldPaired = elements.find(el => el.id === fiberConnectSource.pairedWith);
+        if (oldPaired) {
+            oldPaired.pairedWith = null;
+            oldPaired.fiberColor = null;
+        }
+    }
+    if (targetCoupler.pairedWith) {
+        const oldPaired = elements.find(el => el.id === targetCoupler.pairedWith);
+        if (oldPaired) {
+            oldPaired.pairedWith = null;
+            oldPaired.fiberColor = null;
+        }
+    }
+
+    fiberConnectSource.fiberColor = null;
+    targetCoupler.fiberColor = null;
+
+    const fiberColor = getNextFiberColor();
+    fiberConnectSource.pairedWith = targetCoupler.id;
+    fiberConnectSource.fiberColor = fiberColor;
+    targetCoupler.pairedWith = fiberConnectSource.id;
+    targetCoupler.fiberColor = fiberColor;
+    
+    selection.clear();
+    selection.add(fiberConnectSource);
+    selection.add(targetCoupler);
+
+    // Reset fiber connecting state
+    isFiberConnecting = false;
+    fiberConnectSource = null;
+    fiberConnectMousePos = null;
+    updateUI();
+    draw();
+}
+
+/**
  * Handle mouse up events
  */
 function handleMouseUp() {
-    // Complete fiber connection
-    if (isFiberConnecting && fiberConnectSource && fiberConnectMousePos) {
-        const w = screenToWorld(fiberConnectMousePos.x, fiberConnectMousePos.y);
-        const fiberCouplers = elements.filter(el => el.type === 'fiber-coupler' && el !== fiberConnectSource).reverse();
-        let targetCoupler = null;
-
-        for (let fc of fiberCouplers) {
-            const dx = fc.x - w.x;
-            const dy = fc.y - w.y;
-            const r = fc.width / 1.5;
-            if (dx * dx + dy * dy < r * r) {
-                targetCoupler = fc;
-                break;
-            }
-        }
-
-        if (targetCoupler) {
-            // Unpair existing connections
-            if (fiberConnectSource.pairedWith) {
-                const oldPaired = elements.find(el => el.id === fiberConnectSource.pairedWith);
-                if (oldPaired) {
-                    oldPaired.pairedWith = null;
-                    oldPaired.fiberColor = null;
-                }
-            }
-            if (targetCoupler.pairedWith) {
-                const oldPaired = elements.find(el => el.id === targetCoupler.pairedWith);
-                if (oldPaired) {
-                    oldPaired.pairedWith = null;
-                    oldPaired.fiberColor = null;
-                }
-            }
-
-            fiberConnectSource.fiberColor = null;
-            targetCoupler.fiberColor = null;
-
-            const fiberColor = getNextFiberColor();
-            fiberConnectSource.pairedWith = targetCoupler.id;
-            fiberConnectSource.fiberColor = fiberColor;
-            targetCoupler.pairedWith = fiberConnectSource.id;
-            targetCoupler.fiberColor = fiberColor;
-            selection.clear();
-            selection.add(fiberConnectSource);
-        }
-
-        isFiberConnecting = false;
-        fiberConnectSource = null;
-        fiberConnectMousePos = null;
-        updateUI();
-        draw();
+    // Fiber connecting mode stays active until user clicks on another pin or elsewhere
+    // (handled in mousedown), so we just need to clear the mouse position tracking
+    if (isFiberConnecting) {
+        // Keep connecting mode active, but stop tracking mouse for line drawing
+        // Connection is completed via click in handleMouseDown
         return;
     }
 
@@ -547,6 +574,16 @@ function handleKeyDown(e) {
     keys[e.key] = true;
     if (e.key === 'Shift') shiftPressed = true;
     if (e.key === 'Control' || e.key === 'Meta') ctrlPressed = true;
+
+    // Cancel fiber connection mode with Escape
+    if (e.key === 'Escape' && isFiberConnecting) {
+        isFiberConnecting = false;
+        fiberConnectSource = null;
+        fiberConnectMousePos = null;
+        updateUI();
+        draw();
+        return;
+    }
 
     // Copy/Paste
     const isCopy = (e.key === 'c' || e.key === 'C') && (e.metaKey || e.ctrlKey);

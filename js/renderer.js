@@ -382,7 +382,8 @@ function drawGlass(el) {
  * Draw fiber coupler element
  */
 function drawFiberCoupler(el) {
-    const fiberColor = el.fiberColor || '#ffa500';
+    // Use gray for unpaired fiber couplers, otherwise use the assigned fiber color
+    const fiberColor = el.pairedWith ? (el.fiberColor || '#ffa500') : '#6b7280';
     const hexToRgba = (hex, alpha) => {
         const r = parseInt(hex.slice(1, 3), 16);
         const g = parseInt(hex.slice(3, 5), 16);
@@ -861,27 +862,76 @@ function drawFiberCables() {
 /**
  * Draw fiber connection preview line
  */
+// Animation frame ID for fiber connecting mode
+let fiberConnectAnimationId = null;
+
 function drawFiberConnectingLine() {
-    if (!isFiberConnecting || !fiberConnectSource || !fiberConnectMousePos) return;
+    if (!isFiberConnecting || !fiberConnectSource) {
+        // Stop animation if not in connecting mode
+        if (fiberConnectAnimationId) {
+            cancelAnimationFrame(fiberConnectAnimationId);
+            fiberConnectAnimationId = null;
+        }
+        return;
+    }
 
-    const p1 = worldToScreen(fiberConnectSource.x, fiberConnectSource.y);
-    const p2 = fiberConnectMousePos;
+    // Highlight all other fiber coupler pins
+    const otherCouplers = elements.filter(el => el.type === 'fiber-coupler' && el !== fiberConnectSource);
+    otherCouplers.forEach(fc => {
+        // Get pin position in world coords
+        const localPos = { x: fc.width / 2 + 4, y: 0 };
+        const rotated = rotatePoint(localPos, fc.rotation);
+        const pinWorld = { x: fc.x + rotated.x, y: fc.y + rotated.y };
+        const pinScreen = worldToScreen(pinWorld.x, pinWorld.y);
+        
+        // Draw pulsing highlight circle around pin
+        ctx.save();
+        const pulseScale = 1 + 0.15 * Math.sin(Date.now() / 150);
+        const radius = 12 * view.scale * PIXELS_PER_MM * pulseScale;
+        
+        // Outer glow
+        ctx.beginPath();
+        ctx.arc(pinScreen.x, pinScreen.y, radius + 4, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(34, 211, 238, 0.2)';
+        ctx.fill();
+        
+        // Inner highlight ring
+        ctx.beginPath();
+        ctx.arc(pinScreen.x, pinScreen.y, radius, 0, Math.PI * 2);
+        ctx.strokeStyle = '#22d3ee';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.restore();
+    });
 
+    // Draw connecting line if mouse position is available
+    if (fiberConnectMousePos) {
+        const p1 = worldToScreen(fiberConnectSource.x, fiberConnectSource.y);
+        const p2 = fiberConnectMousePos;
+
+        ctx.save();
+        ctx.strokeStyle = '#22d3ee';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([6, 4]);
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(p1.x, p1.y);
+        ctx.lineTo(p2.x, p2.y);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.restore();
+    }
+
+    // Show instruction text near source
+    const sourceScreen = worldToScreen(fiberConnectSource.x, fiberConnectSource.y);
     ctx.save();
-    ctx.strokeStyle = '#ffa500';
-    ctx.lineWidth = 2;
-    ctx.setLineDash([6, 4]);
-    ctx.lineCap = 'round';
-    ctx.beginPath();
-    ctx.moveTo(p1.x, p1.y);
-    ctx.lineTo(p2.x, p2.y);
-    ctx.stroke();
-    ctx.setLineDash([]);
-
-    ctx.fillStyle = 'rgba(255, 165, 0, 0.8)';
+    ctx.fillStyle = 'rgba(34, 211, 238, 0.9)';
     ctx.font = '12px sans-serif';
-    ctx.fillText('Drop on another Fiber Coupler', p2.x + 15, p2.y - 10);
+    ctx.fillText('Click another pin to connect', sourceScreen.x + 20, sourceScreen.y - 20);
     ctx.restore();
+    
+    // Continue animation while in connecting mode
+    fiberConnectAnimationId = requestAnimationFrame(() => draw());
 }
 
 /**

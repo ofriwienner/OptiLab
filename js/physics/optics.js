@@ -157,6 +157,35 @@ function getAomToggleHit(mousePoint) {
 }
 
 /**
+ * Get fiber coupler connector pin hit test
+ * The connector pin is the small rectangle with arrow on the side of the fiber coupler
+ * @param {Object} mousePoint - Screen coordinates
+ * @returns {Object|null} Hit fiber coupler or null
+ */
+function getFiberConnectorPinHit(mousePoint) {
+    const fiberCouplers = elements.filter(el => el.type === 'fiber-coupler').reverse();
+    for (let el of fiberCouplers) {
+        // Connector pin is at (el.width/2 + 4, 0) in local coords, extends to +10
+        // Local position of pin center
+        const localPos = { x: el.width / 2 + 4, y: 0 };
+        const rotated = rotatePoint(localPos, el.rotation);
+        const pinWorld = { x: el.x + rotated.x, y: el.y + rotated.y };
+        const pinScreen = worldToScreen(pinWorld.x, pinWorld.y);
+        
+        // Hit area size (scaled to screen)
+        const sc = view.scale * PIXELS_PER_MM;
+        const hitW = 12 * sc / 2; // Width of clickable area
+        const hitH = 8 * sc / 2;  // Height of clickable area
+        
+        if (Math.abs(mousePoint.x - pinScreen.x) < hitW && 
+            Math.abs(mousePoint.y - pinScreen.y) < hitH) {
+            return el;
+        }
+    }
+    return null;
+}
+
+/**
  * Ensure lens has valid optics configuration
  * @param {Object} lens - Lens element
  */
