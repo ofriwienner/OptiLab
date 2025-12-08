@@ -36,15 +36,14 @@
                 <div class="space-y-1">
                     <input type="text" id="boardTitle" placeholder="Title" class="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1 text-[10px] text-white">
                     <select id="boardSizeSelect" class="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1 text-[10px] text-white" onchange="updateBoardInputs()">
-                        <option value="300x300">Small (300x300)</option>
-                        <option value="330x482.6" selected>Medium (330x482.6)</option>
-                        <option value="450x600">Big (450x600)</option>
-                        <option value="600x450">Wide (600x450)</option>
+                        <option value="325x250">S - 12×9 (325x250)</option>
+                        <option value="325x475" selected>M - 12×18 (325x475)</option>
+                        <option value="475x475">L - 18×18 (475x475)</option>
                         <option value="custom">Custom</option>
                     </select>
                     <div class="flex gap-1">
-                        <input type="number" id="boardW" value="600" step="25" class="w-1/2 bg-gray-700 border border-gray-600 rounded px-2 py-1 text-[10px] text-white" placeholder="W">
-                        <input type="number" id="boardH" value="450" step="25" class="w-1/2 bg-gray-700 border border-gray-600 rounded px-2 py-1 text-[10px] text-white" placeholder="H">
+                        <input type="number" id="boardW" value="325" step="25" class="w-1/2 bg-gray-700 border border-gray-600 rounded px-2 py-1 text-[10px] text-white" placeholder="W">
+                        <input type="number" id="boardH" value="475" step="25" class="w-1/2 bg-gray-700 border border-gray-600 rounded px-2 py-1 text-[10px] text-white" placeholder="H">
                     </div>
                     <button onclick="addBoard()" class="w-full py-1 bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] rounded border border-indigo-500 transition">Add Board</button>
                 </div>
