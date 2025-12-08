@@ -1,0 +1,2544 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Optical Table Simulator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { overflow: hidden; touch-action: none; user-select: none; }
+        canvas { cursor: crosshair; }
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: #1f2937; }
+        ::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 2px; }
+        .tool-item { cursor: grab; transition: all 0.2s; }
+        .tool-item:hover { background-color: #374151; border-color: #4b5563; }
+        .tool-item:active { cursor: grabbing; }
+        .icon-container { display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; }
+        
+        .icon-laser { width: 16px; height: 10px; background: #333; position: relative; }
+        .icon-laser::after { content:''; position: absolute; right: -2px; top: 3px; width: 2px; height: 4px; background: red; }
+        .icon-mirror { width: 4px; height: 18px; background: #444; position: relative; border-left: 2px solid cyan; transform: rotate(-45deg); }
+        .icon-mirror-d { width: 18px; height: 8px; background: #444; position: relative; transform: rotate(-45deg); }
+        .icon-mirror-d::before { content:''; position: absolute; left: 0; top: 0; width: 2px; height: 50%; background: cyan; }
+        .icon-mirror-d::after { content:''; position: absolute; left: 0; bottom: 0; width: 2px; height: 50%; background: black; }
+        .icon-splitter { width: 16px; height: 16px; background: rgba(255,255,0,0.1); border: 1px dashed rgba(255,255,0,0.5); position: relative; }
+        .icon-splitter::after { content:''; position: absolute; width: 140%; height: 1px; background: rgba(255,255,0,0.8); top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(45deg); }
+        .icon-pbs { width: 16px; height: 16px; background: rgba(168, 85, 247, 0.15); border: 1px solid rgba(168, 85, 247, 0.6); position: relative; }
+        .icon-pbs::after { content:''; position: absolute; width: 140%; height: 1px; background: rgba(168, 85, 247, 0.9); top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(45deg); }
+        .icon-hwp { width: 4px; height: 18px; background: rgba(74, 222, 128, 0.4); border: 1px solid #4ade80; display: flex; align-items: center; justify-content: center; }
+        .icon-hwp::before { content: 'λ/2'; font-size: 6px; color: #4ade80; transform: rotate(-90deg); white-space: nowrap;}
+        .icon-qwp { width: 4px; height: 18px; background: rgba(251, 146, 60, 0.4); border: 1px solid #fb923c; display: flex; align-items: center; justify-content: center; }
+        .icon-qwp::before { content: 'λ/4'; font-size: 6px; color: #fb923c; transform: rotate(-90deg); white-space: nowrap;}
+        .icon-blocker { width: 14px; height: 14px; background: #111; border: 1px solid #555; }
+        .icon-detector { width: 14px; height: 14px; background: #222; border: 2px solid #fca5a5; border-radius: 50%; position: relative; }
+        .icon-detector::after { content:''; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 6px; height: 6px; background: #fee2e2; border-radius: 50%; }
+        .icon-glass { width: 10px; height: 20px; background: rgba(100, 200, 255, 0.3); border: 1px solid rgba(100, 200, 255, 0.6); }
+        .icon-aom { width: 18px; height: 12px; background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.5); position: relative; }
+        .icon-aom::after { content:''; position: absolute; bottom: -2px; left: 2px; width: 14px; height: 2px; background: #b91c1c; }
+        .icon-lens { width: 6px; height: 18px; background: rgba(147, 197, 253, 0.3); border: 1px solid rgba(147, 197, 253, 0.8); border-radius: 50%; }
+        .icon-fiber-coupler { width: 14px; height: 14px; background: rgba(255, 165, 0, 0.3); border: 2px solid #ffa500; border-radius: 50%; position: relative; }
+        .icon-fiber-coupler::after { content:''; position: absolute; right: -4px; top: 5px; width: 6px; height: 2px; background: #ffa500; }
+        
+        .calibration-modal {
+            position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
+            background: rgba(16, 185, 129, 0.9); color: white; padding: 8px 16px; border-radius: 20px;
+            font-size: 14px; pointer-events: none; box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            z-index: 100; display: none;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-100 flex h-screen w-screen font-sans text-sm">
+
+    <div id="calibration-msg" class="calibration-modal">Calibration: Click Point 1 on Image</div>
+    <input type="file" id="imgUpload" accept="image/*" style="display: none;">
+    <input type="file" id="fileInput" class="hidden" onchange="importState(this)">
+
+    <!-- Sidebar -->
+    <div id="ui-sidebar" class="w-64 flex-shrink-0 bg-gray-800 border-r border-gray-700 flex flex-col shadow-xl z-10 select-none flex h-full z-50">
+        <div class="p-3 border-b border-gray-700">
+            <h1 class="text-lg font-bold text-blue-400 flex items-center gap-2">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                PhotonLab
+            </h1>
+            <p class="text-[10px] text-gray-400">Optical Bench Simulator</p>
+        </div>
+
+        <div class="flex gap-1 p-2 border-b border-gray-700 bg-gray-800 text-[10px]">
+            <button onclick="saveState()" class="flex-1 py-1 bg-green-700/50 hover:bg-green-700 border border-green-600 rounded text-green-100 transition">Save</button>
+            <button onclick="loadState()" class="flex-1 py-1 bg-green-700/50 hover:bg-green-700 border border-green-600 rounded text-green-100 transition">Load</button>
+            <button onclick="exportState()" class="flex-1 py-1 bg-blue-700/50 hover:bg-blue-700 border border-blue-600 rounded text-blue-100 transition">Exp</button>
+            <label for="fileInput" class="flex-1 py-1 bg-blue-700/50 hover:bg-blue-700 border border-blue-600 rounded text-blue-100 transition text-center cursor-pointer">Imp</label>
+        </div>
+
+        <div class="p-2 flex-1 overflow-y-auto">
+            <div class="mb-4 bg-gray-900/50 p-2 rounded border border-gray-700">
+                <h3 class="text-[10px] font-bold text-gray-400 uppercase mb-1">Create Board</h3>
+                <div class="space-y-1">
+                    <input type="text" id="boardTitle" placeholder="Title" class="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1 text-[10px] text-white">
+                    <select id="boardSizeSelect" class="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1 text-[10px] text-white" onchange="updateBoardInputs()">
+                        <option value="300x300">Small (300x300)</option>
+                        <option value="330x482.6" selected>Medium (330x482.6)</option>                        <option value="450x600">Big (450x600)</option>
+                        <option value="600x450">Wide (600x450)</option>
+                        <option value="custom">Custom</option>
+                    </select>
+                    <div class="flex gap-1">
+                        <input type="number" id="boardW" value="600" step="25" class="w-1/2 bg-gray-700 border border-gray-600 rounded px-2 py-1 text-[10px] text-white" placeholder="W">
+                        <input type="number" id="boardH" value="450" step="25" class="w-1/2 bg-gray-700 border border-gray-600 rounded px-2 py-1 text-[10px] text-white" placeholder="H">
+                    </div>
+                    <button onclick="addBoard()" class="w-full py-1 bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] rounded border border-indigo-500 transition">Add Board</button>
+                </div>
+            </div>
+
+            <div class="flex justify-between items-center mb-2">
+                <h2 class="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Components</h2>
+                <span class="text-[9px] text-orange-400">* Visual Only</span>
+            </div>
+            
+            <div class="grid grid-cols-2 gap-1.5">
+                <div onmousedown="startSidebarDrag(event, 'laser')" class="tool-item flex flex-col items-center p-1 bg-gray-700 rounded border border-gray-600 text-[10px]">
+                    <div class="icon-container"><div class="icon-laser"></div></div> <span>Laser</span>
+                </div>
+                <div onmousedown="startSidebarDrag(event, 'mirror')" class="tool-item flex flex-col items-center p-1 bg-gray-700 rounded border border-gray-600 text-[10px]">
+                    <div class="icon-container"><div class="icon-mirror"></div></div> <span>Mirror</span>
+                </div>
+                <div onmousedown="startSidebarDrag(event, 'mirror-d')" class="tool-item flex flex-col items-center p-1 bg-gray-700 rounded border border-gray-600 text-[10px]">
+                    <div class="icon-container"><div class="icon-mirror-d"></div></div> <span>D-Mirror</span>
+                </div>
+                <div onmousedown="startSidebarDrag(event, 'splitter')" class="tool-item flex flex-col items-center p-1 bg-gray-700 rounded border border-gray-600 text-[10px]">
+                    <div class="icon-container"><div class="icon-splitter"></div></div> <span>Splitter</span>
+                </div>
+                <div onmousedown="startSidebarDrag(event, 'pbs')" class="tool-item flex flex-col items-center p-1 bg-gray-700 rounded border border-gray-600 text-[10px]">
+                    <div class="icon-container"><div class="icon-pbs"></div></div> <span>PBS</span>
+                </div>
+                <div onmousedown="startSidebarDrag(event, 'aom')" class="tool-item flex flex-col items-center p-1 bg-gray-700 rounded border border-gray-600 text-[10px]">
+                    <div class="icon-container"><div class="icon-aom"></div></div> <span>AOM</span>
+                </div>
+                <div onmousedown="startSidebarDrag(event, 'lens')" class="tool-item flex flex-col items-center p-1 bg-gray-700 rounded border border-gray-600 text-[10px]">
+                    <div class="icon-container"><div class="icon-lens"></div></div> <span>Lens <span class="text-orange-400">*</span></span>
+                </div>
+                <div onmousedown="startSidebarDrag(event, 'hwp')" class="tool-item flex flex-col items-center p-1 bg-gray-700 rounded border border-gray-600 text-[10px]">
+                    <div class="icon-container"><div class="icon-hwp"></div></div> <span>HWP <span class="text-orange-400">*</span></span>
+                </div>
+                <div onmousedown="startSidebarDrag(event, 'qwp')" class="tool-item flex flex-col items-center p-1 bg-gray-700 rounded border border-gray-600 text-[10px]">
+                    <div class="icon-container"><div class="icon-qwp"></div></div> <span>QWP <span class="text-orange-400">*</span></span>
+                </div>
+                <div onmousedown="startSidebarDrag(event, 'blocker')" class="tool-item flex flex-col items-center p-1 bg-gray-700 rounded border border-gray-600 text-[10px]">
+                    <div class="icon-container"><div class="icon-blocker"></div></div> <span>Blocker</span>
+                </div>
+                <div onmousedown="startSidebarDrag(event, 'detector')" class="tool-item flex flex-col items-center p-1 bg-gray-700 rounded border border-gray-600 text-[10px]">
+                    <div class="icon-container"><div class="icon-detector"></div></div> <span>Detector</span>
+                </div>
+                 <div onmousedown="startSidebarDrag(event, 'glass')" class="tool-item flex flex-col items-center gap-3 px-3 py-2 bg-gray-700 rounded border border-gray-600 text-sm">
+                    <div class="icon-container"><div class="icon-glass"></div></div> <span>Glass</span>
+                </div>
+                <div onmousedown="startSidebarDrag(event, 'fiber-coupler')" class="tool-item flex flex-col items-center p-1 bg-gray-700 rounded border border-gray-600 text-[10px]">
+                    <div class="icon-container"><div class="icon-fiber-coupler"></div></div> <span>Fiber</span>
+                </div>
+            </div>
+
+            <h2 class="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-2 mt-4">Controls</h2>
+            <div class="bg-gray-750 rounded p-2 space-y-3">
+                <div id="controls-panel">
+                    <label class="text-[10px] text-gray-400 block mb-1">Rotation</label>
+                    <div class="flex items-center gap-2">
+                        <input type="range" id="rotationSlider" min="0" max="360" value="0" class="flex-1 accent-blue-500 h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer">
+                        <span id="rotationValue" class="text-[10px] w-6 text-right font-mono text-gray-300">0°</span>
+                    </div>
+                    <p class="text-[9px] text-gray-500 mt-1">Drag white handle to rotate</p>
+                    <div id="dynamic-buttons" class="mt-2 pt-1 border-t border-gray-600 space-y-1"></div>
+                </div>
+                
+                <div class="flex gap-1">
+                    <button onclick="deleteSelected()" class="flex-1 py-1 px-2 bg-red-900/50 hover:bg-red-900 text-red-200 text-[10px] rounded border border-red-800 transition">Delete</button>
+                    <button onclick="clearAll()" class="flex-1 py-1 px-2 bg-gray-600 hover:bg-gray-500 text-white text-[10px] rounded border border-gray-500 transition">Clear</button>
+                </div>
+                 <div class="flex gap-1 mt-1">
+                    <button onclick="resetView()" class="flex-1 py-1 px-2 bg-blue-900/50 hover:bg-blue-900 text-blue-200 text-[10px] rounded border border-blue-800 transition">Fit Table</button>
+                </div>
+            </div>
+
+            <div class="mt-4 p-2 bg-blue-900/20 border border-blue-800/50 rounded text-[10px] text-blue-200">
+                <p class="font-bold mb-1">Shortcuts:</p>
+                <ul class="list-disc pl-3 space-y-0.5">
+                    <li><strong>Drag:</strong> Snap to Grid</li>
+                    <li><strong>Shift+Drag:</strong> Fine Snap</li>
+                    <li><strong>Ctrl+Drag:</strong> Free Move</li>
+                    <li><strong>Dbl Click Title:</strong> Rename</li>
+                    <li><strong>Shift+Click:</strong> Multi-select</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Canvas Area -->
+    <div class="flex-1 relative bg-gray-950 overflow-hidden" id="canvas-container">
+        <canvas id="opticalBench" ondragover="allowDrop(event)" ondrop="handleDrop(event)"></canvas>
+        <div class="absolute bottom-4 right-4 pointer-events-none">
+            <div class="bg-gray-800/90 backdrop-blur border border-gray-700 rounded p-2 text-xs text-gray-300 shadow-lg text-right">
+                <div id="mouse-coords" class="font-mono text-yellow-400">X: 0mm Y: 0mm</div>
+                <div id="debug-info" class="text-gray-500">Scale: 50%</div>
+            </div>
+        </div>
+    </div>
+
+<script>
+/**
+ * OPTICAL TABLE SIMULATOR v17.0 (Consolidated Order)
+ */
+
+ // TODOs: 
+ // TODO: change the physical rotation of the waveplates to optical rotation
+ // TODO: fix bug in intensities
+ // TODO: Solution Cycling - add toggle between optional angles feature (there is a saved optional prompt)
+ // TODO : in the q feature also move the mirror a little to align to grid lines!
+ // TODO: Show block size by grid size or by mm size
+ // TODO: default block size will be selected from the options and not a magic number
+ // TODO: more user friendly calibration, for example change the grid size according to the image. open calibration dialog automatically. when selecting the photo the grid will be transperent and when selecting the grid the photo will, deal with board resizing
+ // TODO soon: fix snapping to grid after board rotation
+
+// 1. Globals and Config
+const canvas = document.getElementById('opticalBench');
+const ctx = canvas.getContext('2d');
+const container = document.getElementById('canvas-container');
+const rotationSlider = document.getElementById('rotationSlider');
+const rotationValueDisplay = document.getElementById('rotationValue');
+const debugInfo = document.getElementById('debug-info');
+const mouseCoordsDisplay = document.getElementById('mouse-coords');
+const calibrationMsg = document.getElementById('calibration-msg');
+const imgUploadInput = document.getElementById('imgUpload');
+
+const GRID_PITCH_MM = 25; 
+const HALF_GRID_MM = 12.5;
+let PIXELS_PER_MM = 2.0; 
+const view = { x: 50, y: 50, scale: 0.5, isPanning: false, startPanX: 0, startPanY: 0 };
+const tableConfig = { widthMM: 2400, heightMM: 1800 };
+const MAX_BOUNCES = 30;
+const SNAP_ROTATION = 45; 
+const WAVEPLATE_KNOB_OFFSET_MM = 18;
+const WAVEPLATE_KNOB_RADIUS_MM = 6;
+const WAVEPLATE_FINE_STEP_DEG = 5;
+
+let elements = [];
+let selection = new Set();
+let isDragging = false;
+let isRotating = false;
+let isResizing = false; 
+let isSelecting = false; 
+let isAdjustingAxis = false;
+let axisAdjustTarget = null;
+let selectionRect = null; 
+let dragOffsets = new Map(); 
+let draggedChildren = new Map(); 
+let lastMousePos = { x: 0, y: 0 };
+let shiftPressed = false;
+let ctrlPressed = false;
+let lastHitOnSelected = null; 
+let invalidBoardPlacement = false; 
+let originalBoardState = null; 
+const keys = {};
+let clipboard = null; // Store copied elements for paste 
+// --- Fiber Coupler Connection State ---
+let isFiberConnecting = false;
+let fiberConnectSource = null;
+let fiberConnectMousePos = null;
+// Fiber color palette for different fiber pairs
+const FIBER_COLORS = [
+    '#ffa500', // Orange
+    '#22d3ee', // Cyan
+    '#a855f7', // Purple
+    '#22c55e', // Green
+    '#f43f5e', // Rose
+    '#eab308', // Yellow
+    '#3b82f6', // Blue
+    '#ec4899', // Pink
+    '#14b8a6', // Teal
+    '#f97316', // Orange-red
+];
+
+function getNextFiberColor() {
+    // Find colors already in use by paired fiber couplers
+    const usedColors = new Set();
+    elements.filter(el => el.type === 'fiber-coupler' && el.fiberColor).forEach(el => {
+        usedColors.add(el.fiberColor);
+    });
+    // Return first unused color, or cycle back
+    for (const color of FIBER_COLORS) {
+        if (!usedColors.has(color)) return color;
+    }
+    // All colors used, return first one
+    return FIBER_COLORS[0];
+}
+// --- Global Variables ---
+let alignPreference = 0;     // Toggles alignment options
+let hasCycleOptions = false; // [V2.5.3] Tracks if 'Q' key will do anything
+let calibrationState = 0; 
+let calibData = { board: null, p1Img: null, p1Board: null, p2Img: null, p2Board: null, p3Img: null, p3Board: null };
+
+// 2. Math Helpers
+function toRad(deg) { return deg * Math.PI / 180; }
+function toDeg(rad) { return rad * 180 / Math.PI; }
+function rotatePoint(p, angle) { return { x: p.x * Math.cos(angle) - p.y * Math.sin(angle), y: p.x * Math.sin(angle) + p.y * Math.cos(angle) }; }
+function normalize(v) { const len = Math.sqrt(v.x * v.x + v.y * v.y); return len === 0 ? { x: 0, y: 0 } : { x: v.x / len, y: v.y / len }; }
+function dot(v1, v2) { return v1.x * v2.x + v1.y * v2.y; }
+function screenToWorld(sx, sy) { return { x: (sx - view.x) / (PIXELS_PER_MM * view.scale), y: (sy - view.y) / (PIXELS_PER_MM * view.scale) }; }
+function worldToScreen(wx, wy) { return { x: (wx * PIXELS_PER_MM * view.scale) + view.x, y: (wy * PIXELS_PER_MM * view.scale) + view.y }; }
+function getIntersection(rO, rD, s1, s2) {
+    const sdx = s2.x - s1.x; const sdy = s2.y - s1.y; const den = sdx * rD.y - sdy * rD.x;
+    if (Math.abs(den) < 0.00001) return null; 
+    const dx = s1.x - rO.x; const dy = s1.y - rO.y;
+    const T1 = (dy * sdx - dx * sdy) / den; const T2 = (rD.x * dy - rD.y * dx) / den;
+    if (T2 >= 0 && T2 <= 1 && T1 > 0.001) return { x: rO.x + rD.x * T1, y: rO.y + rD.y * T1, param: T1, segVector: { x: sdx, y: sdy } };
+    return null;
+}
+function getMousePos(evt) {
+    const rect = canvas.getBoundingClientRect();
+    return { x: evt.clientX - rect.left, y: evt.clientY - rect.top };
+}
+function checkBoardOverlap(board, testX, testY, testW, testH) {
+    const otherBoards = elements.filter(e => e.type === 'board' && e !== board);
+    for (let ob of otherBoards) {
+        if (Math.abs(testX - ob.x) < (testW + ob.width)/2 && Math.abs(testY - ob.y) < (testH + ob.height)/2) return true;
+    }
+    return false;
+}
+function getParentBoard(comp) {
+    const boards = elements.filter(e => e.type === 'board').reverse();
+    for(let b of boards) {
+        if(comp.x >= b.x - b.width/2 && comp.x <= b.x + b.width/2 && comp.y >= b.y - b.height/2 && comp.y <= b.y + b.height/2) return b;
+    }
+    return null;
+}
+
+function isWaveplateElement(el) {
+    return !!el && (el.type === 'hwp' || el.type === 'qwp');
+}
+
+function normalizeAngleRad(angle) {
+    if (!isFinite(angle)) return 0;
+    const TWO_PI = Math.PI * 2;
+    angle = angle % TWO_PI;
+    if (angle < 0) angle += TWO_PI;
+    return angle;
+}
+
+function clampWaveplateAngle(angleRad) {
+    let normalized = normalizeAngleRad(angleRad);
+    if (normalized > Math.PI) normalized -= Math.PI;
+    if (normalized >= Math.PI - 1e-6) normalized = 0;
+    return normalized;
+}
+
+function snapWaveplateAngle(angleRad, stepRad) {
+    const step = stepRad || (Math.PI / 4);
+    if (step <= 0) return clampWaveplateAngle(angleRad);
+    return clampWaveplateAngle(Math.round(angleRad / step) * step);
+}
+
+function getWaveplateAxisAngle(el) {
+    if (!isWaveplateElement(el)) return 0;
+    if (typeof el.axisAngle !== 'number') {
+        return clampWaveplateAngle(el.rotation || toRad(45));
+    }
+    return clampWaveplateAngle(el.axisAngle);
+}
+
+function getSignedWaveplateAngle(el) {
+    const axis = getWaveplateAxisAngle(el);
+    return axis > Math.PI / 2 ? axis - Math.PI : axis;
+}
+
+function formatAxisAngleDeg(angleRad) {
+    let deg = Math.round(toDeg(clampWaveplateAngle(angleRad)));
+    if (deg < 0) deg += 180;
+    if (deg > 180) deg -= 180;
+    return deg;
+}
+
+function updateWaveplateAxisFromPoint(el, worldPoint) {
+    if (!isWaveplateElement(el)) return false;
+    const knobWorld = el.getAxisKnobWorldPosition();
+    const angle = Math.atan2(worldPoint.y - knobWorld.y, worldPoint.x - knobWorld.x);
+    let normalized = clampWaveplateAngle(angle);
+    let stepRad = Math.PI / 4; // 45°
+    if (ctrlPressed) stepRad = toRad(WAVEPLATE_FINE_STEP_DEG); // 5°
+    else if (shiftPressed) stepRad = Math.PI / 8; // 22.5°
+    normalized = snapWaveplateAngle(normalized, stepRad);
+    if (typeof el.axisAngle !== 'number' || Math.abs(el.axisAngle - normalized) > 0.0005) {
+        el.axisAngle = normalized;
+        return true;
+    }
+    return false;
+}
+
+function getWaveplateKnobHit(mousePoint) {
+    const waveplates = elements.filter(isWaveplateElement).reverse();
+    for (let el of waveplates) {
+        const knobWorld = el.getAxisKnobWorldPosition();
+        const knobScreen = worldToScreen(knobWorld.x, knobWorld.y);
+        const radiusPx = Math.max(8, WAVEPLATE_KNOB_RADIUS_MM * view.scale * PIXELS_PER_MM);
+        const dx = mousePoint.x - knobScreen.x;
+        const dy = mousePoint.y - knobScreen.y;
+        if (dx*dx + dy*dy <= radiusPx * radiusPx) return el;
+    }
+    return null;
+}
+
+function getAomDirectionVector(el) {
+    if (!el || el.type !== 'aom') return { x: 0, y: 1 };
+    return normalize(rotatePoint({ x: 0, y: 1 }, el.rotation));
+}
+
+function isAomEnabled(el) {
+    if (!el || el.type !== 'aom') return false;
+    return el.aomEnabled !== false; // Default to true
+}
+
+function getAomToggleHit(mousePoint) {
+    // Only check selected AOMs
+    const selectedAoms = elements.filter(el => el.type === 'aom' && selection.has(el));
+    for (let el of selectedAoms) {
+        // Toggle button is at (0, -height/2 - 12) in local coords, then rotated
+        const localPos = { x: 0, y: -el.height/2 - 12 };
+        const rotated = rotatePoint(localPos, el.rotation);
+        const btnWorld = { x: el.x + rotated.x, y: el.y + rotated.y };
+        const btnScreen = worldToScreen(btnWorld.x, btnWorld.y);
+        
+        // Button is 20x10 in world mm, scale to screen
+        const sc = view.scale * PIXELS_PER_MM;
+        const btnW = 20 * sc / 2;
+        const btnH = 10 * sc / 2;
+        
+        if (Math.abs(mousePoint.x - btnScreen.x) < btnW && Math.abs(mousePoint.y - btnScreen.y) < btnH) {
+            return el;
+        }
+    }
+    return null;
+}
+
+function ensureLensOptics(lens) {
+    if (!lens || lens.type !== 'lens') return;
+    if (!lens.optics) lens.optics = { focalLength: GRID_PITCH_MM * 5 };
+    if (typeof lens.optics.focalLength !== 'number' || !isFinite(lens.optics.focalLength)) {
+        lens.optics.focalLength = GRID_PITCH_MM * 5;
+    }
+    lens.optics.focalLength = snapLensFocalLength(lens.optics.focalLength);
+}
+
+function getLensAxisVector(lens) {
+    return normalize(rotatePoint({ x: 1, y: 0 }, lens.rotation || 0));
+}
+
+function snapLensFocalLength(value) {
+    let step = GRID_PITCH_MM;
+    if (ctrlPressed) step = GRID_PITCH_MM * 0.1;
+    else if (shiftPressed) step = GRID_PITCH_MM * 0.5;
+    if (step <= 0) step = GRID_PITCH_MM;
+    const snapped = Math.max(step, Math.round(value / step) * step);
+    return snapped;
+}
+
+/**
+ * Computes the exit ray direction after passing through a thin lens.
+ * Uses the thin lens equation: 1/f = 1/s + 1/s'
+ * 
+ * @param {Object} ray - Incoming ray with x, y, dx, dy
+ * @param {Object} lens - The lens element
+ * @param {Object} hit - Hit point on the lens
+ * @returns {Object} Normalized exit direction {x, y}
+ */
+function computeLensRefraction(ray, lens, hit) {
+    ensureLensOptics(lens);
+    const f = lens.optics.focalLength;
+    
+    // Get lens coordinate system
+    const axisDir = getLensAxisVector(lens);  // Direction along optical axis (perpendicular to lens surface)
+    const tangentDir = { x: -axisDir.y, y: axisDir.x };  // Direction along lens surface
+    
+    // Incoming ray direction (normalized)
+    const incDir = normalize({ x: ray.dx, y: ray.dy });
+    
+    // Check if ray is traveling along +axis or -axis direction
+    const axialComponent = dot(incDir, axisDir);
+    
+    // If ray is nearly perpendicular to axis (parallel to lens surface), just pass through
+    if (Math.abs(axialComponent) < 0.01) {
+        return incDir;
+    }
+    
+    // Compute hit point offset from lens center along tangent (lateral offset y)
+    const relHit = { x: hit.x - lens.x, y: hit.y - lens.y };
+    const yOffset = dot(relHit, tangentDir);
+    
+    // If ray passes through center, it goes straight through
+    if (Math.abs(yOffset) < 0.1) {
+        return incDir;
+    }
+    
+    // Compute the angle of incidence relative to axis
+    const tangentComponent = dot(incDir, tangentDir);
+    
+    // For thin lens approximation:
+    // The deflection angle is: delta_theta = -y / f
+    // where y is the lateral offset and f is focal length
+    // 
+    // New tangent component: tan(theta_out) ≈ tan(theta_in) - y/f
+    // For small angles: theta_out ≈ theta_in - y/f
+    
+    const thetaIn = Math.atan2(tangentComponent, Math.abs(axialComponent));
+    const deflection = -yOffset / f;
+    const thetaOut = thetaIn + deflection;
+    
+    // Reconstruct the exit direction
+    // Preserve the sign of axial component (ray continues in same general direction)
+    const signAx = axialComponent > 0 ? 1 : -1;
+    const newAxial = Math.cos(thetaOut) * signAx;
+    const newTangent = Math.sin(thetaOut);
+    
+    const outDir = {
+        x: axisDir.x * newAxial + tangentDir.x * newTangent,
+        y: axisDir.y * newAxial + tangentDir.y * newTangent
+    };
+    
+    const result = normalize(outDir);
+    
+    // Sanity check - if result is invalid, just pass through
+    if (!isFinite(result.x) || !isFinite(result.y)) {
+        return incDir;
+    }
+    
+    return result;
+}
+
+// 3. Class Definitions
+class Element {
+    constructor(type, xMM, yMM, w, h, title) {
+        this.id = Date.now() + Math.random();
+        this.type = type; 
+        this.x = xMM; this.y = yMM; 
+        this.rotation = 0; 
+        this.title = title || '';
+        this.width = w || 40; 
+        this.height = h || 40; 
+        this.isFlipped = false; 
+        this.locked = false; 
+        this.imgData = null; 
+        this.imgConfig = { visible: true, opacity: 0.5, x: 0, y: 0, w: 0, h: 0 };
+        this.axisAngle = null;
+        this.optics = null;
+        if (type !== 'board') this.setupType(type);
+    }
+    setupType(type) {
+        switch(type) {
+            case 'laser': this.width = 50; this.height = 25; break;
+            case 'mirror': this.width = 40; this.height = 5; this.rotation = toRad(-45); break;
+            case 'mirror-d': this.width = 40; this.height = 5; this.rotation = toRad(-90); break; 
+            case 'splitter': this.width = 30; this.height = 30; this.rotation = 0; break;
+            case 'pbs': this.width = 30; this.height = 30; this.rotation = 0; break;
+            case 'aom': this.width = 40; this.height = 20; this.rotation = 0; break;
+            case 'lens':
+                this.width = 15; this.height = 40; this.rotation = 0;
+                this.optics = { focalLength: GRID_PITCH_MM * 5 };
+                break;
+            case 'blocker': this.width = 25; this.height = 25; break;
+            case 'detector': this.width = 30; this.height = 30; this.rotation = 0; break;
+            case 'glass': this.width = 20; this.height = 50; break;
+            case 'hwp': case 'qwp':
+                this.width = 5; this.height = 30;
+                this.axisAngle = clampWaveplateAngle(toRad(45));
+                break;
+            case 'fiber-coupler':
+                this.width = 25; this.height = 25;
+                this.pairedWith = null; // ID of paired fiber coupler
+                this.fiberColor = null; // Color assigned when paired
+                break;
+        }
+    }
+    getHandlePosition() {
+        let dist = this.width/2 + 15; if (this.type === 'mirror-d') dist = this.width + 15; 
+        return rotatePoint({x: dist, y: 0}, this.rotation);
+    }
+    getFlipButtonPosition() { const dist = this.width/2 + 15; return rotatePoint({x: dist, y: 15}, this.rotation); }
+    getResizeHandlePosition() { return { x: this.width/2, y: this.height/2 }; }
+    getMoveHandlePosition() { return { x: -this.width/2, y: -this.height/2 }; }
+    getSnapButtonPosition() { const dist = this.width/2 + 15; return rotatePoint({x: dist, y: -15}, this.rotation); }
+    getAxisKnobWorldPosition() {
+        const local = { x: 0, y: -this.height/2 - WAVEPLATE_KNOB_OFFSET_MM };
+        const rotated = rotatePoint(local, this.rotation);
+        return { x: this.x + rotated.x, y: this.y + rotated.y };
+    }
+    getSegments() {
+        if (this.type === 'board') return []; 
+        const cx = this.x; const cy = this.y; const w = this.width; const h = this.height;
+        const worldCorners = [{ x: -w/2, y: -h/2 }, { x: w/2, y: -h/2 }, { x: w/2, y: h/2 }, { x: -w/2, y: h/2 }].map(p => rotatePoint(p, this.rotation)).map(p => ({ x: p.x + cx, y: p.y + cy }));
+        const segments = [];
+        if (this.type === 'mirror') {
+            const mw = this.width / 2;
+            const r1 = rotatePoint({x: mw, y: 0}, this.rotation); const r2 = rotatePoint({x: -mw, y: 0}, this.rotation);
+            segments.push({ p1: {x: cx+r1.x, y: cy+r1.y}, p2: {x: cx+r2.x, y: cy+r2.y}, type: 'mirror-front' });
+            segments.push({ p1: worldCorners[2], p2: worldCorners[3], type: 'blocker' }); 
+        } 
+        else if (this.type === 'mirror-d') {
+            const mw = this.width / 2; const epsilon = -0.01; let refStart, refEnd;
+            if (!this.isFlipped) { refStart = {x: mw, y: 0}; refEnd = {x: epsilon, y: 0}; } 
+            else { refStart = {x: -epsilon, y: 0}; refEnd = {x: -mw, y: 0}; }
+            const rRS = rotatePoint(refStart, this.rotation); const rRE = rotatePoint(refEnd, this.rotation);
+            segments.push({ p1: {x: cx+rRS.x, y: cy+rRS.y}, p2: {x: cx+rRE.x, y: cy+rRE.y}, type: 'mirror-front' });
+            segments.push({ p1: worldCorners[2], p2: worldCorners[3], type: 'blocker' }); 
+        } else if (['splitter', 'pbs'].includes(this.type)) {
+            const p1 = rotatePoint({x: -this.width/2, y: -this.height/2}, this.rotation); const p2 = rotatePoint({x: this.width/2, y: this.height/2}, this.rotation);
+            segments.push({ p1: {x: p1.x + cx, y: p1.y + cy}, p2: {x: p2.x + cx, y: p2.y + cy}, type: this.type === 'pbs' ? 'pbs' : 'splitter' });
+        } else if (this.type === 'hwp' || this.type === 'qwp') {
+            const start = rotatePoint({ x: 0, y: -this.height/2 }, this.rotation);
+            const end = rotatePoint({ x: 0, y: this.height/2 }, this.rotation);
+            const normal = normalize(rotatePoint({ x: 1, y: 0 }, this.rotation));
+            segments.push({
+                p1: { x: cx + start.x, y: cy + start.y },
+                p2: { x: cx + end.x, y: cy + end.y },
+                type: 'waveplate',
+                normal
+            });
+        } else if (this.type === 'aom') {
+            const start = rotatePoint({ x: -this.width/2, y: 0 }, this.rotation);
+            const end = rotatePoint({ x: this.width/2, y: 0 }, this.rotation);
+            const normal = normalize(rotatePoint({ x: 0, y: 1 }, this.rotation));
+            segments.push({
+                p1: { x: cx + start.x, y: cy + start.y },
+                p2: { x: cx + end.x, y: cy + end.y },
+                type: 'aom',
+                normal
+            });
+        } else if (this.type === 'lens') {
+            // Lens as a single center-line segment (thin lens approximation)
+            const start = rotatePoint({ x: 0, y: -this.height/2 }, this.rotation);
+            const end = rotatePoint({ x: 0, y: this.height/2 }, this.rotation);
+            const normal = normalize(rotatePoint({ x: 1, y: 0 }, this.rotation));
+            segments.push({
+                p1: { x: cx + start.x, y: cy + start.y },
+                p2: { x: cx + end.x, y: cy + end.y },
+                type: 'lens',
+                normal
+            });
+        } else if (this.type === 'fiber-coupler') {
+            // Fiber coupler input face - a line segment across the face
+            const start = rotatePoint({ x: 0, y: -this.height/2 }, this.rotation);
+            const end = rotatePoint({ x: 0, y: this.height/2 }, this.rotation);
+            const normal = normalize(rotatePoint({ x: 1, y: 0 }, this.rotation));
+            segments.push({
+                p1: { x: cx + start.x, y: cy + start.y },
+                p2: { x: cx + end.x, y: cy + end.y },
+                type: 'fiber-input',
+                normal
+            });
+        } else {
+            let intType = 'blocker';
+            if (this.type === 'glass') intType = 'refractor';
+            if (this.type === 'detector') intType = 'blocker';
+            for (let i = 0; i < 4; i++) { segments.push({ p1: worldCorners[i], p2: worldCorners[(i + 1) % 4], type: intType }); }
+        }
+        return segments;
+    }
+}
+// --- 2.5 MUELLER MATH (Polarization Physics) ---
+const MuellerMath = {
+    // Standard Stokes Vectors [I, Q, U, V]
+    STOKES: {
+        HORIZONTAL:   [1,  1,  0,  0],
+        VERTICAL:     [1, -1,  0,  0],
+        DIAGONAL:     [1,  0,  1,  0], // +45 degrees
+        ANTI_DIAGONAL:[1,  0, -1,  0], // -45 degrees
+        RIGHT_CIRC:   [1,  0,  0,  1],
+        LEFT_CIRC:    [1,  0,  0, -1]
+    },
+
+    // Base Matrices for Ideal Components (Fast Axis Horizontal / 0 degrees)
+    MATRICES: {
+        // Linear Polarizer (Horizontal Transmission)
+        POLARIZER_H: [
+            [0.5, 0.5, 0, 0],
+            [0.5, 0.5, 0, 0],
+            [  0,   0, 0, 0],
+            [  0,   0, 0, 0]
+        ],
+        // Half Wave Plate (Fast Axis Horizontal)
+        // Retardation = PI. [1, 1, -1, -1] on diagonals
+        HWP_H: [
+            [1, 0,  0,  0],
+            [0, 1,  0,  0],
+            [0, 0, -1,  0],
+            [0, 0,  0, -1]
+        ],
+        // Quarter Wave Plate (Fast Axis Horizontal)
+        // Retardation = PI/2. Converts 45deg Linear to Circular
+        QWP_H: [
+            [1, 0, 0, 0],
+            [0, 1, 0, 0],
+            [0, 0, 0, 1],
+            [0, 0,-1, 0]
+        ],
+        // Ideal Mirror (Normal Incidence)
+        // Reflects intensity (1), Flips coordinate system (-1 on U and V)
+        // Note: Real mirrors vary, but this is the ideal math model
+        MIRROR: [
+            [1, 0,  0,  0],
+            [0, 1,  0,  0],
+            [0, 0, -1,  0],
+            [0, 0,  0, -1]
+        ],
+        // Identity (Air/Glass)
+        IDENTITY: [
+            [1, 0, 0, 0],
+            [0, 1, 0, 0],
+            [0, 0, 1, 0],
+            [0, 0, 0, 1]
+        ]
+    },
+
+    /**
+     * Creates a rotation matrix for the Stokes Frame
+     * R(theta) = [1, 0, 0, 0; 0, cos2t, sin2t, 0; 0, -sin2t, cos2t, 0; 0, 0, 0, 1]
+     */
+    createRotationMatrix: (thetaRad) => {
+        const c2 = Math.cos(2 * thetaRad);
+        const s2 = Math.sin(2 * thetaRad);
+        return [
+            [1,   0,   0, 0],
+            [0,  c2,  s2, 0],
+            [0, -s2,  c2, 0],
+            [0,   0,   0, 1]
+        ];
+    },
+
+    /**
+     * Matrix multiplication: C = A * B
+     */
+    multiplyMatrices: (A, B) => {
+        const C = [[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]];
+        for (let r = 0; r < 4; r++) {
+            for (let c = 0; c < 4; c++) {
+                let sum = 0;
+                for (let k = 0; k < 4; k++) {
+                    sum += A[r][k] * B[k][c];
+                }
+                C[r][c] = sum;
+            }
+        }
+        return C;
+    },
+
+    /**
+     * Vector interaction: S' = M * S
+     */
+    interact: (stokes, matrix) => {
+        const res = [0, 0, 0, 0];
+        for (let r = 0; r < 4; r++) {
+            let sum = 0;
+            for (let c = 0; c < 4; c++) {
+                sum += matrix[r][c] * stokes[c];
+            }
+            res[r] = sum;
+        }
+        // Normalize intensity if needed, but for physics sim we keep absolute values
+        // We ensure intensity doesn't go negative due to float errors
+        if (res[0] < 0) res[0] = 0;
+        return res;
+    },
+
+    /**
+     * Rotates a component's Mueller matrix by theta
+     * M_rot = R(-theta) * M_base * R(theta)
+     * (Rotate reference frame to component, act, rotate back)
+     */
+    rotateComponent: (baseMatrix, thetaRad) => {
+        // Optimization: If close to 0, return base
+        if (Math.abs(thetaRad) < 0.001) return baseMatrix;
+
+        const R_in = MuellerMath.createRotationMatrix(thetaRad);  // Rotate frame into component
+        const R_out = MuellerMath.createRotationMatrix(-thetaRad); // Rotate result back to world
+        
+        const temp = MuellerMath.multiplyMatrices(baseMatrix, R_in);
+        return MuellerMath.multiplyMatrices(R_out, temp);
+    },
+
+    /**
+     * Returns color string based on polarization state for debugging/viz
+     */
+    getPolarizationColor: (S) => {
+        const I = S[0] || 1; // Avoid div by zero
+        const Q = S[1]/I;
+        const U = S[2]/I;
+        const V = S[3]/I;
+
+        // Linear Horizontal (Red) to Vertical (Blue)
+        if (Math.abs(V) < 0.1) {
+            // Mapping Q from 1 (Horiz) to -1 (Vert)
+            // Horiz: Red, Vert: Blue, Diag: Purple/Green mix?
+            // Simple approach: R = (1+Q)/2, B = (1-Q)/2
+            const r = Math.floor(255 * (1 + Q) / 2);
+            const b = Math.floor(255 * (1 - Q) / 2);
+            return `rgb(${r}, 0, ${b})`;
+        } 
+        // Circular (Green)
+        else {
+            const g = Math.floor(255 * Math.abs(V));
+            return `rgb(0, ${g}, 0)`;
+        }
+    }
+};
+// --- 4. Physics Logic ---
+function traceRay(ray, depth, results) {
+    if (depth > MAX_BOUNCES || ray.intensity < 0.01) return; 
+
+    let closestHit = null; let closestDist = Infinity; let hitObject = null; let hitSegment = null;
+    
+    // 1. Find Intersection
+    elements.forEach(el => {
+        if (el.type === 'laser' || el.type === 'board') return;
+        el.getSegments().forEach(seg => {
+            const hit = getIntersection({x: ray.x, y: ray.y}, {x: ray.dx, y: ray.dy}, seg.p1, seg.p2);
+            if (hit && hit.param < closestDist) { closestDist = hit.param; closestHit = hit; hitObject = el; hitSegment = seg; }
+        });
+    });
+
+    if (closestHit) {
+        results.push({ x1: ray.x, y1: ray.y, x2: closestHit.x, y2: closestHit.y, color: ray.color + ray.intensity + ')', stokes: ray.stokes });
+        
+        const segVec = closestHit.segVector;
+        let nx = -segVec.y; let ny = segVec.x; const nl = Math.sqrt(nx*nx+ny*ny); nx/=nl; ny/=nl;
+        const inc = {x: ray.dx, y: ray.dy}; const dp = dot(inc, {x:nx, y:ny});
+        
+        if (selection.has(hitObject) && !lastHitOnSelected && (hitObject.type.includes('mirror') || ['splitter', 'pbs', 'aom', 'glass', 'lens'].includes(hitObject.type))) {
+             lastHitOnSelected = { el: hitObject, incoming: inc };
+        }
+
+        // --- MUELLER MATRIX LOGIC ---
+        
+        if (hitSegment.type === 'mirror-front' && dp < 0) {
+            // Mirror Logic
+            const newStokes = MuellerMath.interact(ray.stokes, MuellerMath.MATRICES.MIRROR);
+            const rx = inc.x - 2 * dp * nx; 
+            const ry = inc.y - 2 * dp * ny;
+            traceRay({ ...ray, x: closestHit.x, y: closestHit.y, dx: rx, dy: ry, intensity: newStokes[0], stokes: newStokes }, depth + 1, results);
+
+        } else if (['splitter', 'pbs'].includes(hitSegment.type)) {
+             // Splitter/PBS Logic
+             const rx = inc.x - 2 * dp * nx; 
+             const ry = inc.y - 2 * dp * ny;
+
+             if (hitSegment.type === 'pbs') {
+                 const matTrans = MuellerMath.rotateComponent(MuellerMath.MATRICES.POLARIZER_H, hitObject.rotation);
+                 const stokesTrans = MuellerMath.interact(ray.stokes, matTrans);
+                 
+                 const matRefl = MuellerMath.rotateComponent(MuellerMath.MATRICES.POLARIZER_H, hitObject.rotation + Math.PI/2);
+                 const stokesRefl = MuellerMath.interact(ray.stokes, matRefl);
+                 
+                 traceRay({ ...ray, x: closestHit.x + inc.x*0.1, y: closestHit.y + inc.y*0.1, dx: inc.x, dy: inc.y, intensity: stokesTrans[0], stokes: stokesTrans }, depth + 1, results);
+                 traceRay({ ...ray, x: closestHit.x, y: closestHit.y, dx: rx, dy: ry, intensity: stokesRefl[0], stokes: stokesRefl }, depth + 1, results);
+             } else {
+                 const splitStokes = ray.stokes.map(val => val * 0.5);
+                 traceRay({ ...ray, x: closestHit.x, y: closestHit.y, dx: rx, dy: ry, intensity: splitStokes[0], stokes: splitStokes }, depth + 1, results);
+                 traceRay({ ...ray, x: closestHit.x + inc.x*0.1, y: closestHit.y + inc.y*0.1, dx: inc.x, dy: inc.y, intensity: splitStokes[0], stokes: splitStokes }, depth + 1, results);
+             }
+
+        } else if (['hwp', 'qwp'].includes(hitObject.type)) {
+             // Waveplate physics: Use ONLY axisAngle (from knob), NOT rotation + axisAngle
+             // The axisAngle is independent of physical rotation and controlled by the knob
+             const baseMatrix = hitObject.type === 'hwp' ? MuellerMath.MATRICES.HWP_H : MuellerMath.MATRICES.QWP_H;
+             let theta = getSignedWaveplateAngle(hitObject); // Returns axisAngle (0-180°), not rotation + axisAngle
+             if (hitSegment.type === 'waveplate') {
+                 // Bidirectional: If beam enters from opposite direction, invert the angle
+                 const normal = hitSegment.normal || normalize({ x: -segVec.y, y: segVec.x });
+                 const dir = dot(inc, normal);
+                 if (dir < 0) {
+                     theta = -theta;
+                 }
+             }
+             const rotMatrix = MuellerMath.rotateComponent(baseMatrix, theta);
+             const newStokes = MuellerMath.interact(ray.stokes, rotMatrix);
+             
+             traceRay({ ...ray, x: closestHit.x + inc.x*0.1, y: closestHit.y + inc.y*0.1, dx: inc.x, dy: inc.y, intensity: newStokes[0], stokes: newStokes, color: ray.color }, depth + 1, results);
+        } else if (hitObject.type === 'aom') {
+             const incDir = normalize(inc);
+             const mainDir = getAomDirectionVector(hitObject);
+             const alignment = dot(incDir, mainDir);
+             
+             // Block if beam is ~perpendicular to main direction
+             if (Math.abs(alignment) < 0.15) {
+                 return;
+             }
+             
+             // CRITICAL: Check if AOM is enabled BEFORE applying diffraction physics
+             // If AOM is OFF, beam passes straight through with small loss (no diffraction)
+             if (!isAomEnabled(hitObject)) {
+                 const passStokes = ray.stokes.map(v => v * 0.95);
+                 traceRay({ x: closestHit.x + incDir.x * 0.1, y: closestHit.y + incDir.y * 0.1, dx: incDir.x, dy: incDir.y, intensity: passStokes[0], stokes: passStokes, color: ray.color }, depth + 1, results);
+                 return;
+             }
+             
+             // AOM is ON: Apply diffraction physics below
+             
+             const shiftAngle = 0.035;
+             const signedTheta = alignment > 0 ? -shiftAngle : shiftAngle;
+             
+             // Compute the "straight" direction (parallel to grid, aligned with mainDir)
+             const straightDir = alignment > 0 ? mainDir : { x: -mainDir.x, y: -mainDir.y };
+             
+             // Compute the angle of incidence relative to the main direction
+             // incAngle = angle between incDir and straightDir
+             const incAngle = Math.acos(Math.min(1, Math.abs(dot(incDir, straightDir))));
+             
+             // Tolerance for "entering straight" vs "entering at angle"
+             const angleTolerance = 0.02; // ~1 degree
+             
+             if (incAngle < angleTolerance) {
+                 // CASE 1: Beam enters straight → exits straight + deflected
+                 const straightStokes = ray.stokes.map(v => v * 0.3);
+                 const diffractedStokes = ray.stokes.map(v => v * 0.7);
+                 const deflectedDir = rotatePoint(straightDir, signedTheta);
+                 
+                 // Straight-through beam
+                 traceRay({ x: closestHit.x + straightDir.x * 0.1, y: closestHit.y + straightDir.y * 0.1, dx: straightDir.x, dy: straightDir.y, intensity: straightStokes[0], stokes: straightStokes, color: ray.color }, depth + 1, results);
+                 // Deflected beam
+                 traceRay({ x: closestHit.x + deflectedDir.x * 0.1, y: closestHit.y + deflectedDir.y * 0.1, dx: deflectedDir.x, dy: deflectedDir.y, intensity: diffractedStokes[0], stokes: diffractedStokes, color: ray.color }, depth + 1, results);
+             } else {
+                 // CASE 2: Beam enters at angle → exits straight only (corrected back to parallel)
+                 const correctedStokes = ray.stokes.map(v => v * 0.7);
+                 
+                 // Output goes straight (parallel to grid)
+                 traceRay({ x: closestHit.x + straightDir.x * 0.1, y: closestHit.y + straightDir.y * 0.1, dx: straightDir.x, dy: straightDir.y, intensity: correctedStokes[0], stokes: correctedStokes, color: ray.color }, depth + 1, results);
+             }
+             return;
+        } else if (hitObject.type === 'lens' && hitSegment.type === 'lens') {
+             // Thin lens refraction
+             const outDir = computeLensRefraction(ray, hitObject, closestHit);
+             const modStokes = ray.stokes.map(v => v * 0.98);  // Small intensity loss
+             traceRay({ x: closestHit.x + outDir.x * 0.1, y: closestHit.y + outDir.y * 0.1, dx: outDir.x, dy: outDir.y, intensity: modStokes[0], stokes: modStokes, color: ray.color }, depth + 1, results);
+        } else if (hitObject.type === 'fiber-coupler' && hitSegment.type === 'fiber-input') {
+             // Fiber coupler: teleport beam to paired coupler
+             if (hitObject.pairedWith) {
+                 const pairedCoupler = elements.find(el => el.id === hitObject.pairedWith);
+                 if (pairedCoupler) {
+                     // Apply intensity loss through fiber (~10%)
+                     const fiberStokes = ray.stokes.map(v => v * 0.9);
+                     // Emit from paired coupler's position in the OUTPUT COUPLER'S direction
+                     const outX = pairedCoupler.x;
+                     const outY = pairedCoupler.y;
+                     // Output direction follows the paired coupler's rotation (fiber port direction)
+                     const outDir = rotatePoint({ x: 1, y: 0 }, pairedCoupler.rotation);
+                     traceRay({ 
+                         x: outX + outDir.x * (pairedCoupler.width/2 + 0.1), 
+                         y: outY + outDir.y * (pairedCoupler.width/2 + 0.1), 
+                         dx: outDir.x, 
+                         dy: outDir.y, 
+                         intensity: fiberStokes[0], 
+                         stokes: fiberStokes, 
+                         color: ray.color 
+                     }, depth + 1, results);
+                 }
+             }
+             // If not paired, beam is absorbed (no continuation)
+        } else if (hitObject.type === 'glass') {
+             const modStokes = ray.stokes.map(v => v * 0.95);
+             traceRay({ x: closestHit.x + inc.x*0.1, y: closestHit.y + inc.y*0.1, dx: inc.x, dy: inc.y, intensity: modStokes[0], stokes: modStokes, color: ray.color }, depth + 1, results);
+        }
+    } else {
+        results.push({ x1: ray.x, y1: ray.y, x2: ray.x + ray.dx * 2000, y2: ray.y + ray.dy * 2000, color: ray.color + ray.intensity + ')', stokes: ray.stokes });
+    }
+}
+
+function castRays() {
+    lastHitOnSelected = null;
+    let raysToDraw = [];
+    const lasers = elements.filter(e => e.type === 'laser');
+    lasers.forEach(laser => {
+        const dir = rotatePoint({ x: 1, y: 0 }, laser.rotation);
+        const start = rotatePoint({ x: laser.width/2, y: 0 }, laser.rotation); 
+        
+        // [Step 5.1 Update] Calculate Source Stokes from UI Angle
+        const theta = toRad(laser.polAngle || 0);
+        
+        // Interact unpolarized light [1,0,0,0] with a rotated polarizer to get source state
+        // Uses existing V1_1.html names: interact, rotateComponent, MATRICES.POLARIZER_H
+        const sourceStokes = MuellerMath.interact(
+            [1, 0, 0, 0], 
+            MuellerMath.rotateComponent(MuellerMath.MATRICES.POLARIZER_H, theta)
+        );
+
+        let ray = { 
+            x: laser.x + start.x, 
+            y: laser.y + start.y, 
+            dx: dir.x, 
+            dy: dir.y, 
+            intensity: sourceStokes[0], 
+            color: 'rgba(255, 50, 50, ',
+            stokes: sourceStokes 
+        };
+        traceRay(ray, 0, raysToDraw);
+    });
+    return raysToDraw;
+}
+
+// --- 5. Rendering Functions ---
+function drawGrid() {
+    ctx.fillStyle = '#0f172a';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // Draw global table grid (dots at each grid intersection)
+    // Grid is aligned to world coordinates with offset 12.5mm (half grid)
+    const sc = view.scale * PIXELS_PER_MM;
+    const gridStep = GRID_PITCH_MM;
+    const gridOffset = 12.5; // Half grid offset to match board holes
+    
+    // Calculate visible world bounds
+    const topLeft = screenToWorld(0, 0);
+    const bottomRight = screenToWorld(canvas.width, canvas.height);
+    
+    // Find first grid point within view
+    const startX = Math.floor((topLeft.x - gridOffset) / gridStep) * gridStep + gridOffset;
+    const startY = Math.floor((topLeft.y - gridOffset) / gridStep) * gridStep + gridOffset;
+    const endX = bottomRight.x + gridStep;
+    const endY = bottomRight.y + gridStep;
+    
+    ctx.fillStyle = 'rgba(50, 50, 70, 0.6)';
+    
+    for (let wx = startX; wx < endX; wx += gridStep) {
+        for (let wy = startY; wy < endY; wy += gridStep) {
+            const sp = worldToScreen(wx, wy);
+            ctx.beginPath();
+            ctx.arc(sp.x, sp.y, 1.2 * view.scale, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    }
+}
+
+function createDragImage(type) {
+    const c = document.createElement('canvas'); const cx = c.getContext('2d'); c.width = 64; c.height = 64; cx.translate(32, 32);
+    if (type === 'laser') { cx.fillStyle = '#333'; cx.fillRect(-25, -12.5, 50, 25); cx.fillStyle = 'red'; cx.fillRect(25 - 2, -1.5, 2, 3); } 
+    else { cx.fillStyle = '#444'; cx.fillRect(-10, -10, 20, 20); } 
+    const img = new Image(); img.src = c.toDataURL(); return img;
+}
+
+// [V2.7.5.2] Update drawElement to fix Mirror alignment
+function drawElement(el) {
+    const pos = worldToScreen(el.x, el.y);
+    const sc = view.scale * PIXELS_PER_MM;
+    const isSelected = selection.has(el);
+    ctx.save(); ctx.translate(pos.x, pos.y); ctx.rotate(el.rotation); ctx.scale(sc, sc);
+
+    // Highlight Selection
+    if (el.type === 'board' && invalidBoardPlacement && isSelected) {
+        ctx.shadowColor = 'red'; ctx.shadowBlur = 20; ctx.strokeStyle = 'rgba(255, 0, 0, 0.8)'; ctx.lineWidth = 3; ctx.strokeRect(-el.width/2, -el.height/2, el.width, el.height); ctx.shadowBlur = 0;
+    } else if (isSelected) {
+        ctx.shadowColor = 'white'; ctx.shadowBlur = 10; ctx.strokeStyle = 'rgba(255,255,255,0.8)'; ctx.lineWidth = 1;
+        if(el.type === 'board') ctx.strokeRect(-el.width/2, -el.height/2, el.width, el.height);
+        else if (el.type.includes('mirror')) ctx.strokeRect(-el.width/2 - 2, -2, el.width + 4, el.height + 4);
+        else ctx.strokeRect(-el.width/2 - 2, -el.height/2 - 2, el.width + 4, el.height + 4);
+        ctx.shadowBlur = 0;
+    }
+
+    // Draw Component Graphics
+    if (el.type === 'board') {
+        ctx.fillStyle = '#1f2937'; ctx.fillRect(-el.width/2, -el.height/2, el.width, el.height);
+        
+        // [V2.7.5] Image Clipping Update
+        if (el.imgData && el.imgConfig.visible) {
+            ctx.save(); 
+            ctx.beginPath();
+            ctx.rect(-el.width/2, -el.height/2, el.width, el.height);
+            ctx.clip(); 
+            
+            ctx.globalAlpha = el.imgConfig.opacity;
+            
+            ctx.translate(el.imgConfig.x, el.imgConfig.y);
+            ctx.rotate(el.imgConfig.rotation || 0);
+            ctx.drawImage(el.imgData, -el.imgConfig.w/2, -el.imgConfig.h/2, el.imgConfig.w, el.imgConfig.h);
+            
+            ctx.restore(); 
+        }
+        
+        ctx.strokeStyle = '#374151'; ctx.lineWidth = 2/sc; ctx.strokeRect(-el.width/2, -el.height/2, el.width, el.height);
+        if(el.locked) { ctx.font = '16px sans-serif'; ctx.fillStyle = 'rgba(255,255,255,0.2)'; ctx.fillText('🔒', -8, 6); }
+        
+        // Draw board grid aligned to global grid (not rotated with board)
+        // Counter-rotate to draw in world coordinates
+        ctx.save();
+        ctx.rotate(-el.rotation); // Undo board rotation
+        
+        const gx = GRID_PITCH_MM;
+        const gridOffset = 12.5;
+        
+        // Board bounds in world coords
+        const boardLeft = el.x - el.width/2;
+        const boardRight = el.x + el.width/2;
+        const boardTop = el.y - el.height/2;
+        const boardBottom = el.y + el.height/2;
+        
+        // Find grid points that fall within board bounds (in world coords)
+        const startWX = Math.ceil((boardLeft - gridOffset) / gx) * gx + gridOffset;
+        const startWY = Math.ceil((boardTop - gridOffset) / gx) * gx + gridOffset;
+        
+        ctx.fillStyle = '#111';
+        for (let wx = startWX; wx < boardRight; wx += gx) {
+            for (let wy = startWY; wy < boardBottom; wy += gx) {
+                // Convert world point to local (relative to board center, but unrotated)
+                const lx = wx - el.x;
+                const ly = wy - el.y;
+                ctx.beginPath();
+                ctx.arc(lx, ly, 1.2, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+        ctx.restore();
+    }
+    else if (el.type === 'laser') { ctx.fillStyle = '#333'; ctx.fillRect(-el.width/2, -el.height/2, el.width, el.height); ctx.fillStyle = 'red'; ctx.fillRect(el.width/2 - 2, -1.5, 2, 3); ctx.fillStyle = '#999'; ctx.font = '8px sans-serif'; ctx.fillText("LASER", -15, 3); } 
+    else if (el.type === 'mirror') { 
+        // Dark gray background for non-reflecting part
+        ctx.fillStyle = '#2a2a2a'; 
+        // [V2.7.5.2] Center body vertically: -el.height/2 instead of 0
+        ctx.fillRect(-el.width/2, -el.height/2, el.width, el.height); 
+        ctx.fillStyle = 'cyan'; 
+        ctx.fillRect(-el.width/2, -0.5, el.width, 1); 
+    }
+    else if (el.type === 'mirror-d') { 
+        const w = el.width/2; 
+        // Dark gray background for non-reflecting part
+        ctx.fillStyle = '#2a2a2a'; 
+        // [V2.7.5.2] Center body vertically: -el.height/2 instead of 0
+        ctx.fillRect(-w, -el.height/2, el.width, el.height); 
+        if (!el.isFlipped) { ctx.fillStyle = 'cyan'; ctx.fillRect(0, -0.5, w, 1); ctx.fillStyle = '#2a2a2a'; ctx.fillRect(-w, -0.5, w, 1); } 
+        else { ctx.fillStyle = 'cyan'; ctx.fillRect(-w, -0.5, w, 1); ctx.fillStyle = '#2a2a2a'; ctx.fillRect(0, -0.5, w, 1); } 
+    }
+    else if (['splitter', 'pbs'].includes(el.type)) { const col = el.type === 'pbs' ? 'rgba(168, 85, 247, 0.15)' : 'rgba(255, 255, 0, 0.1)'; const borderCol = el.type === 'pbs' ? 'rgba(168, 85, 247, 0.6)' : 'rgba(255, 255, 0, 0.5)'; ctx.fillStyle = col; ctx.strokeStyle = borderCol; ctx.lineWidth = 0.5; ctx.fillRect(-el.width/2, -el.height/2, el.width, el.height); ctx.strokeRect(-el.width/2, -el.height/2, el.width, el.height); ctx.strokeStyle = el.type === 'pbs' ? 'rgba(168, 85, 247, 0.9)' : 'rgba(255, 255, 0, 0.9)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(-el.width/2, -el.height/2); ctx.lineTo(el.width/2, el.height/2); ctx.stroke(); if(el.type === 'pbs') { ctx.beginPath(); ctx.strokeStyle='white'; ctx.lineWidth=0.5; ctx.moveTo(0, -5); ctx.lineTo(0, 5); ctx.stroke(); ctx.beginPath(); ctx.arc(5, 0, 1, 0, Math.PI*2); ctx.stroke(); } }
+    else if (el.type === 'aom') { 
+        const aomOn = isAomEnabled(el);
+        const bgColor = aomOn ? 'rgba(239, 68, 68, 0.15)' : 'rgba(100, 100, 100, 0.15)';
+        const borderColor = aomOn ? 'rgba(239, 68, 68, 0.5)' : 'rgba(100, 100, 100, 0.5)';
+        const barColor = aomOn ? '#b91c1c' : '#555';
+        const textColor = aomOn ? 'rgba(239, 68, 68, 0.8)' : 'rgba(150, 150, 150, 0.8)';
+        ctx.fillStyle = bgColor; 
+        ctx.strokeStyle = borderColor; 
+        ctx.lineWidth = 0.5; 
+        ctx.fillRect(-el.width/2, -el.height/2, el.width, el.height); 
+        ctx.strokeRect(-el.width/2, -el.height/2, el.width, el.height); 
+        ctx.fillStyle = barColor; 
+        ctx.fillRect(-el.width/2 + 2, el.height/2 - 2, el.width - 4, 3); 
+        ctx.fillStyle = textColor; 
+        ctx.font = '6px sans-serif'; 
+        ctx.fillText(aomOn ? "AOM" : "OFF", -6, 2); 
+        
+        // On-canvas toggle button (shown when selected)
+        if (isSelected) {
+            ctx.save();
+            ctx.translate(0, -el.height/2 - 12);
+            ctx.rotate(-el.rotation); // Counter-rotate so text is upright
+            const btnW = 20, btnH = 10;
+            ctx.fillStyle = aomOn ? 'rgba(34, 197, 94, 0.9)' : 'rgba(239, 68, 68, 0.9)';
+            ctx.strokeStyle = 'white';
+            ctx.lineWidth = 0.5;
+            ctx.beginPath();
+            if (ctx.roundRect) ctx.roundRect(-btnW/2, -btnH/2, btnW, btnH, 2);
+            else ctx.rect(-btnW/2, -btnH/2, btnW, btnH);
+            ctx.fill();
+            ctx.stroke();
+            ctx.fillStyle = 'white';
+            ctx.font = '6px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(aomOn ? 'ON' : 'OFF', 0, 0);
+            ctx.restore();
+        }
+    }
+    else if (el.type === 'lens') { ctx.fillStyle = 'rgba(147, 197, 253, 0.3)'; ctx.strokeStyle = 'rgba(147, 197, 253, 0.8)'; ctx.lineWidth = 0.5; ctx.beginPath(); ctx.ellipse(0, 0, el.width/2, el.height/2, 0, 0, 2 * Math.PI); ctx.fill(); ctx.stroke(); }
+    else if (el.type === 'blocker') { ctx.fillStyle = '#111'; ctx.strokeStyle = '#555'; ctx.lineWidth = 1; ctx.fillRect(-el.width/2, -el.height/2, el.width, el.height); ctx.strokeRect(-el.width/2, -el.height/2, el.width, el.height); ctx.strokeStyle = '#333'; ctx.beginPath(); ctx.arc(0,0, 5, 0, Math.PI*2); ctx.stroke(); }
+    else if (el.type === 'detector') { ctx.fillStyle = '#222'; ctx.strokeStyle = '#fca5a5'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(0, 0, el.width/2, 0, Math.PI*2); ctx.fill(); ctx.stroke(); ctx.fillStyle = '#fee2e2'; ctx.beginPath(); ctx.arc(0,0, 5, 0, Math.PI*2); ctx.fill(); }
+    else if (el.type === 'glass') { ctx.fillStyle = 'rgba(100, 200, 255, 0.3)'; ctx.strokeStyle = 'rgba(100, 200, 255, 0.6)'; ctx.lineWidth = 0.5; ctx.fillRect(-el.width/2, -el.height/2, el.width, el.height); ctx.strokeRect(-el.width/2, -el.height/2, el.width, el.height); }
+    else if (el.type === 'hwp' || el.type === 'qwp') { const color = el.type === 'hwp' ? 'rgba(74, 222, 128, 0.4)' : 'rgba(251, 146, 60, 0.4)'; const border = el.type === 'hwp' ? '#4ade80' : '#fb923c'; ctx.fillStyle = color; ctx.strokeStyle = border; ctx.lineWidth = 0.5; ctx.fillRect(-el.width/2, -el.height/2, el.width, el.height); ctx.strokeRect(-el.width/2, -el.height/2, el.width, el.height); ctx.beginPath(); ctx.strokeStyle = 'rgba(255,255,255,0.8)'; ctx.moveTo(0, -el.height/2 + 2); ctx.lineTo(0, el.height/2 - 2); ctx.stroke(); ctx.save(); ctx.translate(el.width+2, 0); ctx.rotate(-Math.PI/2); ctx.fillStyle = border; ctx.font = '10px sans-serif'; const label = el.type === 'hwp' ? '\u03BB/2' : '\u03BB/4'; ctx.fillText(label, -el.height/2, 4); ctx.restore(); }
+
+    // Draw Title Label
+    if (el.title) {
+        ctx.fillStyle = el.type === 'board' ? '#9ca3af' : '#9ca3af'; 
+        ctx.font = '10px sans-serif'; 
+        ctx.textAlign = 'left'; 
+        const textY = el.type === 'board' ? (-el.height/2 - 5) : (-el.height/2 - 8);
+        const textX = el.type === 'board' ? (-el.width/2 + 5) : (-el.width/2);
+        ctx.fillText(el.title, textX, textY); 
+    }
+
+    const isPrimary = Array.from(selection).pop() === el;
+    
+    // --- Handles ---
+    if (isSelected && isPrimary && el.type !== 'board') {
+        let handleDist = el.width/2 + 15; if (el.type === 'mirror-d') handleDist = el.width + 15; let cx = 0; if (el.type === 'mirror-d') cx = 0; 
+        ctx.beginPath(); ctx.moveTo(cx, 0); ctx.lineTo(handleDist, 0); ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.lineWidth = 1 / sc; ctx.stroke();
+        ctx.beginPath(); ctx.arc(handleDist, 0, 4 / sc, 0, Math.PI*2); ctx.fillStyle = isRotating ? '#3b82f6' : 'white'; ctx.fill(); ctx.stroke();
+        if (el.type === 'mirror-d') {
+            const flipLocal = el.getFlipButtonPosition(); ctx.beginPath(); ctx.arc(flipLocal.x, flipLocal.y, 5/sc, 0, Math.PI*2); ctx.fillStyle = '#7e22ce'; ctx.fill(); ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.lineWidth = 1/sc; ctx.stroke(); ctx.fillStyle = 'white'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = `${8/sc}px sans-serif`; ctx.fillText('⇄', flipLocal.x, flipLocal.y);
+        }
+        if (lastHitOnSelected && lastHitOnSelected.el === el) {
+            const snapLocal = el.getSnapButtonPosition(); ctx.beginPath(); ctx.arc(snapLocal.x, snapLocal.y, 5/sc, 0, Math.PI*2);
+            ctx.fillStyle = '#3b82f6'; ctx.fill(); ctx.strokeStyle = 'white'; ctx.lineWidth = 1/sc; ctx.stroke();
+            ctx.fillStyle='white'; ctx.font=`${8/sc}px sans-serif`; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('↻', snapLocal.x, snapLocal.y);
+        }
+    } 
+    // Board Handles
+    else if (isSelected && el.type === 'board' && !el.locked) {
+        const mh = el.getMoveHandlePosition();
+        // Move Handle
+        ctx.fillStyle = '#3b82f6'; ctx.fillRect(mh.x, mh.y, 15, 15);
+        ctx.strokeStyle = 'white'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(mh.x+7.5, mh.y+3); ctx.lineTo(mh.x+7.5, mh.y+12); ctx.moveTo(mh.x+3, mh.y+7.5); ctx.lineTo(mh.x+12, mh.y+7.5); ctx.stroke();
+        
+        // Rotate Handle
+        ctx.fillStyle = '#9333ea'; 
+        ctx.fillRect(mh.x + 18, mh.y, 15, 15); 
+        ctx.fillStyle = 'white'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = '10px sans-serif';
+        ctx.fillText('↻', mh.x + 18 + 7.5, mh.y + 7.5);
+
+        // Resize Handle
+        const rh = el.getResizeHandlePosition(); ctx.beginPath(); ctx.rect(rh.x - 5, rh.y - 5, 10, 10); ctx.fillStyle = isResizing ? '#f87171' : '#9ca3af'; ctx.fill(); ctx.strokeStyle = 'white'; ctx.lineWidth = 1/sc; ctx.stroke();
+    }
+    ctx.restore();
+}
+
+/**
+ * Calculates the orientation angle of the polarization ellipse.
+ * @param {Array} stokes - The Stokes vector [I, Q, U, V]
+ * @returns {number} Angle in radians
+ */
+function getStokesAngle(stokes) {
+    if (!stokes) return 0;
+    // Angle = 0.5 * atan2(U, Q)
+    return 0.5 * Math.atan2(stokes[2], stokes[1]);
+}
+
+/**
+ * Draws the light rays with polarization visualization glyphs.
+ * @param {Array} rays - List of ray segments to draw
+ */
+/**
+ * Draws the light rays with polarization visualization glyphs.
+ * @param {Array} rays - List of ray segments to draw
+ */
+function drawRays(rays) {
+    ctx.lineCap = 'round';
+    
+    rays.forEach(seg => {
+        const p1 = worldToScreen(seg.x1, seg.y1); 
+        const p2 = worldToScreen(seg.x2, seg.y2);
+        
+        // 1. Draw the main beam (Solid Color)
+        ctx.beginPath(); 
+        ctx.moveTo(p1.x, p1.y); 
+        ctx.lineTo(p2.x, p2.y);
+        // Outer glow
+        ctx.strokeStyle = seg.color.replace(')', ', 0.3)').replace('rgb', 'rgba'); 
+        ctx.lineWidth = 3 * view.scale; 
+        ctx.stroke();
+        // Inner core
+        ctx.beginPath(); 
+        ctx.moveTo(p1.x, p1.y); 
+        ctx.lineTo(p2.x, p2.y);
+        ctx.strokeStyle = seg.color; 
+        ctx.lineWidth = 1 * view.scale; 
+        ctx.stroke();
+
+        // 2. Draw Polarization Glyphs
+        if (!seg.stokes) return;
+
+        const dx = p2.x - p1.x;
+        const dy = p2.y - p1.y;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        const angle = Math.atan2(dy, dx);
+        const rayNormalAngle = angle - Math.PI / 2; // Perpendicular to ray
+
+        const stokesAngle = getStokesAngle(seg.stokes);
+        // Check if V component is significant relative to I for circularity
+        const isCircular = Math.abs(seg.stokes[3]) > (seg.stokes[0] * 0.1); 
+
+        // Iterate along the ray in steps of 40 pixels
+        const step = 40 * view.scale; 
+        for (let d = step; d < dist - step/2; d += step) {
+            const t = d / dist;
+            const px = p1.x + dx * t;
+            const py = p1.y + dy * t;
+
+            ctx.save();
+            ctx.translate(px, py);
+            
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
+            ctx.lineWidth = 1.5 * view.scale;
+
+            if (isCircular) {
+                // --- Circular Polarization with Arrow ---
+                const radius = 4 * view.scale;
+                const arrowSize = 2.5 * view.scale;
+                const isRightHanded = seg.stokes[3] > 0;
+
+                // Draw arc with a gap at the top
+                ctx.beginPath();
+                ctx.arc(0, 0, radius, -Math.PI/2 + 0.4, -Math.PI/2 - 0.4, false);
+                ctx.stroke();
+
+                // Draw arrow head at the top gap
+                ctx.beginPath();
+                const ax = 0; const ay = -radius;
+                ctx.moveTo(ax, ay);
+                if (isRightHanded) {
+                    // CW: Arrow points right at top
+                    ctx.lineTo(ax - arrowSize, ay - arrowSize/2);
+                    ctx.moveTo(ax, ay);
+                    ctx.lineTo(ax - arrowSize, ay + arrowSize/2);
+                } else {
+                    // CCW: Arrow points left at top
+                    ctx.lineTo(ax + arrowSize, ay - arrowSize/2);
+                    ctx.moveTo(ax, ay);
+                    ctx.lineTo(ax + arrowSize, ay + arrowSize/2);
+                }
+                ctx.stroke();
+
+            } else {
+                // --- Linear Polarization ---
+                // Rotate by (RayNormal + StokesAngle)
+                ctx.rotate(rayNormalAngle + stokesAngle);
+                
+                ctx.beginPath();
+                const len = 5 * view.scale; // Half length
+                ctx.moveTo(-len, 0);
+                ctx.lineTo(len, 0);
+                ctx.stroke();
+            }
+
+            ctx.restore();
+        }
+    });
+}
+
+function drawLensFocusDots() {
+    // Only show focal dots for selected lenses
+    const selectedLenses = elements.filter(el => el.type === 'lens' && selection.has(el));
+    if (!selectedLenses.length) return;
+    ctx.save();
+    ctx.fillStyle = '#fbbf24';
+    ctx.strokeStyle = '#fde68a';
+    ctx.lineWidth = 1;
+    selectedLenses.forEach(lens => {
+        ensureLensOptics(lens);
+        const axis = getLensAxisVector(lens);
+        const focal = Math.max(GRID_PITCH_MM * 0.1, lens.optics.focalLength || GRID_PITCH_MM);
+        const points = [
+            { x: lens.x + axis.x * focal, y: lens.y + axis.y * focal },
+            { x: lens.x - axis.x * focal, y: lens.y - axis.y * focal }
+        ];
+        points.forEach(pt => {
+            const s = worldToScreen(pt.x, pt.y);
+            ctx.beginPath();
+            ctx.arc(s.x, s.y, 4, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+        });
+    });
+    ctx.restore();
+}
+
+function drawMarquee() {
+    if (!isSelecting || !selectionRect) return;
+    ctx.save(); ctx.strokeStyle = '#3b82f6'; ctx.fillStyle = 'rgba(59, 130, 246, 0.2)'; ctx.lineWidth = 1;
+    ctx.fillRect(selectionRect.x, selectionRect.y, selectionRect.w, selectionRect.h);
+    ctx.strokeRect(selectionRect.x, selectionRect.y, selectionRect.w, selectionRect.h);
+    ctx.restore();
+}
+
+function drawHints() {
+    if (selection.size === 1 && hasCycleOptions) {
+        const el = Array.from(selection)[0];
+        // Position above the element
+        const pos = worldToScreen(el.x, el.y - el.height/2 - 10);
+        
+        const text = "Q: Cycle Target";
+        ctx.font = "10px sans-serif";
+        const metrics = ctx.measureText(text);
+        const w = metrics.width + 8;
+        const h = 16;
+        
+        ctx.save();
+        ctx.translate(pos.x, pos.y);
+        
+        // Draw Background Badge
+        ctx.fillStyle = "rgba(31, 41, 55, 0.9)"; // Dark Gray
+        ctx.strokeStyle = "rgba(75, 85, 99, 1)"; // Border
+        ctx.lineWidth = 1;
+        
+        // Rounded Rect Path
+        ctx.beginPath();
+        if (ctx.roundRect) {
+            ctx.roundRect(-w/2, -h/2, w, h, 4);
+        } else {
+            ctx.rect(-w/2, -h/2, w, h); // Fallback for older browsers
+        }
+        ctx.fill();
+        ctx.stroke();
+        
+        // Draw Text
+        ctx.fillStyle = "#fbbf24"; // Yellow/Gold
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(text, 0, 0.5); // 0.5 px adjustment for visual centering
+        
+        ctx.restore();
+    }
+}
+
+function draw() {
+    drawGrid();
+    drawFiberCables(); // Draw cables below elements
+    elements.forEach(el => { if (el.type === 'board') drawElement(el); });
+    elements.forEach(el => { if (el.type !== 'board' && !selection.has(el)) drawElement(el); });
+    elements.forEach(el => { if (el.type !== 'board' && selection.has(el)) drawElement(el); });
+    const rays = castRays();
+    drawRays(rays);
+    drawLensFocusDots();
+    drawMarquee();
+    drawFiberConnectingLine(); // Draw fiber connecting line on top
+    drawHints(); // [V2.5.3] Draw UI Hints on top
+}
+
+// --- 6. Global Logic (Defined Before Listeners) ---
+// [V2.5.1 Update] Improved Auto-Align for AOM/Small Deviations
+// [V2.5.1 Update] Improved Auto-Align for AOM/Small Deviations
+function tryAutoAlign(element) {
+    // 1. Setup: Let rays pass through the element to find what hits it
+    const idx = elements.indexOf(element);
+    if (idx > -1) elements.splice(idx, 1);
+    const rays = castRays(); 
+    if (idx > -1) elements.splice(idx, 0, element);
+
+    let candidates = [];
+    let minDistance = 30; // Catch beams within 30mm
+
+    // 2. Find ALL rays passing near the element center
+    rays.forEach(ray => {
+        const APx = element.x - ray.x1; const APy = element.y - ray.y1;
+        const C = ray.x2 - ray.x1; const D = ray.y2 - ray.y1;
+        const len_sq = C * C + D * D;
+        let t = -1;
+        if (len_sq !== 0) t = (APx * C + APy * D) / len_sq;
+        
+        let closestX, closestY;
+        if (t < 0) { closestX = ray.x1; closestY = ray.y1; }
+        else if (t > 1) { closestX = ray.x2; closestY = ray.y2; }
+        else { closestX = ray.x1 + t * C; closestY = ray.y1 + t * D; }
+        
+        const dist = Math.sqrt((element.x - closestX)**2 + (element.y - closestY)**2);
+        
+        if (dist < minDistance) {
+            candidates.push({ ray: ray, dist: dist });
+        }
+    });
+
+    // Sort by distance
+    candidates.sort((a, b) => a.dist - b.dist);
+    
+    // [V2.5.3 UPDATE] Set Flag for UI Hint
+    hasCycleOptions = candidates.length > 1;
+
+    if (candidates.length > 0) {
+        // Modulo operator (%) loops the preference index
+        const selected = candidates[alignPreference % candidates.length].ray;
+        const bestMatch = selected;
+
+        // 3. Calculate Alignment for the SELECTED ray
+        const rdx = bestMatch.x2 - bestMatch.x1; 
+        const rdy = bestMatch.y2 - bestMatch.y1;
+        const len = Math.sqrt(rdx*rdx + rdy*rdy);
+        const inc = {x: rdx/len, y: rdy/len};
+
+        if (['mirror', 'mirror-d'].includes(element.type)) {
+            const cardinals = [{x:1,y:0}, {x:-1,y:0}, {x:0,y:1}, {x:0,y:-1}];
+            let bestRot = element.rotation;
+            let bestDiff = Infinity;
+
+            cardinals.forEach(target => {
+                let nx = target.x - inc.x;
+                let ny = target.y - inc.y;
+                const nl = Math.sqrt(nx*nx + ny*ny);
+                
+                if(nl > 0.001) {
+                    nx/=nl; ny/=nl;
+                    if (dot({x:nx, y:ny}, inc) < 0.05) { 
+                        let ang = Math.atan2(nx, -ny); 
+                        while(ang - element.rotation > Math.PI) ang -= 2*Math.PI;
+                        while(ang - element.rotation < -Math.PI) ang += 2*Math.PI;
+                        const diff = Math.abs(ang - element.rotation);
+                        if(diff < bestDiff) { bestDiff = diff; bestRot = ang; }
+                    }
+                }
+            });
+
+            if (bestDiff < Math.PI/4) {
+                element.rotation = bestRot;
+            }
+        } 
+        else if (['splitter', 'pbs', 'aom', 'hwp', 'qwp', 'glass', 'detector', 'blocker'].includes(element.type)) {
+             element.rotation = Math.round(element.rotation / (Math.PI/2)) * (Math.PI/2);
+        }
+    } else {
+        hasCycleOptions = false;
+    }
+}
+
+
+function cycleSnapRotation(el, inc) {
+    const len = Math.sqrt(inc.x*inc.x + inc.y*inc.y); const I = {x: inc.x/len, y: inc.y/len};
+    const validAngles = [];
+    if (['mirror', 'mirror-d', 'splitter', 'pbs'].includes(el.type)) {
+        const cardinals = [{x: 1, y: 0}, {x: -1, y: 0}, {x: 0, y: 1}, {x: 0, y: -1}];
+        cardinals.forEach(T => {
+             const dotTI = dot(T, I);
+             if (el.type.includes('mirror') && Math.abs(dotTI) > 0.99) return; 
+             let nx = T.x - I.x; let ny = T.y - I.y; const nlen = Math.sqrt(nx*nx + ny*ny);
+             if (nlen > 0.001) {
+                 nx /= nlen; ny /= nlen;
+                 const angle = Math.atan2(nx, -ny);
+                 validAngles.push(angle); validAngles.push(angle + Math.PI);
+             }
+             if (!el.type.includes('mirror')) {
+                 const angI = Math.atan2(I.y, I.x);
+                 validAngles.push(angI + Math.PI/2); validAngles.push(angI - Math.PI/2); validAngles.push(angI + Math.PI/4); validAngles.push(angI - Math.PI/4);
+             }
+        });
+    } else {
+        const angI = Math.atan2(I.y, I.x);
+        validAngles.push(angI + Math.PI/2); validAngles.push(angI - Math.PI/2);
+    }
+    const unique = [];
+    validAngles.forEach(a => {
+        let n = a % (2*Math.PI); if (n < 0) n += 2*Math.PI;
+        if (!unique.some(u => Math.abs(u - n) < 0.01)) unique.push(n);
+    });
+    unique.sort((a,b) => a-b);
+    if (unique.length === 0) return;
+    let curr = el.rotation % (2*Math.PI); if (curr < 0) curr += 2*Math.PI;
+    let next = unique.find(a => a > curr + 0.01);
+    if (next === undefined) next = unique[0];
+    el.rotation = next; updateUI();
+}
+
+function updateUI() { 
+    const p = Array.from(selection).pop(); 
+    const btnContainer = document.getElementById('dynamic-buttons');
+    btnContainer.innerHTML = '';
+    
+    if(p){ 
+        // 1. Rotation Slider
+        let deg = Math.round(toDeg(p.rotation)%360); 
+        if(deg<0) deg+=360; 
+        rotationSlider.value = deg; 
+        rotationValueDisplay.innerText = deg+'°'; 
+        
+        // Laser Controls
+        if (p.type === 'laser') {
+            const div = document.createElement('div');
+            div.className = "mt-2 border-t border-gray-600 pt-2";
+            const label = document.createElement('label');
+            label.className = "text-[9px] text-gray-400 block mb-1";
+            label.innerText = "Source Polarization";
+            div.appendChild(label);
+            const select = document.createElement('select');
+            select.className = "w-full bg-gray-700 border border-gray-600 rounded px-1 py-1 text-[10px] text-white cursor-pointer";
+            select.style.userSelect = 'auto';      
+            select.style.webkitUserSelect = 'auto'; 
+            // Note: Select needs native bubbling for the menu to work on some browsers, 
+            // but our Shield might catch it. If dropdown fails, we re-enable propagation here.
+            select.onmousedown = (e) => e.stopPropagation(); 
+            
+            select.onchange = (e) => { 
+                p.polAngle = parseInt(e.target.value); 
+                draw(); 
+            };
+            const optH = document.createElement('option');
+            optH.value = "0"; optH.innerText = "Horizontal (0°)";
+            if ((p.polAngle || 0) === 0) optH.selected = true;
+            const optV = document.createElement('option');
+            optV.value = "90"; optV.innerText = "Vertical (90°)";
+            if (p.polAngle === 90) optV.selected = true;
+            select.appendChild(optH);
+            select.appendChild(optV);
+            div.appendChild(select);
+            btnContainer.appendChild(div);
+        }
+
+        // Board Controls
+        if (p.type === 'board') {
+            const lockBtn = document.createElement('button');
+            lockBtn.className = `w-full py-1 text-[10px] rounded border transition mb-1 cursor-pointer ${p.locked ? 'bg-red-900/50 border-red-600 text-red-100' : 'bg-green-900/50 border-green-600 text-green-100'}`;
+            lockBtn.innerText = p.locked ? 'Unlock Board' : 'Lock Board';
+            lockBtn.onclick = window.toggleBoardLock;
+            btnContainer.appendChild(lockBtn);
+            
+            if (!p.locked) {
+                const rotBtn = document.createElement('button');
+                rotBtn.className = "w-full py-1 bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] rounded border border-indigo-500 transition mb-1 cursor-pointer";
+                rotBtn.innerText = "Rotate 90°";
+                rotBtn.onclick = () => rotateBoard(p);
+                btnContainer.appendChild(rotBtn);
+            }
+            
+            // Upload Reference Label (Clean - No inline stopPropagation)
+            const imgLabel = document.createElement('label');
+            imgLabel.htmlFor = 'imgUpload'; 
+            imgLabel.className = "block w-full py-1 bg-blue-700/50 border border-blue-600 rounded text-[10px] text-blue-100 text-center cursor-pointer mb-1 hover:bg-blue-700 select-none";
+            imgLabel.innerText = "Upload Reference";
+            btnContainer.appendChild(imgLabel);
+            
+            // Image Controls (Clean - No inline stopPropagation)
+             if (p.imgData) {
+                 const calibBtn = document.createElement('button');
+                 calibBtn.className = "w-full py-1 bg-yellow-600/50 border border-yellow-500 rounded text-[10px] text-yellow-100 mb-1 hover:bg-yellow-600 cursor-pointer mt-1";
+                 calibBtn.innerText = "Calibrate Image";
+                 calibBtn.onclick = window.startCalibration;
+                 btnContainer.appendChild(calibBtn);
+
+                 const slideDiv = document.createElement('div');
+                 slideDiv.className = "mt-1";
+                 slideDiv.innerHTML = `<label class="text-[9px] text-gray-400 block">Opacity</label><input type="range" min="0" max="1" step="0.1" value="${p.imgConfig.opacity}" class="w-full accent-blue-500 h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer" oninput="window.updateOpacity(this.value)">`;
+                 btnContainer.appendChild(slideDiv);
+
+                 const togBtn = document.createElement('button');
+                 togBtn.className = "w-full py-1 bg-gray-700 border border-gray-600 rounded text-[10px] text-gray-300 mb-1 hover:bg-gray-600 mt-1 cursor-pointer";
+                 togBtn.innerText = p.imgConfig.visible ? "Hide Image" : "Show Image";
+                 togBtn.onclick = window.toggleImage;
+                 btnContainer.appendChild(togBtn);
+
+                 const rmBtn = document.createElement('button');
+                 rmBtn.className = "w-full py-1 bg-red-900/30 border border-red-800 rounded text-[10px] text-red-300 mb-1 hover:bg-red-900 cursor-pointer";
+                 rmBtn.innerText = "Remove Image";
+                 rmBtn.onclick = window.removeImage;
+                 btnContainer.appendChild(rmBtn);
+             }
+        }
+    } 
+}
+
+// --- 7. UI Helpers ---
+function toggleBoardLock() { const p = Array.from(selection).pop(); if (p && p.type === 'board') { p.locked = !p.locked; updateUI(); draw(); }}
+function toggleImage() { 
+    const p = Array.from(selection).pop(); 
+    if (p && p.type === 'board') { 
+        p.imgConfig.visible = !p.imgConfig.visible; 
+        draw(); 
+        updateUI(); 
+    }
+}
+function removeImage() { 
+    const p = Array.from(selection).pop(); 
+    if (p && p.type === 'board') { 
+        p.imgData = null; 
+        draw(); 
+        updateUI(); 
+    }
+}
+function updateOpacity(val) { 
+    const p = Array.from(selection).pop(); 
+    if (p && p.type === 'board') { 
+        p.imgConfig.opacity = parseFloat(val); 
+        draw(); 
+    }
+}
+// [V2.7.1] Group Rotation Logic
+function rotateBoard(board) {
+    if (!board || board.type !== 'board' || board.locked) return;
+
+    // 1. Calculate New Dimensions (Swap Width/Height)
+    const newW = board.height;
+    const newH = board.width;
+
+    // 2. Check for Collision (Optional safety check)
+    // We check if the ROTATED shape fits. 
+    // (Strictly speaking, rotating might cause overlap, but for now we allow it or you can block it)
+    if (checkBoardOverlap(board, board.x, board.y, newW, newH)) {
+        alert("Cannot rotate: Collision with another board.");
+        return;
+    }
+
+    // 3. Find "Children" (Components strictly inside the board's OLD boundary)
+    // We use the old dimensions for detection before we update them
+    const children = elements.filter(el => 
+        el !== board && el.type !== 'board' && 
+        getParentBoard(el) === board
+    );
+
+    // 4. Transform Children
+    children.forEach(child => {
+        // Calculate position relative to board center
+        const dx = child.x - board.x;
+        const dy = child.y - board.y;
+
+        // Rotate 90 degrees clockwise (Math: x' = -y, y' = x)
+        // Note: In screen coords (Y-down), 90 deg CW is (x,y) -> (-y, x)
+        const newDx = -dy; 
+        const newDy = dx;
+
+        // Update Absolute Position
+        child.x = board.x + newDx;
+        child.y = board.y + newDy;
+
+        // Update Component Rotation (+90 deg)
+        child.rotation += Math.PI / 2;
+    });
+
+    // 5. Update Board Dimensions
+    board.width = newW;
+    board.height = newH;
+    
+    // 6. Update Background Image (if exists)
+    if (board.imgData) {
+        // Swap aspect ratio config
+        const temp = board.imgConfig.w;
+        board.imgConfig.w = board.imgConfig.h;
+        board.imgConfig.h = temp;
+        
+        // Rotate offset center: (x, y) -> (-y, x)
+        const ix = board.imgConfig.x;
+        const iy = board.imgConfig.y;
+        board.imgConfig.x = -iy;
+        board.imgConfig.y = ix;
+    }
+
+    draw();
+}
+function triggerImageUpload() { imgUploadInput.click(); }
+function handleImageUpload(input) { const f = input.files[0]; if (!f) return; const p = Array.from(selection).pop(); if (!p || p.type !== 'board') return; const r = new FileReader(); r.onload = (e) => { const i = new Image(); i.onload = () => { p.imgData = i; const a = i.height / i.width; p.imgConfig.w = p.width; p.imgConfig.h = p.width * a; p.imgConfig.x = 0; p.imgConfig.y = 0; draw(); updateUI(); }; i.src = e.target.result; }; r.readAsDataURL(f); input.value = ''; }
+function toggleImage() { const p = Array.from(selection).pop(); if (p && p.type === 'board') { p.imgConfig.visible = !p.imgConfig.visible; draw(); updateUI(); }}
+function removeImage() { const p = Array.from(selection).pop(); if (p && p.type === 'board') { p.imgData = null; draw(); updateUI(); }}
+function updateOpacity(val) { const p = Array.from(selection).pop(); if (p && p.type === 'board') { p.imgConfig.opacity = parseFloat(val); draw(); }}
+// [V2.7.2] Helper: Snap world coordinate 'w' to nearest grid hole on board 'b'
+function getClosestGridPoint(w, b) {
+    const gx = GRID_PITCH_MM; 
+    const lx = w.x - b.x; 
+    const ly = w.y - b.y; 
+    const sx = -b.width/2 + 12.5; 
+    const sy = -b.height/2 + 12.5; 
+    const col = Math.round((lx - sx) / gx); 
+    const row = Math.round((ly - sy) / gx); 
+    return {x: b.x + sx + col * gx, y: b.y + sy + row * gx};
+}
+// [V2.7.3] 3-Point Calibration Engine
+function startCalibration() { 
+    const p = Array.from(selection).pop(); 
+    if (p && p.type === 'board' && p.imgData) { 
+        calibrationState = 1; 
+        calibData.board = p; 
+        calibrationMsg.innerText = "Step 1/6: Click Top-Left on Image"; 
+        calibrationMsg.style.display = 'block'; 
+        document.body.style.cursor = 'crosshair'; 
+    }
+}
+
+function handleCalibrationClick(m) { 
+    const w = screenToWorld(m.x, m.y); 
+    const b = calibData.board; 
+    
+    if (calibrationState === 1) { 
+        calibData.p1Img = {x: w.x, y: w.y}; 
+        calibrationState = 2; 
+        calibrationMsg.innerText = "Step 2/6: Click Grid Hole for Top-Left"; 
+    } 
+    else if (calibrationState === 2) { 
+        const snap = getClosestGridPoint(w, b);
+        calibData.p1Board = snap; 
+        calibrationState = 3; 
+        calibrationMsg.innerText = "Step 3/6: Click Top-Right on Image"; 
+    } 
+    else if (calibrationState === 3) { 
+        calibData.p2Img = {x: w.x, y: w.y}; 
+        calibrationState = 4; 
+        calibrationMsg.innerText = "Step 4/6: Click Grid Hole for Top-Right"; 
+    } 
+    else if (calibrationState === 4) { 
+        const snap = getClosestGridPoint(w, b);
+        calibData.p2Board = snap; 
+        calibrationState = 5;
+        calibrationMsg.innerText = "Step 5/6: Click Bottom-Right on Image";
+    }
+    else if (calibrationState === 5) {
+        calibData.p3Img = {x: w.x, y: w.y};
+        calibrationState = 6;
+        calibrationMsg.innerText = "Step 6/6: Click Grid Hole for Bottom-Right";
+    }
+    else if (calibrationState === 6) {
+        const snap = getClosestGridPoint(w, b);
+        calibData.p3Board = snap;
+        applyCalibration(); 
+        calibrationState = 0; 
+        calibrationMsg.style.display = 'none'; 
+        document.body.style.cursor = 'default'; 
+    } 
+}
+
+function applyCalibration() { 
+    const b = calibData.board;
+    
+    const p1i = calibData.p1Img; 
+    const p1b = calibData.p1Board; 
+    const p3i = calibData.p3Img; 
+    const p3b = calibData.p3Board; 
+    
+    // Vector in Image Space (P1 -> P3)
+    const vImg = { x: p3i.x - p1i.x, y: p3i.y - p1i.y };
+    // Vector in World Space (P1 -> P3)
+    const vWorld = { x: p3b.x - p1b.x, y: p3b.y - p1b.y };
+    
+    const lenImg = Math.sqrt(vImg.x**2 + vImg.y**2);
+    const lenWorld = Math.sqrt(vWorld.x**2 + vWorld.y**2);
+    
+    if (lenImg < 1) return;
+    
+    // 1. Calculate Scale
+    const scale = lenWorld / lenImg;
+    
+    // 2. Calculate Rotation Angle
+    const angImg = Math.atan2(vImg.y, vImg.x);
+    const angWorld = Math.atan2(vWorld.y, vWorld.x);
+    const rotationDelta = angWorld - angImg;
+    
+    // Apply to Image Config
+    b.imgConfig.w *= scale;
+    b.imgConfig.h *= scale;
+    b.imgConfig.rotation = (b.imgConfig.rotation || 0) + rotationDelta;
+    
+    // 3. Calculate Offset (Map P1_img to P1_board)
+    // We map the old P1 position to the new P1 position relative to the board center
+    const cx = b.imgConfig.x; 
+    const cy = b.imgConfig.y;
+    
+    // Vector from current Image Center to P1 (in world coords before this transform)
+    const dx = (p1i.x - (b.x + cx));
+    const dy = (p1i.y - (b.y + cy));
+    
+    // Scale vector
+    const sdx = dx * scale;
+    const sdy = dy * scale;
+    
+    // Rotate vector
+    const rdx = sdx * Math.cos(rotationDelta) - sdy * Math.sin(rotationDelta);
+    const rdy = sdx * Math.sin(rotationDelta) + sdy * Math.cos(rotationDelta);
+    
+    // New Center Position: TargetP1 - RotatedVectorFromCenter - BoardPos
+    b.imgConfig.x = p1b.x - b.x - rdx;
+    b.imgConfig.y = p1b.y - b.y - rdy;
+    
+    draw(); 
+}
+function updateTableSize() { draw(); }
+function addBoard() { const w = parseInt(document.getElementById('boardW').value) || 600; const h = parseInt(document.getElementById('boardH').value) || 450; const t = document.getElementById('boardTitle').value || 'Board'; const c = screenToWorld(canvas.width/2, canvas.height/2); const nx = Math.round(c.x / GRID_PITCH_MM) * GRID_PITCH_MM; const ny = Math.round(c.y / GRID_PITCH_MM) * GRID_PITCH_MM; const b = new Element('board', nx, ny, w, h, t); let tries = 0; while(checkBoardOverlap(b, b.x, b.y, b.width, b.height) && tries < 50) { b.x += 50; b.y += 50; tries++; } elements.push(b); draw(); }
+function updateBoardInputs() { const s = document.getElementById('boardSizeSelect'); if (s.value !== 'custom') { const [w, h] = s.value.split('x'); document.getElementById('boardW').value = w; document.getElementById('boardH').value = h; } }
+function deleteSelected() { if(selection.size>0){ elements=elements.filter(e=>!selection.has(e)); selection.clear(); draw(); }}
+function clearAll() { elements=[]; selection.clear(); draw(); }
+function copySelected() {
+    if (selection.size === 0) return;
+    // Serialize selected elements with all their properties
+    clipboard = Array.from(selection).map(el => {
+        const data = {
+            type: el.type,
+            x: el.x,
+            y: el.y,
+            width: el.width,
+            height: el.height,
+            rotation: el.rotation,
+            title: el.title || '',
+            isFlipped: el.isFlipped || false,
+            locked: el.locked || false,
+            imgConfig: el.imgConfig || null
+        };
+        // Preserve special properties
+        if (isWaveplateElement(el) && typeof el.axisAngle === 'number') {
+            data.axisAngle = el.axisAngle;
+        }
+        if (el.type === 'aom' && typeof el.aomEnabled === 'boolean') {
+            data.aomEnabled = el.aomEnabled;
+        }
+        if (el.type === 'lens' && el.optics) {
+            data.optics = { focalLength: el.optics.focalLength };
+        }
+        if (el.type === 'laser' && typeof el.polAngle === 'number') {
+            data.polAngle = el.polAngle;
+        }
+        return data;
+    });
+}
+function pasteElements() {
+    if (!clipboard || clipboard.length === 0) return;
+    
+    // Calculate center of copied elements
+    let centerX = 0, centerY = 0;
+    clipboard.forEach(data => {
+        centerX += data.x;
+        centerY += data.y;
+    });
+    centerX /= clipboard.length;
+    centerY /= clipboard.length;
+    
+    // Get current mouse position or center of view for initial paste location
+    const mouseWorld = lastMousePos.x > 0 && lastMousePos.y > 0 
+        ? screenToWorld(lastMousePos.x, lastMousePos.y)
+        : screenToWorld(canvas.width / 2, canvas.height / 2);
+    
+    const pasteX = mouseWorld.x;
+    const pasteY = mouseWorld.y;
+    
+    // Clear selection and create new elements at initial position
+    selection.clear();
+    const pastedElements = [];
+    const relativeOffsets = []; // Store relative positions from center
+    
+    clipboard.forEach(data => {
+        // Calculate relative offset from center of copied group
+        const relX = data.x - centerX;
+        const relY = data.y - centerY;
+        relativeOffsets.push({ x: relX, y: relY });
+        
+        // Create element at initial paste position
+        const el = new Element(data.type, pasteX + relX, pasteY + relY, data.width, data.height, data.title);
+        // Generate new ID
+        el.id = Date.now() + Math.random();
+        // Restore properties
+        el.rotation = data.rotation;
+        el.isFlipped = data.isFlipped || false;
+        el.locked = data.locked || false;
+        if (data.imgConfig) el.imgConfig = data.imgConfig;
+        
+        // Restore special properties
+        if (isWaveplateElement(el) && typeof data.axisAngle === 'number') {
+            el.axisAngle = data.axisAngle;
+        }
+        if (el.type === 'aom' && typeof data.aomEnabled === 'boolean') {
+            el.aomEnabled = data.aomEnabled;
+        }
+        if (el.type === 'lens' && data.optics) {
+            el.optics = { focalLength: data.optics.focalLength };
+        }
+        if (el.type === 'laser' && typeof data.polAngle === 'number') {
+            el.polAngle = data.polAngle;
+        }
+        
+        elements.push(el);
+        pastedElements.push(el);
+    });
+    
+    // Select all pasted elements
+    pastedElements.forEach(el => selection.add(el));
+    
+    // Enter placement mode: set up dragging so elements follow mouse
+    isDragging = true;
+    dragOffsets.clear();
+    
+    // Set drag offsets so elements maintain their relative positions
+    pastedElements.forEach((el, idx) => {
+        const rel = relativeOffsets[idx];
+        // The offset is the difference between element position and mouse position
+        // Since elements are already positioned relative to paste center, we calculate offset from mouse
+        dragOffsets.set(el, { 
+            dx: el.x - pasteX,  // Offset from mouse position
+            dy: el.y - pasteY 
+        });
+    });
+    
+    updateUI();
+    draw();
+}
+function resetView() { view.scale=0.5; view.x=(canvas.width-tableConfig.widthMM*PIXELS_PER_MM*view.scale)/2; view.y=(canvas.height-tableConfig.heightMM*PIXELS_PER_MM*view.scale)/2; draw(); }
+// [V2.7.5.3] Modified startSidebarDrag with Board-Relative Snapping
+function startSidebarDrag(e, type) { 
+    e.preventDefault(); 
+    const r = canvas.getBoundingClientRect(); 
+    const p = screenToWorld(e.clientX - r.left, e.clientY - r.top); 
+    let nx = p.x; 
+    let ny = p.y; 
+    
+    // [V2.7.5.3] Board-Relative Snapping Logic
+    if (!shiftPressed && !ctrlPressed) { 
+        // Check if cursor is over a board
+        const board = elements.find(el => el.type === 'board' && 
+                                    nx >= el.x - el.width/2 && nx <= el.x + el.width/2 && 
+                                    ny >= el.y - el.height/2 && ny <= el.y + el.height/2);
+        if (board) {
+            const snap = getClosestGridPoint({x: nx, y: ny}, board);
+            nx = snap.x;
+            ny = snap.y;
+        } else {
+            // Global Fallback (Offset to match hole pattern: 12.5mm)
+            nx = Math.round((nx - 12.5)/GRID_PITCH_MM)*GRID_PITCH_MM + 12.5;
+            ny = Math.round((ny - 12.5)/GRID_PITCH_MM)*GRID_PITCH_MM + 12.5;
+        }
+    } 
+    
+    const el = new Element(type, nx, ny); 
+    elements.push(el); 
+    selection.clear(); 
+    selection.add(el); 
+    isDragging = true; 
+    dragOffsets.clear(); 
+    dragOffsets.set(el, { dx: 0, dy: 0 }); 
+    updateUI(); 
+    draw(); 
+}
+
+function allowDrop(e) { e.preventDefault(); }
+function handleDrop(e) { e.preventDefault(); }
+function rehydrateElement(data) { const el = new Element(data.type, data.x, data.y, data.width, data.height, data.title); el.id = data.id; el.rotation = data.rotation; el.width = data.width; el.height = data.height; el.isFlipped = data.isFlipped || false; el.locked = data.locked || false; if (data.imgConfig) { el.imgConfig = data.imgConfig; } return el; }
+
+// --- Missing Functions Implementation (Added for Stability) ---
+function saveState() {
+    const data = JSON.stringify(elements);
+    localStorage.setItem('opticalBenchState', data);
+    alert('Saved to local storage');
+}
+function loadState() {
+    const data = localStorage.getItem('opticalBenchState');
+    if (data) {
+        const parsed = JSON.parse(data);
+        elements = parsed.map(d => rehydrateElement(d));
+        draw();
+    } else {
+        alert('No saved state found');
+    }
+}
+function exportState() {
+    const data = JSON.stringify(elements);
+    const blob = new Blob([data], {type: 'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'optical-bench-state.json';
+    a.click();
+}
+function importState(input) {
+    const file = input.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        try {
+            const data = JSON.parse(e.target.result);
+            elements = data.map(d => rehydrateElement(d));
+            draw();
+        } catch (err) {
+            alert('Error importing file');
+        }
+    };
+    reader.readAsText(file);
+}
+
+// Attach to Window
+window.toggleBoardLock = toggleBoardLock;
+window.rotateBoard = rotateBoard;
+window.triggerImageUpload = triggerImageUpload;
+window.handleImageUpload = handleImageUpload;
+window.toggleImage = toggleImage;
+window.removeImage = removeImage;
+window.updateOpacity = updateOpacity;
+window.startCalibration = startCalibration;
+window.updateTableSize = updateTableSize;
+window.addBoard = addBoard;
+window.updateBoardInputs = updateBoardInputs;
+window.deleteSelected = deleteSelected;
+window.clearAll = clearAll;
+window.resetView = resetView;
+window.copySelected = copySelected;
+window.pasteElements = pasteElements;
+window.startSidebarDrag = startSidebarDrag;
+window.allowDrop = allowDrop;
+window.handleDrop = handleDrop;
+window.rehydrateElement = rehydrateElement;
+window.saveState = saveState;
+window.loadState = loadState;
+window.exportState = exportState;
+window.importState = importState;
+window.updateUI = updateUI;
+window.tryAutoAlign = tryAutoAlign;
+window.cycleSnapRotation = cycleSnapRotation;
+
+// --- Listeners ---
+canvas.addEventListener('mousedown', (e) => {
+    const m = { x: e.clientX - canvas.getBoundingClientRect().left, y: e.clientY - canvas.getBoundingClientRect().top };
+    lastMousePos = m;
+    if (calibrationState > 0) { handleCalibrationClick(m); return; }
+    
+    // Pan Logic
+    if (e.button === 1 || (e.button === 0 && keys[' '])) { 
+        view.isPanning = true; 
+        view.startPanX = m.x - view.x; 
+        view.startPanY = m.y - view.y; 
+        canvas.style.cursor = 'grabbing'; 
+        return; 
+    }
+
+    const w = screenToWorld(m.x, m.y);
+    const primary = Array.from(selection).pop();
+    
+    if (primary) {
+        // Component Handles
+        if (primary.type !== 'board' && lastHitOnSelected && lastHitOnSelected.el === primary) {
+            const snapLocal = primary.getSnapButtonPosition();
+            const r = primary.rotation;
+            const bx = primary.x + (snapLocal.x * Math.cos(r) - snapLocal.y * Math.sin(r));
+            const by = primary.y + (snapLocal.x * Math.sin(r) + snapLocal.y * Math.cos(r));
+            const bs = worldToScreen(bx, by);
+            if((m.x - bs.x)**2 + (m.y - bs.y)**2 < 100) { cycleSnapRotation(primary, lastHitOnSelected.incoming); draw(); return; }
+        }
+        
+        // Board Handles
+        if (primary.type === 'board' && !primary.locked) {
+            const rh = primary.getResizeHandlePosition(); 
+            const rhS = worldToScreen(primary.x + rh.x, primary.y + rh.y); 
+            
+            // Resize
+            if ((m.x - rhS.x)**2 + (m.y - rhS.y)**2 < 100) {
+                isResizing = true; 
+                originalBoardState = { w: primary.width, h: primary.height, x: primary.x, y: primary.y };
+                let minX = primary.x - primary.width/2; let minY = primary.y - primary.height/2; let maxX = minX; let maxY = minY;
+                elements.forEach(child => { if (child !== primary && child.type !== 'board' && getParentBoard(child) === primary) {
+                     const hw = child.width/2 + 10; const hh = child.height/2 + 10;
+                     if(child.x + hw > maxX) maxX = child.x + hw; if(child.y + hh > maxY) maxY = child.y + hh;
+                }});
+                originalBoardState.minW = Math.max(50, maxX - minX); originalBoardState.minH = Math.max(50, maxY - minY);
+                return;
+            }
+            
+            // Move Handle Position
+            const mh = primary.getMoveHandlePosition(); 
+            
+            // [V2.7.1] Rotate Handle Hit Test
+            // Handle is 18px right of Move Handle. (Offset by +18 in local X, +7.5 in local Y for center)
+            // We calculate screen pos of center:
+            const rotH_Screen = worldToScreen(primary.x + mh.x + 18 + 7.5, primary.y + mh.y + 7.5);
+            
+            if ((m.x - rotH_Screen.x)**2 + (m.y - rotH_Screen.y)**2 < 100) {
+                rotateBoard(primary);
+                return;
+            }
+
+            // Move Handle Hit Test
+            const mhS = worldToScreen(primary.x + mh.x + 7.5, primary.y + mh.y + 7.5); 
+            if ((m.x - mhS.x)**2 + (m.y - mhS.y)**2 < 100) {
+                 isDragging = true; 
+                 originalBoardState = { x: primary.x, y: primary.y }; 
+                 draggedChildren.clear();
+                 elements.forEach(child => { 
+                     if (child !== primary && child.type !== 'board' && !selection.has(child) && getParentBoard(child) === primary) 
+                        draggedChildren.set(child, {dx: child.x - primary.x, dy: child.y - primary.y}); 
+                 });
+                 dragOffsets.clear(); 
+                 dragOffsets.set(primary, { dx: primary.x - w.x, dy: primary.y - w.y });
+                 draw(); return;
+            }
+        } 
+        // Component Rotate Handle
+        else if (primary.type !== 'board') {
+            const hl = primary.getHandlePosition(); const hs = worldToScreen(primary.x + hl.x, primary.y + hl.y);
+            if ((m.x - hs.x)**2 + (m.y - hs.y)**2 < 100) {
+                if (shiftPressed) {
+                    // Shift+click: Rotate CCW by 90 degrees
+                    primary.rotation -= Math.PI / 2;
+                    updateUI();
+                    draw();
+                } else {
+                    isRotating = true;
+                }
+                return;
+            }
+            if (primary.type === 'mirror-d') {
+                const fl = primary.getFlipButtonPosition(); 
+                const fw = {x: primary.x + (fl.x * Math.cos(primary.rotation) - fl.y * Math.sin(primary.rotation)), y: primary.y + (fl.x * Math.sin(primary.rotation) + fl.y * Math.cos(primary.rotation))};
+                const fS = worldToScreen(fw.x, fw.y);
+                if ((m.x - fS.x)**2 + (m.y - fS.y)**2 < 100) { primary.isFlipped = !primary.isFlipped; updateUI(); draw(); return; }
+            }
+        }
+    }
+
+    // Selection Logic
+    let clicked = null;
+    const components = elements.filter(el => el.type !== 'board');
+    clicked = components.reverse().find(el => {
+        const dx = el.x - w.x; const dy = el.y - w.y; const r = Math.max(el.width, el.height) / 1.5;
+        return (dx*dx + dy*dy) < r*r;
+    });
+    if (!clicked) {
+        const boards = elements.filter(el => el.type === 'board');
+        clicked = boards.reverse().find(el => { return w.x > el.x - el.width/2 && w.x < el.x + el.width/2 && w.y > el.y - el.height/2 && w.y < el.y + el.height/2; });
+    }
+
+    if (clicked) {
+        if (shiftPressed || ctrlPressed) { selection.has(clicked) ? selection.delete(clicked) : selection.add(clicked); }
+        else { if (!selection.has(clicked)) { selection.clear(); selection.add(clicked); } }
+        if (clicked.type === 'board') isDragging = false; 
+        else { isDragging = true; invalidBoardPlacement = false; dragOffsets.clear(); selection.forEach(el => dragOffsets.set(el, { dx: el.x - w.x, dy: el.y - w.y })); }
+        updateUI();
+    } else {
+        if (!shiftPressed && !ctrlPressed) selection.clear();
+        isSelecting = true; selectionRect = { x: m.x, y: m.y, w: 0, h: 0, startX: m.x, startY: m.y };
+    }
+    draw();
+});
+
+// [V2.7.5.3] Modified mousemove Listener
+canvas.addEventListener('mousemove', (e) => {
+    const m = { x: e.clientX - canvas.getBoundingClientRect().left, y: e.clientY - canvas.getBoundingClientRect().top };
+    lastMousePos = m; const w = screenToWorld(m.x, m.y);
+    mouseCoordsDisplay.innerText = `X: ${Math.round(w.x)}mm Y: ${Math.round(w.y)}mm`;
+    if (calibrationState > 0) return; 
+    
+    // Fiber connecting - update mouse position for visual feedback
+    if (isFiberConnecting && fiberConnectSource) {
+        fiberConnectMousePos = m;
+        draw();
+        return;
+    }
+    
+    if (view.isPanning) { view.x = m.x - view.startPanX; view.y = m.y - view.startPanY; draw(); return; }
+    if (isAdjustingAxis && axisAdjustTarget) {
+        const changed = updateWaveplateAxisFromPoint(axisAdjustTarget, w);
+        if (changed) {
+            draw();
+            updateUI();
+        }
+        return;
+    }
+    if (isRotating) {
+        const p = Array.from(selection).pop();
+        if (p) {
+            const dx = w.x - p.x; const dy = w.y - p.y; let angle = Math.atan2(dy, dx);
+            if (!shiftPressed) { const step = toRad(SNAP_ROTATION); angle = Math.round(angle / step) * step; }
+            p.rotation = angle; updateUI(); draw();
+        }
+        return;
+    }
+    if (isResizing) {
+        const p = Array.from(selection).pop();
+        if (p && p.type === 'board') {
+            const oldTLx = originalBoardState.x - originalBoardState.w / 2; const oldTLy = originalBoardState.y - originalBoardState.h / 2;
+            let newW = Math.max(originalBoardState.minW, w.x - oldTLx); let newH = Math.max(originalBoardState.minH, w.y - oldTLy);
+            if (!shiftPressed) { newW = Math.round(newW/GRID_PITCH_MM)*GRID_PITCH_MM; newH = Math.round(newH/GRID_PITCH_MM)*GRID_PITCH_MM; }
+            const newCx = oldTLx + newW / 2; const newCy = oldTLy + newH / 2;
+            invalidBoardPlacement = checkBoardOverlap(p, newCx, newCy, newW, newH);
+            p.width = newW; p.height = newH; p.x = newCx; p.y = newCy; draw();
+        }
+        return;
+    }
+    if (isDragging) {
+        let hasBoard = false; selection.forEach(el => { if(el.type==='board') hasBoard = true; });
+        if (hasBoard) invalidBoardPlacement = false;
+        
+        selection.forEach(el => {
+            if (el.locked) return;
+            const off = dragOffsets.get(el);
+            if (off) {
+                // Calculate Raw Position
+                const rawX = w.x + off.dx; 
+                const rawY = w.y + off.dy;
+                let newX = rawX; 
+                let newY = rawY;
+
+                // [V2.7.5.3] Board-Relative Snapping
+                if (!shiftPressed && !ctrlPressed) { 
+                    // Find if the component is inside a board
+                    const board = elements.find(b => b.type === 'board' && b !== el && 
+                                              rawX >= b.x - b.width/2 && rawX <= b.x + b.width/2 && 
+                                              rawY >= b.y - b.height/2 && rawY <= b.y + b.height/2);
+                    
+                    if (board) {
+                        const snap = getClosestGridPoint({x: rawX, y: rawY}, board);
+                        newX = snap.x;
+                        newY = snap.y;
+                    } else {
+                        // Global Fallback (Offset 12.5mm)
+                        newX = Math.round((rawX - 12.5)/GRID_PITCH_MM)*GRID_PITCH_MM + 12.5; 
+                        newY = Math.round((rawY - 12.5)/GRID_PITCH_MM)*GRID_PITCH_MM + 12.5; 
+                    }
+                }
+                else if (shiftPressed) { 
+                    newX = Math.round(newX/HALF_GRID_MM)*HALF_GRID_MM; 
+                    newY = Math.round(newY/HALF_GRID_MM)*HALF_GRID_MM; 
+                }
+                
+                if (el.type === 'board' && checkBoardOverlap(el, newX, newY, el.width, el.height)) invalidBoardPlacement = true;
+                el.x = newX; el.y = newY;
+                if (el.type === 'board') draggedChildren.forEach((rel, child) => { child.x = el.x + rel.dx; child.y = el.y + rel.dy; });
+                if (selection.size === 1 && el.type !== 'board') tryAutoAlign(el);
+            }
+        });
+        draw(); return;
+    }
+    if (isSelecting && selectionRect) {
+        selectionRect.w = Math.abs(m.x - selectionRect.startX); selectionRect.h = Math.abs(m.y - selectionRect.startY);
+        selectionRect.x = Math.min(m.x, selectionRect.startX); selectionRect.y = Math.min(m.y, selectionRect.startY);
+        draw(); return;
+    }
+    draw(); 
+});
+
+window.addEventListener('mouseup', () => {
+    // Complete fiber connection if in connecting mode
+    if (isFiberConnecting && fiberConnectSource && fiberConnectMousePos) {
+        const w = screenToWorld(fiberConnectMousePos.x, fiberConnectMousePos.y);
+        // Find fiber coupler under mouse (excluding source)
+        const fiberCouplers = elements.filter(el => el.type === 'fiber-coupler' && el !== fiberConnectSource).reverse();
+        let targetCoupler = null;
+        for (let fc of fiberCouplers) {
+            const dx = fc.x - w.x; const dy = fc.y - w.y;
+            const r = fc.width / 1.5;
+            if (dx*dx + dy*dy < r*r) {
+                targetCoupler = fc;
+                break;
+            }
+        }
+        
+        if (targetCoupler) {
+            // Unpair both couplers from any existing pairings first
+            if (fiberConnectSource.pairedWith) {
+                const oldPaired = elements.find(el => el.id === fiberConnectSource.pairedWith);
+                if (oldPaired) {
+                    oldPaired.pairedWith = null;
+                    oldPaired.fiberColor = null;
+                }
+            }
+            if (targetCoupler.pairedWith) {
+                const oldPaired = elements.find(el => el.id === targetCoupler.pairedWith);
+                if (oldPaired) {
+                    oldPaired.pairedWith = null;
+                    oldPaired.fiberColor = null;
+                }
+            }
+            // Clear old colors
+            fiberConnectSource.fiberColor = null;
+            targetCoupler.fiberColor = null;
+            // Create new pairing (bidirectional) with assigned color
+            const fiberColor = getNextFiberColor();
+            fiberConnectSource.pairedWith = targetCoupler.id;
+            fiberConnectSource.fiberColor = fiberColor;
+            targetCoupler.pairedWith = fiberConnectSource.id;
+            targetCoupler.fiberColor = fiberColor;
+            selection.clear();
+            selection.add(fiberConnectSource);
+        }
+        
+        // Reset fiber connecting state
+        isFiberConnecting = false;
+        fiberConnectSource = null;
+        fiberConnectMousePos = null;
+        updateUI();
+        draw();
+        return;
+    }
+    
+    if ((isResizing || isDragging) && invalidBoardPlacement) {
+        const p = Array.from(selection).pop();
+        if (p && originalBoardState) {
+            if (isResizing) { p.width = originalBoardState.w; p.height = originalBoardState.h; p.x = originalBoardState.x; p.y = originalBoardState.y; }
+            else { 
+                const dx = originalBoardState.x - p.x; const dy = originalBoardState.y - p.y;
+                p.x = originalBoardState.x; p.y = originalBoardState.y;
+                draggedChildren.forEach((rel, child) => { child.x += dx; child.y += dy; });
+            }
+        }
+        invalidBoardPlacement = false;
+    }
+    draggedChildren.clear(); 
+    if (isSelecting && selectionRect) {
+        elements.forEach(el => {
+            const p = worldToScreen(el.x, el.y);
+            if (p.x >= selectionRect.x && p.x <= selectionRect.x + selectionRect.w && p.y >= selectionRect.y && p.y <= selectionRect.y + selectionRect.h) selection.add(el);
+        });
+        selectionRect = null;
+    }
+    isDragging = false; isRotating = false; isSelecting = false; isResizing = false; view.isPanning = false; canvas.style.cursor = 'crosshair'; updateUI(); draw();
+});
+canvas.addEventListener('wheel', (e) => { e.preventDefault(); const zoom = 0.1; const m = getMousePos(e); const wB = screenToWorld(m.x, m.y); view.scale *= (e.deltaY < 0) ? (1+zoom) : (1-zoom); view.scale = Math.max(0.1, Math.min(view.scale, 5)); const wA = screenToWorld(m.x, m.y); view.x += (wA.x - wB.x)*PIXELS_PER_MM*view.scale; view.y += (wA.y - wB.y)*PIXELS_PER_MM*view.scale; debugInfo.innerText = `Scale: ${Math.round(view.scale*100)}%`; draw(); });
+canvas.addEventListener('contextmenu', (e) => { e.preventDefault(); }); // Prevent context menu for fiber connecting
+window.addEventListener('keydown', (e) => { 
+    keys[e.key] = true; 
+    if (e.key === 'Shift') shiftPressed = true; 
+    if (e.key === 'Control' || e.key === 'Meta') ctrlPressed = true; 
+    
+    // Copy/Paste: Handle Cmd+C (Mac) / Ctrl+C (Windows) and Cmd+V / Ctrl+V
+    const isCopy = (e.key === 'c' || e.key === 'C') && (e.metaKey || e.ctrlKey);
+    const isPaste = (e.key === 'v' || e.key === 'V') && (e.metaKey || e.ctrlKey);
+    
+    if (isCopy && selection.size > 0) {
+        e.preventDefault();
+        copySelected();
+        return;
+    }
+    
+    if (isPaste) {
+        e.preventDefault();
+        pasteElements();
+        return;
+    }
+    
+    // [V2.5.2] Cycle Alignment Target
+    if (e.key === 'q' || e.key === 'Q') {
+        alignPreference++;
+        const p = Array.from(selection).pop();
+        if (p && ['mirror', 'mirror-d'].includes(p.type)) {
+            tryAutoAlign(p);
+            draw();
+        }
+    }
+    
+    // Rotation shortcuts
+    if (selection.size > 0) {
+        const p = Array.from(selection).pop();
+        if (p && p.type !== 'board' && !p.locked) {
+            const isCCW = shiftPressed;
+            const sign = isCCW ? -1 : 1;
+            
+            if (e.key === 'r' || e.key === 'R') {
+                // Rotate 90 degrees (CW or CCW based on Shift)
+                p.rotation += sign * Math.PI / 2;
+                updateUI();
+                draw();
+            } else if (e.key === 't' || e.key === 'T') {
+                // Rotate 45 degrees (CW or CCW based on Shift)
+                p.rotation += sign * Math.PI / 4;
+                updateUI();
+                draw();
+            } else if (e.key === 's' || e.key === 'S') {
+                // Snapping - cycle through valid angles
+                if (lastHitOnSelected && lastHitOnSelected.el === p) {
+                    // Use the stored incoming ray
+                    cycleSnapRotation(p, lastHitOnSelected.incoming);
+                } else {
+                    // Find incoming ray by temporarily removing element
+                    const idx = elements.indexOf(p);
+                    if (idx > -1) elements.splice(idx, 1);
+                    const rays = castRays();
+                    if (idx > -1) elements.splice(idx, 0, p);
+                    
+                    // Find closest ray to element center
+                    let bestRay = null;
+                    let minDist = 50; // Increased tolerance
+                    rays.forEach(ray => {
+                        const APx = p.x - ray.x1; const APy = p.y - ray.y1;
+                        const C = ray.x2 - ray.x1; const D = ray.y2 - ray.y1;
+                        const len_sq = C * C + D * D;
+                        if (len_sq < 0.001) return;
+                        let t = (APx * C + APy * D) / len_sq;
+                        let closestX, closestY;
+                        if (t < 0) { closestX = ray.x1; closestY = ray.y1; }
+                        else if (t > 1) { closestX = ray.x2; closestY = ray.y2; }
+                        else { closestX = ray.x1 + t * C; closestY = ray.y1 + t * D; }
+                        const dist = Math.sqrt((p.x - closestX)**2 + (p.y - closestY)**2);
+                        if (dist < minDist) { minDist = dist; bestRay = ray; }
+                    });
+                    
+                    if (bestRay) {
+                        const rdx = bestRay.x2 - bestRay.x1;
+                        const rdy = bestRay.y2 - bestRay.y1;
+                        const len = Math.sqrt(rdx*rdx + rdy*rdy);
+                        if (len > 0.001) {
+                            const inc = {x: rdx/len, y: rdy/len};
+                            cycleSnapRotation(p, inc);
+                        }
+                    } else if (['mirror', 'mirror-d'].includes(p.type)) {
+                        // Fallback for mirrors: use tryAutoAlign
+                        tryAutoAlign(p);
+                    }
+                }
+                updateUI();
+                draw();
+            }
+        }
+    }
+
+    if (selection.size > 0 && (e.key === 'Delete' || e.key === 'Backspace')) deleteSelected(); 
+});
+window.addEventListener('keyup', (e) => { keys[e.key]=false; if(e.key==='Shift')shiftPressed=false; if(e.key==='Control'||e.key==='Meta')ctrlPressed=false; });
+// [V2.7.1] Renaming Logic (Generic)
+canvas.addEventListener('dblclick', (e) => { 
+    const m = getMousePos(e);
+    const w = screenToWorld(m.x, m.y);
+    
+    // Find topmost hit (prioritize components over boards)
+    let hit = elements.slice().reverse().find(el => {
+        if (el.type === 'board') {
+             return w.x > el.x - el.width/2 && w.x < el.x + el.width/2 &&
+                    w.y > el.y - el.height/2 && w.y < el.y + el.height/2;
+        } else {
+             // Simple hit test for components
+             const dx = el.x - w.x; 
+             const dy = el.y - w.y; 
+             const r = Math.max(el.width, el.height) / 1.5;
+             return (dx*dx + dy*dy) < r*r;
+        }
+    });
+    
+    let isTitle = false;
+    if (hit) {
+        if (hit.type === 'board') {
+            // Board: Only trigger if clicking the top-left "Title Area"
+            const titleY = hit.y - hit.height/2;
+            const titleX = hit.x - hit.width/2;
+            if (w.y < titleY && w.y > titleY - 20 && w.x > titleX && w.x < titleX + 200) isTitle = true;
+        } else {
+            // Component: Clicking anywhere triggers rename
+            isTitle = true;
+        }
+    }
+    
+    if (hit && isTitle) {
+        const label = hit.type === 'board' ? "Enter Board Title:" : "Enter Component Label:";
+        const newTitle = prompt(label, hit.title);
+        if (newTitle !== null) { 
+            hit.title = newTitle; 
+            draw(); 
+        }
+    } else {
+        // Existing Logic: Reset rotation on background double-click
+        selection.forEach(el => { 
+            el.rotation = 0; 
+            if(el.type==='mirror'||el.type==='mirror-d') el.rotation=toRad(-45); 
+            if(['splitter','pbs'].includes(el.type)) el.rotation=0; 
+        }); 
+        updateUI(); 
+        draw(); 
+    }
+});
+
+// [V2.7.4] Global UI Shield
+// Protects all sidebar buttons from "Death by Redraw" (Event Bubbling)
+const uiSidebar = document.getElementById('ui-sidebar');
+if (uiSidebar) {
+    ['mousedown', 'mouseup', 'click'].forEach(evtType => {
+        uiSidebar.addEventListener(evtType, (e) => {
+            // Intelligent Shield:
+            // If the user is currently dragging/rotating an object on the canvas,
+            // we MUST let the event bubble up so the 'window' listeners can detect
+            // the mouse release and end the drag operation.
+            if (isDragging || isRotating || isResizing || view.isPanning || isAdjustingAxis) {
+                return; 
+            }
+            
+            // Otherwise (Normal clicking on sidebar):
+            // Stop the event here. Do not let it bubble to Window.
+            // This prevents the Window from firing 'updateUI()' and destroying
+            // the button we are currently clicking.
+            e.stopPropagation();
+        });
+    });
+}
+
+// [V2.7.2 FIX] Connect the hidden file input to the handler
+document.getElementById('imgUpload').addEventListener('change', (e) => handleImageUpload(e.target));
+(function init() { 
+    canvas.width=container.clientWidth; canvas.height=container.clientHeight; 
+    updateTableSize(); resetView(); 
+    const center = screenToWorld(canvas.width/2, canvas.height/2);
+    // Align with global grid using 12.5mm offset (same as global grid snapping)
+    const nx = Math.round((center.x - HALF_GRID_MM)/GRID_PITCH_MM)*GRID_PITCH_MM + HALF_GRID_MM;
+    const ny = Math.round((center.y - HALF_GRID_MM)/GRID_PITCH_MM)*GRID_PITCH_MM + HALF_GRID_MM;
+    const b = new Element('board', nx, ny, 330, 482.6, 'Main Board');
+    elements.push(b);
+    draw();
+})();
+</script>
+</body>
+</html>
