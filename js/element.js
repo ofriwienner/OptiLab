@@ -189,15 +189,17 @@ class Element {
                 type: 'blocker'
             });
         } else if (this.type === 'mirror-d') {
-            const mw = this.width / 2;
-            const epsilon = -0.01;
+            // Reflective length is 0.45 of width, starting from edge
+            const edge = this.width / 2;
+            const refLength = this.width * 0.45;
+            const innerEdge = edge - refLength;
             let refStart, refEnd;
             if (!this.isFlipped) {
-                refStart = { x: mw, y: 0 };
-                refEnd = { x: epsilon, y: 0 };
+                refStart = { x: edge, y: 0 };
+                refEnd = { x: innerEdge, y: 0 };
             } else {
-                refStart = { x: -epsilon, y: 0 };
-                refEnd = { x: -mw, y: 0 };
+                refStart = { x: -innerEdge, y: 0 };
+                refEnd = { x: -edge, y: 0 };
             }
             const rRS = rotatePoint(refStart, this.rotation);
             const rRE = rotatePoint(refEnd, this.rotation);

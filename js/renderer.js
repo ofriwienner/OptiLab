@@ -232,21 +232,35 @@ function drawMirror(el) {
 
 /**
  * Draw D-mirror element
+ * Shows reflective area (45% from edge) in cyan, non-reflective in dark
  */
 function drawDMirror(el) {
     const w = el.width / 2;
+    const refLength = el.width * 0.45;  // Reflective length
+    const innerEdge = w - refLength;     // Where reflective part ends (5% from center)
+    
+    // Draw mount/backing
     ctx.fillStyle = '#2a2a2a';
     ctx.fillRect(-w, 0, el.width, el.height);
+    
+    // Draw the full mirror surface line (dark base)
+    ctx.fillStyle = '#1a1a1a';
+    ctx.fillRect(-w, -0.5, el.width, 1);
+    
     if (!el.isFlipped) {
+        // Reflective area on right side (from edge inward)
         ctx.fillStyle = 'cyan';
-        ctx.fillRect(0, -0.5, w, 1);
-        ctx.fillStyle = '#2a2a2a';
-        ctx.fillRect(-w, -0.5, w, 1);
+        ctx.fillRect(innerEdge, -0.5, refLength, 1);
+        // Non-reflective center gap indicator
+        ctx.fillStyle = '#444';
+        ctx.fillRect(-w, -0.5, w + innerEdge, 1);
     } else {
+        // Reflective area on left side (from edge inward)
         ctx.fillStyle = 'cyan';
-        ctx.fillRect(-w, -0.5, w, 1);
-        ctx.fillStyle = '#2a2a2a';
-        ctx.fillRect(0, -0.5, w, 1);
+        ctx.fillRect(-w, -0.5, refLength, 1);
+        // Non-reflective center gap indicator
+        ctx.fillStyle = '#444';
+        ctx.fillRect(-innerEdge, -0.5, w + innerEdge, 1);
     }
 }
 
