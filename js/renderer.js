@@ -125,6 +125,8 @@ function drawElement(el) {
         drawAmplifier(el);
     } else if (el.type === 'hwp' || el.type === 'qwp') {
         drawWaveplate(el, isSelected);
+    } else if (el.type === 'iris') {
+        drawIris(el);
     }
 
     // Draw Title Label
@@ -520,6 +522,75 @@ function drawAmplifier(el) {
 }
 
 /**
+ * Draw iris/aperture element
+ */
+function drawIris(el) {
+    const outerRadius = el.width / 2;
+    const aperture = el.aperture !== undefined ? el.aperture : 0.5;
+    const innerRadius = outerRadius * aperture * 0.8;  // Max opening is 80% of outer radius
+    
+    // Draw outer ring (housing)
+    ctx.beginPath();
+    ctx.arc(0, 0, outerRadius, 0, Math.PI * 2);
+    ctx.fillStyle = '#1a1a2e';
+    ctx.fill();
+    ctx.strokeStyle = '#4a4a6a';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    
+    // Draw iris blades (8 segments)
+    const numBlades = 8;
+    const bladeColor = '#2d2d44';
+    const bladeHighlight = '#3d3d5c';
+    
+    ctx.save();
+    for (let i = 0; i < numBlades; i++) {
+        const angle = (i / numBlades) * Math.PI * 2;
+        const nextAngle = ((i + 1) / numBlades) * Math.PI * 2;
+        
+        ctx.beginPath();
+        ctx.moveTo(
+            Math.cos(angle) * innerRadius,
+            Math.sin(angle) * innerRadius
+        );
+        ctx.lineTo(
+            Math.cos(angle) * outerRadius * 0.95,
+            Math.sin(angle) * outerRadius * 0.95
+        );
+        ctx.arc(0, 0, outerRadius * 0.95, angle, nextAngle);
+        ctx.lineTo(
+            Math.cos(nextAngle) * innerRadius,
+            Math.sin(nextAngle) * innerRadius
+        );
+        ctx.arc(0, 0, innerRadius, nextAngle, angle, true);
+        ctx.closePath();
+        
+        ctx.fillStyle = i % 2 === 0 ? bladeColor : bladeHighlight;
+        ctx.fill();
+        ctx.strokeStyle = '#1a1a2e';
+        ctx.lineWidth = 0.5;
+        ctx.stroke();
+    }
+    ctx.restore();
+    
+    // Draw center aperture (the opening)
+    ctx.beginPath();
+    ctx.arc(0, 0, innerRadius, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';  // Dark, representing the hole
+    ctx.fill();
+    ctx.strokeStyle = '#6366f1';  // Indigo accent for the aperture edge
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    
+    // Draw outer ring highlight
+    ctx.beginPath();
+    ctx.arc(0, 0, outerRadius, 0, Math.PI * 2);
+    ctx.strokeStyle = '#6366f1';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+}
+
+/**
  * Draw waveplate (HWP or QWP)
  */
 function drawWaveplate(el, isSelected) {
@@ -728,7 +799,7 @@ function drawRays(rays) {
         ctx.stroke();
 
         // Draw Polarization Glyphs
-        if (!seg.stokes) return;
+        if (!seg.stokes || !showPolarization) return;
 
         const dx = p2.x - p1.x;
         const dy = p2.y - p1.y;
