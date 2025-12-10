@@ -95,6 +95,11 @@ class Element {
                 this.fiberColor = null;  // Color when connected
                 this.gain = 2.0;         // Amplification factor
                 break;
+            case 'iris':
+                this.width = 30;
+                this.height = 30;
+                this.aperture = 0.5;     // Aperture ratio (0-1), visual only for now
+                break;
         }
     }
 
@@ -265,6 +270,15 @@ class Element {
             // Amplifier has fiber input (left) and direct laser output (right)
             // No ray interaction segments needed - light comes in via fiber connection
             // and outputs as a new ray from the output face
+        } else if (this.type === 'iris') {
+            // Iris pass-through segment (vertical line through center)
+            const start = rotatePoint({ x: 0, y: -this.height / 2 }, this.rotation);
+            const end = rotatePoint({ x: 0, y: this.height / 2 }, this.rotation);
+            segments.push({
+                p1: { x: cx + start.x, y: cy + start.y },
+                p2: { x: cx + end.x, y: cy + end.y },
+                type: 'iris'
+            });
         } else {
             let intType = 'blocker';
             if (this.type === 'glass') intType = 'refractor';

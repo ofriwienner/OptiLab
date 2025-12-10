@@ -30,7 +30,10 @@ const tableConfig = {
 };
 
 // Physics constants
-const MAX_BOUNCES = 30;
+const MAX_BOUNCES = 100;
+
+// Polarization visualization toggle
+let showPolarization = true;
 const SNAP_ROTATION = 45;
 
 // Waveplate constants

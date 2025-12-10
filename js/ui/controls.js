@@ -41,12 +41,12 @@ function updateUI() {
             const optH = document.createElement('option');
             optH.value = "0";
             optH.innerText = "Horizontal (0°)";
-            if ((p.polAngle || 0) === 0) optH.selected = true;
+            if (p.polAngle === 0) optH.selected = true;
 
             const optV = document.createElement('option');
             optV.value = "90";
             optV.innerText = "Vertical (90°)";
-            if (p.polAngle === 90) optV.selected = true;
+            if ((p.polAngle ?? 90) === 90) optV.selected = true;
 
             select.appendChild(optH);
             select.appendChild(optV);
@@ -620,6 +620,15 @@ function resetView() {
  * Update table size (placeholder)
  */
 function updateTableSize() {
+    draw();
+}
+
+/**
+ * Toggle polarization visualization
+ * @param {boolean} checked - Whether checkbox is checked
+ */
+function togglePolarization(checked) {
+    showPolarization = checked;
     draw();
 }
 

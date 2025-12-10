@@ -97,10 +97,17 @@
                 <div onmousedown="startSidebarDrag(event, 'amplifier')" class="tool-item flex flex-col items-center p-1 bg-gray-700 rounded border border-gray-600 text-[10px]">
                     <div class="icon-container"><div class="icon-amplifier"></div></div> <span>Amplifier</span>
                 </div>
+                <div onmousedown="startSidebarDrag(event, 'iris')" class="tool-item flex flex-col items-center p-1 bg-gray-700 rounded border border-gray-600 text-[10px]">
+                    <div class="icon-container"><div class="icon-iris"></div></div> <span>Iris <span class="text-orange-400">*</span></span>
+                </div>
             </div>
 
             <h2 class="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-2 mt-4">Controls</h2>
             <div class="bg-gray-750 rounded p-2 space-y-3">
+                <div class="flex items-center gap-2 pb-2 border-b border-gray-600">
+                    <input type="checkbox" id="showPolarizationCheckbox" checked onchange="togglePolarization(this.checked)" class="accent-blue-500">
+                    <label for="showPolarizationCheckbox" class="text-[10px] text-gray-300 cursor-pointer">Show Polarization</label>
+                </div>
                 <div id="controls-panel">
                     <label class="text-[10px] text-gray-400 block mb-1">Rotation</label>
                     <div class="flex items-center gap-2">

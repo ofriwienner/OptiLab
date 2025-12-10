@@ -10,7 +10,7 @@
  * @param {Array} results - Array to collect ray segments
  */
 function traceRay(ray, depth, results) {
-    if (depth > MAX_BOUNCES || ray.intensity < 0.01) return;
+    if (depth > MAX_BOUNCES || ray.intensity == 0) return;
 
     let closestHit = null;
     let closestDist = Infinity;
@@ -306,6 +306,18 @@ function traceRay(ray, depth, results) {
                 stokes: modStokes,
                 color: ray.color
             }, depth + 1, results);
+
+        } else if (hitObject.type === 'iris') {
+            // Iris pass-through (visual only for now)
+            traceRay({
+                x: closestHit.x + inc.x * 0.1,
+                y: closestHit.y + inc.y * 0.1,
+                dx: inc.x,
+                dy: inc.y,
+                intensity: ray.intensity,
+                stokes: ray.stokes,
+                color: ray.color
+            }, depth + 1, results);
         }
     } else {
         // No hit - ray continues to infinity
@@ -333,8 +345,8 @@ function castRays() {
         const dir = rotatePoint({ x: 1, y: 0 }, laser.rotation);
         const start = rotatePoint({ x: laser.width / 2, y: 0 }, laser.rotation);
 
-        // Calculate source Stokes from polarization angle
-        const theta = toRad(laser.polAngle || 0);
+        // Calculate source Stokes from polarization angle (default 90° = vertical)
+        const theta = toRad(laser.polAngle ?? 90);
         const sourceStokes = MuellerMath.interact(
             [1, 0, 0, 0],
             MuellerMath.rotateComponent(MuellerMath.MATRICES.POLARIZER_H, theta)
