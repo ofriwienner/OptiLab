@@ -83,6 +83,7 @@ function exposeGlobalFunctions() {
     window.updateBoardInputs = updateBoardInputs;
     window.deleteSelected = deleteSelected;
     window.clearAll = clearAll;
+    window.newBench = newBench;
     window.resetView = resetView;
     window.copySelected = copySelected;
     window.pasteElements = pasteElements;
