@@ -313,12 +313,15 @@ function drawAOM(el, isSelected) {
     ctx.fillRect(-el.width / 2 + 2, el.height / 2 - 2, el.width - 4, 3);
     ctx.fillStyle = textColor;
     ctx.font = '6px sans-serif';
-    ctx.fillText(aomOn ? "AOM" : "OFF", -6, 2);
+    ctx.fillText("AOM", -6, 2);
 
-    // On-canvas toggle button (shown when selected)
+    // On-canvas toggle button (shown when selected) - positioned on the left side
     if (isSelected) {
         ctx.save();
-        ctx.translate(0, -el.height / 2 - 12);
+        // Position on the left side of the AOM
+        const btnOffsetX = -el.width / 2 - 15;
+        const btnOffsetY = 0;
+        ctx.translate(btnOffsetX, btnOffsetY);
         ctx.rotate(-el.rotation);
         const btnW = 20, btnH = 10;
         ctx.fillStyle = aomOn ? 'rgba(34, 197, 94, 0.9)' : 'rgba(239, 68, 68, 0.9)';
