@@ -72,10 +72,6 @@ class Element {
                 this.height = 30;
                 this.rotation = 0;
                 break;
-            case 'glass':
-                this.width = 20;
-                this.height = 50;
-                break;
             case 'hwp':
             case 'qwp':
                 this.width = 5;
@@ -281,7 +277,6 @@ class Element {
             });
         } else {
             let intType = 'blocker';
-            if (this.type === 'glass') intType = 'refractor';
             if (this.type === 'detector') intType = 'blocker';
             for (let i = 0; i < 4; i++) {
                 segments.push({

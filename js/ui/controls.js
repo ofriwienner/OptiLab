@@ -476,7 +476,7 @@ function tryAutoAlign(element) {
             if (bestDiff < Math.PI / 4) {
                 element.rotation = bestRot;
             }
-        } else if (['splitter', 'pbs', 'aom', 'hwp', 'qwp', 'glass', 'detector', 'blocker'].includes(element.type)) {
+        } else if (['splitter', 'pbs', 'aom', 'hwp', 'qwp', 'detector', 'blocker'].includes(element.type)) {
             element.rotation = Math.round(element.rotation / (Math.PI / 2)) * (Math.PI / 2);
         }
     } else {

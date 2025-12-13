@@ -117,8 +117,6 @@ function drawElement(el) {
         drawBlocker(el);
     } else if (el.type === 'detector') {
         drawDetector(el);
-    } else if (el.type === 'glass') {
-        drawGlass(el);
     } else if (el.type === 'fiber-coupler') {
         drawFiberCoupler(el);
     } else if (el.type === 'amplifier') {
@@ -383,17 +381,6 @@ function drawDetector(el) {
     ctx.beginPath();
     ctx.arc(0, 0, 5, 0, Math.PI * 2);
     ctx.fill();
-}
-
-/**
- * Draw glass element
- */
-function drawGlass(el) {
-    ctx.fillStyle = 'rgba(100, 200, 255, 0.3)';
-    ctx.strokeStyle = 'rgba(100, 200, 255, 0.6)';
-    ctx.lineWidth = 0.5;
-    ctx.fillRect(-el.width / 2, -el.height / 2, el.width, el.height);
-    ctx.strokeRect(-el.width / 2, -el.height / 2, el.width, el.height);
 }
 
 /**
