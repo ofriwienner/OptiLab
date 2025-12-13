@@ -618,6 +618,36 @@ function clearAll() {
 }
 
 /**
+ * Create a new empty bench with just the main board
+ */
+function newBench() {
+    if (confirm('Create a new empty bench? This will clear all current elements.')) {
+        saveToHistory();
+        elements = [];
+        selection.clear();
+        
+        // Create default board
+        const center = screenToWorld(canvas.width / 2, canvas.height / 2);
+        const boardW = 325;
+        const boardH = 475;
+        // Snap board center so edges are between grid points (at multiples of GRID_PITCH_MM)
+        const leftEdge = center.x - boardW / 2;
+        const snappedLeft = Math.round(leftEdge / GRID_PITCH_MM) * GRID_PITCH_MM;
+        const nx = snappedLeft + boardW / 2;
+        
+        const topEdge = center.y - boardH / 2;
+        const snappedTop = Math.round(topEdge / GRID_PITCH_MM) * GRID_PITCH_MM;
+        const ny = snappedTop + boardH / 2;
+        
+        const b = new Element('board', nx, ny, boardW, boardH, 'Main Board');
+        elements.push(b);
+        
+        updateUI();
+        draw();
+    }
+}
+
+/**
  * Reset view to fit table
  */
 function resetView() {

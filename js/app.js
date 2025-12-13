@@ -29,7 +29,23 @@ function init() {
     updateTableSize();
     resetView();
 
-    // Create default board
+    // Try to auto-load last saved state
+    const savedData = localStorage.getItem('opticalBenchState');
+    if (savedData) {
+        try {
+            const parsed = JSON.parse(savedData);
+            if (parsed && parsed.length > 0) {
+                elements = parsed.map(d => rehydrateElement(d));
+                draw();
+                return; // Skip default board creation if we loaded saved state
+            }
+        } catch (err) {
+            console.warn('Failed to load saved state:', err);
+            // Fall through to create default board
+        }
+    }
+
+    // Create default board if no saved state exists
     const center = screenToWorld(canvas.width / 2, canvas.height / 2);
     const boardW = 325;
     const boardH = 475;
@@ -67,6 +83,7 @@ function exposeGlobalFunctions() {
     window.updateBoardInputs = updateBoardInputs;
     window.deleteSelected = deleteSelected;
     window.clearAll = clearAll;
+    window.newBench = newBench;
     window.resetView = resetView;
     window.copySelected = copySelected;
     window.pasteElements = pasteElements;
