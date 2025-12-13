@@ -10,6 +10,7 @@
  */
 function startSidebarDrag(e, type) {
     e.preventDefault();
+    saveToHistory();
     const r = canvas.getBoundingClientRect();
     const p = screenToWorld(e.clientX - r.left, e.clientY - r.top);
     let nx = p.x;
@@ -101,6 +102,7 @@ function copySelected() {
 function pasteElements() {
     if (!clipboard || clipboard.length === 0) return;
 
+    saveToHistory();
     let centerX = 0, centerY = 0;
     clipboard.forEach(data => {
         centerX += data.x;

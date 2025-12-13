@@ -278,6 +278,7 @@ function updateUI() {
 function toggleBoardLock() {
     const p = Array.from(selection).pop();
     if (p && p.type === 'board') {
+        saveToHistory();
         p.locked = !p.locked;
         updateUI();
         draw();
@@ -327,6 +328,7 @@ function updateOpacity(val) {
 function rotateBoard(board) {
     if (!board || board.type !== 'board' || board.locked) return;
 
+    saveToHistory();
     const newW = board.height;
     const newH = board.width;
 
@@ -544,6 +546,7 @@ function cycleSnapRotation(el, inc) {
  * Add a new board to the scene
  */
 function addBoard() {
+    saveToHistory();
     const w = parseInt(document.getElementById('boardW').value) || 600;
     const h = parseInt(document.getElementById('boardH').value) || 450;
     const t = document.getElementById('boardTitle').value || 'Board';
@@ -580,6 +583,7 @@ function updateBoardInputs() {
  */
 function deleteSelected() {
     if (selection.size > 0) {
+        saveToHistory();
         // Before deleting, disconnect any paired fiber connections
         selection.forEach(el => {
             if ((el.type === 'fiber-coupler' || el.type === 'amplifier') && el.pairedWith) {
@@ -601,6 +605,7 @@ function deleteSelected() {
  * Clear all elements
  */
 function clearAll() {
+    saveToHistory();
     elements = [];
     selection.clear();
     draw();

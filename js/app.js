@@ -68,6 +68,9 @@ function exposeGlobalFunctions() {
     window.loadState = loadState;
     window.exportState = exportState;
     window.importState = importState;
+    window.undo = undo;
+    window.redo = redo;
+    window.saveToHistory = saveToHistory;
     window.updateUI = updateUI;
     window.tryAutoAlign = tryAutoAlign;
     window.cycleSnapRotation = cycleSnapRotation;

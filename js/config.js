@@ -66,6 +66,12 @@ const keys = {};
 // Clipboard for copy/paste
 let clipboard = null;
 
+// Undo/Redo history
+const MAX_HISTORY_SIZE = 50;
+let undoHistory = [];
+let redoHistory = [];
+let isUndoRedoAction = false;
+
 // Fiber Coupler Connection State
 let isFiberConnecting = false;
 let fiberConnectSource = null;

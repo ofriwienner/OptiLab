@@ -83,6 +83,7 @@ function handleMouseDown(e) {
     // Waveplate knob hit test
     const knobTarget = getWaveplateKnobHit(m);
     if (knobTarget) {
+        saveToHistory();
         selection.clear();
         selection.add(knobTarget);
         axisAdjustTarget = knobTarget;
@@ -97,6 +98,7 @@ function handleMouseDown(e) {
     // AOM toggle button hit test
     const aomToggleTarget = getAomToggleHit(m);
     if (aomToggleTarget) {
+        saveToHistory();
         aomToggleTarget.aomEnabled = !isAomEnabled(aomToggleTarget);
         updateUI();
         draw();
@@ -161,6 +163,7 @@ function handleMouseDown(e) {
 
             // Resize handle
             if ((m.x - rhS.x) ** 2 + (m.y - rhS.y) ** 2 < 100) {
+                saveToHistory();
                 isResizing = true;
                 originalBoardState = { w: primary.width, h: primary.height, x: primary.x, y: primary.y };
                 let minX = primary.x - primary.width / 2;
@@ -192,6 +195,7 @@ function handleMouseDown(e) {
             // Move handle
             const mhS = worldToScreen(primary.x + mh.x + 7.5, primary.y + mh.y + 7.5);
             if ((m.x - mhS.x) ** 2 + (m.y - mhS.y) ** 2 < 100) {
+                saveToHistory();
                 isDragging = true;
                 originalBoardState = { x: primary.x, y: primary.y };
                 draggedChildren.clear();
@@ -210,6 +214,7 @@ function handleMouseDown(e) {
             const hl = primary.getHandlePosition();
             const hs = worldToScreen(primary.x + hl.x, primary.y + hl.y);
             if ((m.x - hs.x) ** 2 + (m.y - hs.y) ** 2 < 100) {
+                saveToHistory();
                 if (shiftPressed) {
                     primary.rotation -= Math.PI / 2;
                     updateUI();
@@ -229,6 +234,7 @@ function handleMouseDown(e) {
                 };
                 const fS = worldToScreen(fw.x, fw.y);
                 if ((m.x - fS.x) ** 2 + (m.y - fS.y) ** 2 < 100) {
+                    saveToHistory();
                     primary.isFlipped = !primary.isFlipped;
                     updateUI();
                     draw();
@@ -248,12 +254,18 @@ function handleMouseDown(e) {
         return (dx * dx + dy * dy) < r * r;
     });
 
+    // Only check boards if no component was clicked, and only select already-selected boards
+    // This allows marquee selection to start when clicking on unselected board areas
     if (!clicked) {
         const boards = elements.filter(el => el.type === 'board');
-        clicked = boards.reverse().find(el => {
+        const clickedBoard = boards.reverse().find(el => {
             return w.x > el.x - el.width / 2 && w.x < el.x + el.width / 2 &&
                    w.y > el.y - el.height / 2 && w.y < el.y + el.height / 2;
         });
+        // Only set clicked to board if it's already selected (to allow handle access)
+        if (clickedBoard && selection.has(clickedBoard)) {
+            clicked = clickedBoard;
+        }
     }
 
     if (clicked) {
@@ -274,6 +286,7 @@ function handleMouseDown(e) {
         if (clicked.type === 'board') {
             isDragging = false;
         } else {
+            saveToHistory();
             isDragging = true;
             invalidBoardPlacement = false;
             dragOffsets.clear();
@@ -459,6 +472,7 @@ function completeFiberConnection(target) {
         return;
     }
     
+    saveToHistory();
     // Unpair existing connections
     if (fiberConnectSource.pairedWith) {
         const oldPaired = elements.find(el => el.id === fiberConnectSource.pairedWith);
@@ -535,14 +549,31 @@ function handleMouseUp() {
 
     // Complete marquee selection (exclude boards)
     if (isSelecting && selectionRect) {
-        elements.forEach(el => {
-            if (el.type === 'board') return; // Don't select boards via marquee
-            const p = worldToScreen(el.x, el.y);
-            if (p.x >= selectionRect.x && p.x <= selectionRect.x + selectionRect.w &&
-                p.y >= selectionRect.y && p.y <= selectionRect.y + selectionRect.h) {
-                selection.add(el);
+        const isClick = selectionRect.w < 5 && selectionRect.h < 5;
+        
+        if (isClick) {
+            // Small drag = click - check if clicking on a board to select it
+            const clickWorld = screenToWorld(selectionRect.startX, selectionRect.startY);
+            const boards = elements.filter(el => el.type === 'board');
+            const clickedBoard = boards.reverse().find(el => {
+                return clickWorld.x > el.x - el.width / 2 && clickWorld.x < el.x + el.width / 2 &&
+                       clickWorld.y > el.y - el.height / 2 && clickWorld.y < el.y + el.height / 2;
+            });
+            if (clickedBoard) {
+                if (!shiftPressed && !ctrlPressed) selection.clear();
+                selection.add(clickedBoard);
             }
-        });
+        } else {
+            // Actual marquee drag - select components within
+            elements.forEach(el => {
+                if (el.type === 'board') return; // Don't select boards via marquee
+                const p = worldToScreen(el.x, el.y);
+                if (p.x >= selectionRect.x && p.x <= selectionRect.x + selectionRect.w &&
+                    p.y >= selectionRect.y && p.y <= selectionRect.y + selectionRect.h) {
+                    selection.add(el);
+                }
+            });
+        }
         selectionRect = null;
     }
 
@@ -588,13 +619,47 @@ function handleKeyDown(e) {
     if (e.key === 'Shift') shiftPressed = true;
     if (e.key === 'Control' || e.key === 'Meta') ctrlPressed = true;
 
-    // Cancel fiber connection mode with Escape
-    if (e.key === 'Escape' && isFiberConnecting) {
-        isFiberConnecting = false;
-        fiberConnectSource = null;
-        fiberConnectMousePos = null;
+    // Escape - cancel fiber connection or deselect all
+    if (e.key === 'Escape') {
+        if (isFiberConnecting) {
+            isFiberConnecting = false;
+            fiberConnectSource = null;
+            fiberConnectMousePos = null;
+        }
+        selection.clear();
         updateUI();
         draw();
+        return;
+    }
+
+    // Select All (Ctrl/Cmd + A) - select all components (not boards)
+    const isSelectAll = (e.key === 'a' || e.key === 'A') && (e.metaKey || e.ctrlKey);
+    if (isSelectAll) {
+        e.preventDefault();
+        selection.clear();
+        elements.forEach(el => {
+            if (el.type !== 'board') {
+                selection.add(el);
+            }
+        });
+        updateUI();
+        draw();
+        return;
+    }
+
+    // Undo/Redo
+    const isUndo = (e.key === 'z' || e.key === 'Z') && (e.metaKey || e.ctrlKey) && !e.shiftKey;
+    const isRedo = (e.key === 'z' || e.key === 'Z') && (e.metaKey || e.ctrlKey) && e.shiftKey;
+
+    if (isUndo) {
+        e.preventDefault();
+        undo();
+        return;
+    }
+
+    if (isRedo) {
+        e.preventDefault();
+        redo();
         return;
     }
 
@@ -632,14 +697,17 @@ function handleKeyDown(e) {
             const sign = isCCW ? -1 : 1;
 
             if (e.key === 'r' || e.key === 'R') {
+                saveToHistory();
                 p.rotation += sign * Math.PI / 2;
                 updateUI();
                 draw();
             } else if (e.key === 't' || e.key === 'T') {
+                saveToHistory();
                 p.rotation += sign * Math.PI / 4;
                 updateUI();
                 draw();
             } else if (e.key === 's' || e.key === 'S') {
+                saveToHistory();
                 if (lastHitOnSelected && lastHitOnSelected.el === p) {
                     cycleSnapRotation(p, lastHitOnSelected.incoming);
                 } else {
@@ -736,10 +804,14 @@ function handleDoubleClick(e) {
         const label = hit.type === 'board' ? "Enter Board Title:" : "Enter Component Label:";
         const newTitle = prompt(label, hit.title);
         if (newTitle !== null) {
+            saveToHistory();
             hit.title = newTitle;
             draw();
         }
     } else {
+        if (selection.size > 0) {
+            saveToHistory();
+        }
         selection.forEach(el => {
             el.rotation = 0;
             if (el.type === 'mirror' || el.type === 'mirror-d') el.rotation = toRad(-45);
