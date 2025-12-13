@@ -58,7 +58,7 @@ function traceRay(ray, depth, results) {
         // Track first hit on selected element for smart alignment
         if (selection.has(hitObject) && !lastHitOnSelected &&
             (hitObject.type.includes('mirror') ||
-             ['splitter', 'pbs', 'aom', 'glass', 'lens'].includes(hitObject.type))) {
+             ['splitter', 'pbs', 'aom', 'lens'].includes(hitObject.type))) {
             lastHitOnSelected = { el: hitObject, incoming: inc };
         }
 
@@ -294,19 +294,6 @@ function traceRay(ray, depth, results) {
                 }
             }
 
-        } else if (hitObject.type === 'glass') {
-            // Glass pass-through
-            const modStokes = ray.stokes.map(v => v * 0.95);
-            traceRay({
-                x: closestHit.x + inc.x * 0.1,
-                y: closestHit.y + inc.y * 0.1,
-                dx: inc.x,
-                dy: inc.y,
-                intensity: modStokes[0],
-                stokes: modStokes,
-                color: ray.color
-            }, depth + 1, results);
-
         } else if (hitObject.type === 'iris') {
             // Iris pass-through (visual only for now)
             traceRay({
@@ -316,6 +303,19 @@ function traceRay(ray, depth, results) {
                 dy: inc.y,
                 intensity: ray.intensity,
                 stokes: ray.stokes,
+                color: ray.color
+            }, depth + 1, results);
+
+        } else if (hitObject.type === 'mirror-d' && hitSegment.type === 'blocker') {
+            // D-mirror non-reflective part - transmit through
+            const modStokes = ray.stokes.map(v => v * 0.95);
+            traceRay({
+                x: closestHit.x + inc.x * 0.1,
+                y: closestHit.y + inc.y * 0.1,
+                dx: inc.x,
+                dy: inc.y,
+                intensity: modStokes[0],
+                stokes: modStokes,
                 color: ray.color
             }, depth + 1, results);
         }

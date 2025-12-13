@@ -4,6 +4,79 @@
  */
 
 /**
+ * Deep clone elements array for history
+ * @returns {Array} Deep cloned elements array
+ */
+function cloneElements() {
+    return JSON.parse(JSON.stringify(elements));
+}
+
+/**
+ * Save current state to undo history
+ * Call this before making changes that should be undoable
+ */
+function saveToHistory() {
+    if (isUndoRedoAction) return;
+    
+    const snapshot = cloneElements();
+    undoHistory.push(snapshot);
+    
+    // Limit history size
+    if (undoHistory.length > MAX_HISTORY_SIZE) {
+        undoHistory.shift();
+    }
+    
+    // Clear redo history when new action is performed
+    redoHistory = [];
+}
+
+/**
+ * Undo the last action
+ */
+function undo() {
+    if (undoHistory.length === 0) return;
+    
+    isUndoRedoAction = true;
+    
+    // Save current state to redo history
+    redoHistory.push(cloneElements());
+    
+    // Restore previous state
+    const previousState = undoHistory.pop();
+    elements = previousState.map(d => rehydrateElement(d));
+    
+    // Clear selection (selected elements may no longer exist)
+    selection.clear();
+    
+    isUndoRedoAction = false;
+    updateUI();
+    draw();
+}
+
+/**
+ * Redo the last undone action
+ */
+function redo() {
+    if (redoHistory.length === 0) return;
+    
+    isUndoRedoAction = true;
+    
+    // Save current state to undo history
+    undoHistory.push(cloneElements());
+    
+    // Restore redo state
+    const nextState = redoHistory.pop();
+    elements = nextState.map(d => rehydrateElement(d));
+    
+    // Clear selection
+    selection.clear();
+    
+    isUndoRedoAction = false;
+    updateUI();
+    draw();
+}
+
+/**
  * Rehydrate an element from saved data
  * @param {Object} data - Serialized element data
  * @returns {Element} Reconstructed element
