@@ -1118,7 +1118,63 @@ function draw() {
     drawLensFocusDots();
     drawMarquee();
     drawFiberConnectingLine();
+    drawPendingBoardPreview();
     drawHints();
+}
+
+/**
+ * Draw preview of pending board at mouse position
+ */
+function drawPendingBoardPreview() {
+    if (!pendingBoard) return;
+    
+    const m = lastMousePos;
+    const w = screenToWorld(m.x, m.y);
+    const { width, height, title } = pendingBoard;
+    
+    // Snap board center so edges are between grid points
+    const leftEdge = w.x - width / 2;
+    const snappedLeft = Math.round(leftEdge / GRID_PITCH_MM) * GRID_PITCH_MM;
+    const nx = snappedLeft + width / 2;
+    
+    const topEdge = w.y - height / 2;
+    const snappedTop = Math.round(topEdge / GRID_PITCH_MM) * GRID_PITCH_MM;
+    const ny = snappedTop + height / 2;
+    
+    // Check for overlap with other boards
+    const otherBoards = elements.filter(e => e.type === 'board');
+    let hasOverlap = false;
+    for (let ob of otherBoards) {
+        if (Math.abs(nx - ob.x) < (width + ob.width) / 2 && 
+            Math.abs(ny - ob.y) < (height + ob.height) / 2) {
+            hasOverlap = true;
+            break;
+        }
+    }
+    
+    // Draw preview board
+    const p = worldToScreen(nx, ny);
+    ctx.save();
+    ctx.translate(p.x, p.y);
+    
+    // Draw board outline
+    ctx.strokeStyle = hasOverlap ? 'rgba(255, 100, 100, 0.8)' : 'rgba(100, 200, 255, 0.8)';
+    ctx.fillStyle = hasOverlap ? 'rgba(255, 100, 100, 0.1)' : 'rgba(100, 200, 255, 0.1)';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([5, 5]);
+    ctx.fillRect(-width * PIXELS_PER_MM * view.scale / 2, -height * PIXELS_PER_MM * view.scale / 2,
+                 width * PIXELS_PER_MM * view.scale, height * PIXELS_PER_MM * view.scale);
+    ctx.strokeRect(-width * PIXELS_PER_MM * view.scale / 2, -height * PIXELS_PER_MM * view.scale / 2,
+                   width * PIXELS_PER_MM * view.scale, height * PIXELS_PER_MM * view.scale);
+    
+    // Draw title preview
+    ctx.fillStyle = hasOverlap ? 'rgba(255, 100, 100, 0.9)' : 'rgba(200, 200, 200, 0.9)';
+    ctx.font = '12px sans-serif';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'top';
+    ctx.fillText(title, -width * PIXELS_PER_MM * view.scale / 2 + 5, -height * PIXELS_PER_MM * view.scale / 2 - 18);
+    
+    ctx.restore();
 }
 
 

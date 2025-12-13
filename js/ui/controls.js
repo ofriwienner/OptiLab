@@ -355,6 +355,15 @@ function rotateBoard(board) {
     board.width = newW;
     board.height = newH;
 
+    // After rotation, snap edges to be between grid points (at multiples of GRID_PITCH_MM)
+    const leftEdge = board.x - board.width / 2;
+    const snappedLeft = Math.round(leftEdge / GRID_PITCH_MM) * GRID_PITCH_MM;
+    board.x = snappedLeft + board.width / 2;
+    
+    const topEdge = board.y - board.height / 2;
+    const snappedTop = Math.round(topEdge / GRID_PITCH_MM) * GRID_PITCH_MM;
+    board.y = snappedTop + board.height / 2;
+
     if (board.imgData) {
         const temp = board.imgConfig.w;
         board.imgConfig.w = board.imgConfig.h;
@@ -544,25 +553,22 @@ function cycleSnapRotation(el, inc) {
 
 /**
  * Add a new board to the scene
+ * Sets up pending board creation - board will be placed on next mouse click
  */
 function addBoard() {
-    saveToHistory();
-    const w = parseInt(document.getElementById('boardW').value) || 600;
-    const h = parseInt(document.getElementById('boardH').value) || 450;
+    let w = parseInt(document.getElementById('boardW').value) || 600;
+    let h = parseInt(document.getElementById('boardH').value) || 450;
     const t = document.getElementById('boardTitle').value || 'Board';
-    const c = screenToWorld(canvas.width / 2, canvas.height / 2);
-    const nx = Math.round(c.x / GRID_PITCH_MM) * GRID_PITCH_MM;
-    const ny = Math.round(c.y / GRID_PITCH_MM) * GRID_PITCH_MM;
-    const b = new Element('board', nx, ny, w, h, t);
-
-    let tries = 0;
-    while (checkBoardOverlap(b, b.x, b.y, b.width, b.height) && tries < 50) {
-        b.x += 50;
-        b.y += 50;
-        tries++;
-    }
-
-    elements.push(b);
+    
+    // Round width and height to nearest multiple of grid size
+    w = Math.round(w / GRID_PITCH_MM) * GRID_PITCH_MM;
+    h = Math.round(h / GRID_PITCH_MM) * GRID_PITCH_MM;
+    
+    // Store pending board parameters - will be created on next mouse click
+    pendingBoard = { width: w, height: h, title: t };
+    
+    // Change cursor to indicate board placement mode
+    canvas.style.cursor = 'crosshair';
     draw();
 }
 

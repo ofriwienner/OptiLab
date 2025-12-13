@@ -80,6 +80,38 @@ function handleMouseDown(e) {
 
     const w = screenToWorld(m.x, m.y);
 
+    // Check if we're placing a pending board
+    if (pendingBoard) {
+        saveToHistory();
+        const { width, height, title } = pendingBoard;
+        
+        // Snap board center so edges are between grid points
+        const leftEdge = w.x - width / 2;
+        const snappedLeft = Math.round(leftEdge / GRID_PITCH_MM) * GRID_PITCH_MM;
+        const nx = snappedLeft + width / 2;
+        
+        const topEdge = w.y - height / 2;
+        const snappedTop = Math.round(topEdge / GRID_PITCH_MM) * GRID_PITCH_MM;
+        const ny = snappedTop + height / 2;
+        
+        const b = new Element('board', nx, ny, width, height, title);
+        elements.push(b);
+        
+        // Start dragging the new board
+        selection.clear();
+        selection.add(b);
+        isDragging = true;
+        invalidBoardPlacement = false;
+        dragOffsets.clear();
+        dragOffsets.set(b, { dx: b.x - w.x, dy: b.y - w.y });
+        
+        pendingBoard = null;
+        canvas.style.cursor = 'grabbing';
+        updateUI();
+        draw();
+        return;
+    }
+
     // Waveplate knob hit test
     const knobTarget = getWaveplateKnobHit(m);
     if (knobTarget) {
@@ -254,47 +286,116 @@ function handleMouseDown(e) {
         return (dx * dx + dy * dy) < r * r;
     });
 
-    // Only check boards if no component was clicked, and only select already-selected boards
-    // This allows marquee selection to start when clicking on unselected board areas
+    // Check boards if no component was clicked
     if (!clicked) {
         const boards = elements.filter(el => el.type === 'board');
         const clickedBoard = boards.reverse().find(el => {
             return w.x > el.x - el.width / 2 && w.x < el.x + el.width / 2 &&
                    w.y > el.y - el.height / 2 && w.y < el.y + el.height / 2;
         });
-        // Only set clicked to board if it's already selected (to allow handle access)
-        if (clickedBoard && selection.has(clickedBoard)) {
-            clicked = clickedBoard;
+        
+        if (clickedBoard) {
+            // If board is already selected, allow dragging from anywhere on it
+            if (selection.has(clickedBoard)) {
+                clicked = clickedBoard;
+            } else {
+                // If board is not selected, don't set clicked - allow marquee selection
+                // (unless shift/ctrl is pressed, then select it)
+                if (shiftPressed || ctrlPressed) {
+                    clicked = clickedBoard;
+                }
+            }
         }
     }
 
     if (clicked) {
-        // If shift/ctrl is pressed on an unselected element, toggle selection
-        // If shift/ctrl is pressed on an already-selected element, allow drag (for fine/free movement)
+        // If shift/ctrl is pressed on an unselected element, add it to selection
+        // If shift/ctrl is pressed on an already-selected element with multiple items selected, deselect it
+        // If shift/ctrl is pressed on an already-selected element with single selection, allow drag (for fine/free movement)
         if (shiftPressed || ctrlPressed) {
             if (!selection.has(clicked)) {
-                // Toggle: add unselected element to selection
+                // Add unselected element to selection
                 selection.add(clicked);
+            } else if (selection.size > 1) {
+                // Deselect if multiple items are selected
+                selection.delete(clicked);
+                updateUI();
+                draw();
+                return;
             }
-            // If already selected, don't toggle - allow fine movement drag to proceed
+            // If already selected and only one item, allow fine movement drag to proceed
         } else {
             if (!selection.has(clicked)) {
                 selection.clear();
                 selection.add(clicked);
             }
         }
+        
         if (clicked.type === 'board') {
-            isDragging = false;
+            // If board is selected, allow dragging from anywhere on it
+            if (selection.has(clicked)) {
+                saveToHistory();
+                isDragging = true;
+                invalidBoardPlacement = false;
+                dragOffsets.clear();
+                originalBoardState = { x: clicked.x, y: clicked.y };
+                draggedChildren.clear();
+                
+                // Collect all components on selected boards (even if they're also selected)
+                // This ensures all board children move with the board
+                const selectedBoards = Array.from(selection).filter(el => el.type === 'board');
+                elements.forEach(child => {
+                    if (child.type !== 'board') {
+                        const parentBoard = getParentBoard(child);
+                        if (parentBoard && selectedBoards.includes(parentBoard)) {
+                            // Store relative position to the parent board
+                            draggedChildren.set(child, { 
+                                dx: child.x - parentBoard.x, 
+                                dy: child.y - parentBoard.y,
+                                parentBoard: parentBoard
+                            });
+                        }
+                    }
+                });
+                
+                // Set drag offsets for all selected elements
+                selection.forEach(el => dragOffsets.set(el, { dx: el.x - w.x, dy: el.y - w.y }));
+            } else {
+                // Board not selected yet - just select it, don't drag
+                isDragging = false;
+            }
         } else {
             saveToHistory();
             isDragging = true;
             invalidBoardPlacement = false;
             dragOffsets.clear();
+            
+            // Check if any selected boards have children that need to move
+            draggedChildren.clear();
+            const selectedBoards = Array.from(selection).filter(el => el.type === 'board');
+            if (selectedBoards.length > 0) {
+                elements.forEach(child => {
+                    if (child.type !== 'board' && !selection.has(child)) {
+                        const parentBoard = getParentBoard(child);
+                        if (parentBoard && selectedBoards.includes(parentBoard)) {
+                            draggedChildren.set(child, { 
+                                dx: child.x - parentBoard.x, 
+                                dy: child.y - parentBoard.y,
+                                parentBoard: parentBoard
+                            });
+                        }
+                    }
+                });
+            }
+            
             selection.forEach(el => dragOffsets.set(el, { dx: el.x - w.x, dy: el.y - w.y }));
         }
         updateUI();
     } else {
-        if (!shiftPressed && !ctrlPressed) selection.clear();
+        // Clicked outside any element - deselect all
+        if (!shiftPressed && !ctrlPressed) {
+            selection.clear();
+        }
         isSelecting = true;
         selectionRect = { x: m.x, y: m.y, w: 0, h: 0, startX: m.x, startY: m.y };
     }
@@ -362,16 +463,29 @@ function handleMouseMove(e) {
             let newW = Math.max(originalBoardState.minW, w.x - oldTLx);
             let newH = Math.max(originalBoardState.minH, w.y - oldTLy);
             if (!shiftPressed) {
+                // Round width/height to grid, then ensure edges stay between grid points (at multiples of GRID_PITCH_MM)
                 newW = Math.round(newW / GRID_PITCH_MM) * GRID_PITCH_MM;
                 newH = Math.round(newH / GRID_PITCH_MM) * GRID_PITCH_MM;
+                // Snap top-left corner to be between grid points (at multiples of GRID_PITCH_MM)
+                const snappedLeft = Math.round(oldTLx / GRID_PITCH_MM) * GRID_PITCH_MM;
+                const snappedTop = Math.round(oldTLy / GRID_PITCH_MM) * GRID_PITCH_MM;
+                const newCx = snappedLeft + newW / 2;
+                const newCy = snappedTop + newH / 2;
+                invalidBoardPlacement = checkBoardOverlap(p, newCx, newCy, newW, newH);
+                p.width = newW;
+                p.height = newH;
+                p.x = newCx;
+                p.y = newCy;
+            } else {
+                // Free resize - keep current top-left, just update size
+                const newCx = oldTLx + newW / 2;
+                const newCy = oldTLy + newH / 2;
+                invalidBoardPlacement = checkBoardOverlap(p, newCx, newCy, newW, newH);
+                p.width = newW;
+                p.height = newH;
+                p.x = newCx;
+                p.y = newCy;
             }
-            const newCx = oldTLx + newW / 2;
-            const newCy = oldTLy + newH / 2;
-            invalidBoardPlacement = checkBoardOverlap(p, newCx, newCy, newW, newH);
-            p.width = newW;
-            p.height = newH;
-            p.x = newCx;
-            p.y = newCy;
             draw();
         }
         return;
@@ -379,9 +493,13 @@ function handleMouseMove(e) {
 
     if (isDragging) {
         let hasBoard = false;
-        selection.forEach(el => { if (el.type === 'board') hasBoard = true; });
-        if (hasBoard) invalidBoardPlacement = false;
+        const selectedBoards = Array.from(selection).filter(el => el.type === 'board');
+        if (selectedBoards.length > 0) {
+            hasBoard = true;
+            invalidBoardPlacement = false;
+        }
 
+        // First, move all selected elements
         selection.forEach(el => {
             if (el.locked) return;
             const off = dragOffsets.get(el);
@@ -395,27 +513,55 @@ function handleMouseMove(e) {
                 // No modifier = full grid snap
                 // Ctrl/Cmd = half grid snap (fine movement)
                 // Shift = free movement (no snap)
-                if (shiftPressed) {
-                    // Free movement - no snapping
-                    newX = rawX;
-                    newY = rawY;
-                } else if (ctrlPressed) {
-                    // Half grid snap
-                    newX = Math.round(rawX / HALF_GRID_MM) * HALF_GRID_MM;
-                    newY = Math.round(rawY / HALF_GRID_MM) * HALF_GRID_MM;
-                } else {
-                    // Full grid snap
-                    const board = elements.find(b => b.type === 'board' && b !== el &&
-                        rawX >= b.x - b.width / 2 && rawX <= b.x + b.width / 2 &&
-                        rawY >= b.y - b.height / 2 && rawY <= b.y + b.height / 2);
-
-                    if (board) {
-                        const snap = getClosestGridPoint({ x: rawX, y: rawY }, board);
-                        newX = snap.x;
-                        newY = snap.y;
+                if (el.type === 'board') {
+                    // For boards, snap edges to be between grid points
+                    if (shiftPressed) {
+                        // Free movement - no snapping
+                        newX = rawX;
+                        newY = rawY;
                     } else {
-                        newX = Math.round((rawX - 12.5) / GRID_PITCH_MM) * GRID_PITCH_MM + 12.5;
-                        newY = Math.round((rawY - 12.5) / GRID_PITCH_MM) * GRID_PITCH_MM + 12.5;
+                        // Calculate left and top edges
+                        const leftEdge = rawX - el.width / 2;
+                        const topEdge = rawY - el.height / 2;
+                        
+                        if (ctrlPressed) {
+                            // Half grid snap - snap edges to half-grid positions
+                            const snappedLeft = Math.round(leftEdge / HALF_GRID_MM) * HALF_GRID_MM;
+                            const snappedTop = Math.round(topEdge / HALF_GRID_MM) * HALF_GRID_MM;
+                            newX = snappedLeft + el.width / 2;
+                            newY = snappedTop + el.height / 2;
+                        } else {
+                            // Full grid snap - snap edges to be between grid points (at multiples of GRID_PITCH_MM)
+                            const snappedLeft = Math.round(leftEdge / GRID_PITCH_MM) * GRID_PITCH_MM;
+                            const snappedTop = Math.round(topEdge / GRID_PITCH_MM) * GRID_PITCH_MM;
+                            newX = snappedLeft + el.width / 2;
+                            newY = snappedTop + el.height / 2;
+                        }
+                    }
+                } else {
+                    // For components, use existing snapping logic
+                    if (shiftPressed) {
+                        // Free movement - no snapping
+                        newX = rawX;
+                        newY = rawY;
+                    } else if (ctrlPressed) {
+                        // Half grid snap
+                        newX = Math.round(rawX / HALF_GRID_MM) * HALF_GRID_MM;
+                        newY = Math.round(rawY / HALF_GRID_MM) * HALF_GRID_MM;
+                    } else {
+                        // Full grid snap
+                        const board = elements.find(b => b.type === 'board' && b !== el &&
+                            rawX >= b.x - b.width / 2 && rawX <= b.x + b.width / 2 &&
+                            rawY >= b.y - b.height / 2 && rawY <= b.y + b.height / 2);
+
+                        if (board) {
+                            const snap = getClosestGridPoint({ x: rawX, y: rawY }, board);
+                            newX = snap.x;
+                            newY = snap.y;
+                        } else {
+                            newX = Math.round((rawX - 12.5) / GRID_PITCH_MM) * GRID_PITCH_MM + 12.5;
+                            newY = Math.round((rawY - 12.5) / GRID_PITCH_MM) * GRID_PITCH_MM + 12.5;
+                        }
                     }
                 }
 
@@ -426,9 +572,12 @@ function handleMouseMove(e) {
                 el.y = newY;
 
                 if (el.type === 'board') {
+                    // Move all children of this board
                     draggedChildren.forEach((rel, child) => {
-                        child.x = el.x + rel.dx;
-                        child.y = el.y + rel.dy;
+                        if (rel.parentBoard === el) {
+                            child.x = el.x + rel.dx;
+                            child.y = el.y + rel.dy;
+                        }
                     });
                 }
 
@@ -437,6 +586,18 @@ function handleMouseMove(e) {
                 }
             }
         });
+        
+        // Move all components on selected boards that aren't already selected
+        // (selected components were already moved above)
+        if (selectedBoards.length > 0) {
+            draggedChildren.forEach((rel, child) => {
+                if (!selection.has(child) && selectedBoards.includes(rel.parentBoard)) {
+                    child.x = rel.parentBoard.x + rel.dx;
+                    child.y = rel.parentBoard.y + rel.dy;
+                }
+            });
+        }
+        
         draw();
         return;
     }
@@ -446,6 +607,12 @@ function handleMouseMove(e) {
         selectionRect.h = Math.abs(m.y - selectionRect.startY);
         selectionRect.x = Math.min(m.x, selectionRect.startX);
         selectionRect.y = Math.min(m.y, selectionRect.startY);
+        draw();
+        return;
+    }
+
+    // If pending board, redraw to update preview
+    if (pendingBoard) {
         draw();
         return;
     }
@@ -565,12 +732,45 @@ function handleMouseUp() {
             }
         } else {
             // Actual marquee drag - select components within
+            // Convert selection rectangle to world coordinates
+            const rectTopLeft = screenToWorld(selectionRect.x, selectionRect.y);
+            const rectBottomRight = screenToWorld(selectionRect.x + selectionRect.w, selectionRect.y + selectionRect.h);
+            const rectLeft = Math.min(rectTopLeft.x, rectBottomRight.x);
+            const rectRight = Math.max(rectTopLeft.x, rectBottomRight.x);
+            const rectTop = Math.min(rectTopLeft.y, rectBottomRight.y);
+            const rectBottom = Math.max(rectTopLeft.y, rectBottomRight.y);
+            
             elements.forEach(el => {
-                if (el.type === 'board') return; // Don't select boards via marquee
-                const p = worldToScreen(el.x, el.y);
-                if (p.x >= selectionRect.x && p.x <= selectionRect.x + selectionRect.w &&
-                    p.y >= selectionRect.y && p.y <= selectionRect.y + selectionRect.h) {
-                    selection.add(el);
+                if (el.type === 'board') {
+                    // For boards, check if selection covers >= 90% of the board
+                    const boardLeft = el.x - el.width / 2;
+                    const boardRight = el.x + el.width / 2;
+                    const boardTop = el.y - el.height / 2;
+                    const boardBottom = el.y + el.height / 2;
+                    
+                    // Calculate intersection area
+                    const intersectLeft = Math.max(rectLeft, boardLeft);
+                    const intersectRight = Math.min(rectRight, boardRight);
+                    const intersectTop = Math.max(rectTop, boardTop);
+                    const intersectBottom = Math.min(rectBottom, boardBottom);
+                    
+                    if (intersectLeft < intersectRight && intersectTop < intersectBottom) {
+                        const intersectArea = (intersectRight - intersectLeft) * (intersectBottom - intersectTop);
+                        const boardArea = el.width * el.height;
+                        const coverage = intersectArea / boardArea;
+                        
+                        // Select if >= 90% covered
+                        if (coverage >= 0.9) {
+                            selection.add(el);
+                        }
+                    }
+                } else {
+                    // For components, check if center point is within selection
+                    const p = worldToScreen(el.x, el.y);
+                    if (p.x >= selectionRect.x && p.x <= selectionRect.x + selectionRect.w &&
+                        p.y >= selectionRect.y && p.y <= selectionRect.y + selectionRect.h) {
+                        selection.add(el);
+                    }
                 }
             });
         }
@@ -619,12 +819,16 @@ function handleKeyDown(e) {
     if (e.key === 'Shift') shiftPressed = true;
     if (e.key === 'Control' || e.key === 'Meta') ctrlPressed = true;
 
-    // Escape - cancel fiber connection or deselect all
+    // Escape - cancel fiber connection, pending board, or deselect all
     if (e.key === 'Escape') {
         if (isFiberConnecting) {
             isFiberConnecting = false;
             fiberConnectSource = null;
             fiberConnectMousePos = null;
+        }
+        if (pendingBoard) {
+            pendingBoard = null;
+            canvas.style.cursor = 'crosshair';
         }
         selection.clear();
         updateUI();

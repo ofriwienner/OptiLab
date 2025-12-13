@@ -31,9 +31,19 @@ function init() {
 
     // Create default board
     const center = screenToWorld(canvas.width / 2, canvas.height / 2);
-    const nx = Math.round((center.x - HALF_GRID_MM) / GRID_PITCH_MM) * GRID_PITCH_MM + HALF_GRID_MM;
-    const ny = Math.round((center.y - HALF_GRID_MM) / GRID_PITCH_MM) * GRID_PITCH_MM + HALF_GRID_MM;
-    const b = new Element('board', nx, ny, 330, 482.6, 'Main Board');
+    const boardW = 325;
+    const boardH = 475;
+    // Snap board center so edges are between grid points (at multiples of GRID_PITCH_MM)
+    // Grid points are at 12.5, 37.5, 62.5... so edges should be at 0, 25, 50, 75...
+    const leftEdge = center.x - boardW / 2;
+    const snappedLeft = Math.round(leftEdge / GRID_PITCH_MM) * GRID_PITCH_MM;
+    const nx = snappedLeft + boardW / 2;
+    
+    const topEdge = center.y - boardH / 2;
+    const snappedTop = Math.round(topEdge / GRID_PITCH_MM) * GRID_PITCH_MM;
+    const ny = snappedTop + boardH / 2;
+    
+    const b = new Element('board', nx, ny, boardW, boardH, 'Main Board');
     elements.push(b);
 
     // Initial draw

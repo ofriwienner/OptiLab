@@ -77,6 +77,9 @@ let isFiberConnecting = false;
 let fiberConnectSource = null;
 let fiberConnectMousePos = null;
 
+// Pending board creation state
+let pendingBoard = null;
+
 // Fiber color palette for different fiber pairs
 const FIBER_COLORS = [
     '#ffa500', // Orange
