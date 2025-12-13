@@ -883,6 +883,52 @@ function handleKeyDown(e) {
         return;
     }
 
+    // Move shortcut (M key)
+    if ((e.key === 'm' || e.key === 'M') && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        if (selection.size > 0) {
+            e.preventDefault();
+            // Get current mouse position in world coordinates
+            const w = lastMousePos.x > 0 && lastMousePos.y > 0
+                ? screenToWorld(lastMousePos.x, lastMousePos.y)
+                : screenToWorld(canvas.width / 2, canvas.height / 2);
+            
+            saveToHistory();
+            isDragging = true;
+            invalidBoardPlacement = false;
+            dragOffsets.clear();
+            
+            // Check if any boards are selected
+            const selectedBoards = Array.from(selection).filter(el => el.type === 'board');
+            if (selectedBoards.length > 0) {
+                const primaryBoard = selectedBoards[0];
+                originalBoardState = { x: primaryBoard.x, y: primaryBoard.y };
+                draggedChildren.clear();
+                
+                // Collect all components on selected boards
+                elements.forEach(child => {
+                    if (child.type !== 'board') {
+                        const parentBoard = getParentBoard(child);
+                        if (parentBoard && selectedBoards.includes(parentBoard)) {
+                            draggedChildren.set(child, { 
+                                dx: child.x - parentBoard.x, 
+                                dy: child.y - parentBoard.y,
+                                parentBoard: parentBoard
+                            });
+                        }
+                    }
+                });
+            }
+            
+            // Set drag offsets for all selected elements
+            selection.forEach(el => dragOffsets.set(el, { dx: el.x - w.x, dy: el.y - w.y }));
+            
+            canvas.style.cursor = 'grabbing';
+            updateUI();
+            draw();
+            return;
+        }
+    }
+
     // Cycle Alignment Target
     if (e.key === 'q' || e.key === 'Q') {
         alignPreference++;
@@ -890,6 +936,43 @@ function handleKeyDown(e) {
         if (p && ['mirror', 'mirror-d'].includes(p.type)) {
             tryAutoAlign(p);
             draw();
+        }
+    }
+
+    // Laser polarization shortcuts (H = horizontal, V = vertical)
+    if (selection.size > 0) {
+        const p = Array.from(selection).pop();
+        if (p && p.type === 'laser' && !p.locked) {
+            if (e.key === 'h' || e.key === 'H') {
+                e.preventDefault();
+                saveToHistory();
+                p.polAngle = 0; // Horizontal
+                updateUI();
+                draw();
+                return;
+            } else if (e.key === 'v' || e.key === 'V') {
+                e.preventDefault();
+                saveToHistory();
+                p.polAngle = 90; // Vertical
+                updateUI();
+                draw();
+                return;
+            }
+        }
+    }
+
+    // AOM toggle shortcut (O = on/off)
+    if (selection.size > 0) {
+        const p = Array.from(selection).pop();
+        if (p && p.type === 'aom' && !p.locked) {
+            if (e.key === 'o' || e.key === 'O') {
+                e.preventDefault();
+                saveToHistory();
+                p.aomEnabled = !isAomEnabled(p);
+                updateUI();
+                draw();
+                return;
+            }
         }
     }
 

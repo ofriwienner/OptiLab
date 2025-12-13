@@ -139,7 +139,8 @@ function isAomEnabled(el) {
 function getAomToggleHit(mousePoint) {
     const selectedAoms = elements.filter(el => el.type === 'aom' && selection.has(el));
     for (let el of selectedAoms) {
-        const localPos = { x: 0, y: -el.height / 2 - 12 };
+        // Position on the left side of the AOM
+        const localPos = { x: -el.width / 2 - 15, y: 0 };
         const rotated = rotatePoint(localPos, el.rotation);
         const btnWorld = { x: el.x + rotated.x, y: el.y + rotated.y };
         const btnScreen = worldToScreen(btnWorld.x, btnWorld.y);
