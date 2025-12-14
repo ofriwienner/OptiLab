@@ -95,6 +95,7 @@ function exposeGlobalFunctions() {
     window.loadState = loadState;
     window.exportState = exportState;
     window.importState = importState;
+    window.shareTable = shareTable;
     window.undo = undo;
     window.redo = redo;
     window.saveToHistory = saveToHistory;

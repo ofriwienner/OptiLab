@@ -80,6 +80,12 @@ let fiberConnectMousePos = null;
 // Pending board creation state
 let pendingBoard = null;
 
+// Focused board for capture (used to gray out other boards)
+let focusedBoardForCapture = null;
+
+// Flag to indicate we're capturing for export (makes beams stronger)
+let isCapturingForExport = false;
+
 // Fiber color palette for different fiber pairs
 const FIBER_COLORS = [
     '#ffa500', // Orange

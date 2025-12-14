@@ -69,6 +69,16 @@ function drawElement(el) {
     const pos = worldToScreen(el.x, el.y);
     const sc = view.scale * PIXELS_PER_MM;
     const isSelected = selection.has(el);
+    
+    // Gray out components that are not on the focused board during capture
+    if (focusedBoardForCapture && el.type !== 'board') {
+        const parentBoard = getParentBoard(el);
+        if (parentBoard !== focusedBoardForCapture) {
+            ctx.globalAlpha = 0.3;
+        } else {
+            ctx.globalAlpha = 1.0;
+        }
+    }
 
     ctx.save();
     ctx.translate(pos.x, pos.y);
@@ -153,7 +163,14 @@ function drawElement(el) {
  * Draw board element
  */
 function drawBoard(el, sc) {
-    ctx.fillStyle = '#1f2937';
+    // Gray out boards that are not the focused board during capture
+    if (focusedBoardForCapture && el !== focusedBoardForCapture) {
+        ctx.fillStyle = '#0f172a';
+        ctx.globalAlpha = 0.3;
+    } else {
+        ctx.fillStyle = '#1f2937';
+        ctx.globalAlpha = 1.0;
+    }
     ctx.fillRect(-el.width / 2, -el.height / 2, el.width, el.height);
 
     // Draw background image if present
@@ -769,23 +786,29 @@ function getStokesAngle(stokes) {
 function drawRays(rays) {
     ctx.lineCap = 'round';
 
+    // Make beams stronger during export capture
+    const beamWidthMultiplier = isCapturingForExport ? 3 : 1;
+    const beamOpacity = isCapturingForExport ? 0.8 : 0.3;
+    const coreBeamWidth = isCapturingForExport ? 2.5 : 1;
+
     rays.forEach(seg => {
         const p1 = worldToScreen(seg.x1, seg.y1);
         const p2 = worldToScreen(seg.x2, seg.y2);
 
-        // Draw main beam
+        // Draw main beam (wider, semi-transparent background)
         ctx.beginPath();
         ctx.moveTo(p1.x, p1.y);
         ctx.lineTo(p2.x, p2.y);
-        ctx.strokeStyle = seg.color.replace(')', ', 0.3)').replace('rgb', 'rgba');
-        ctx.lineWidth = 3 * view.scale;
+        ctx.strokeStyle = seg.color.replace(')', `, ${beamOpacity})`).replace('rgb', 'rgba');
+        ctx.lineWidth = 3 * view.scale * beamWidthMultiplier;
         ctx.stroke();
 
+        // Draw core beam (thinner, fully opaque)
         ctx.beginPath();
         ctx.moveTo(p1.x, p1.y);
         ctx.lineTo(p2.x, p2.y);
         ctx.strokeStyle = seg.color;
-        ctx.lineWidth = 1 * view.scale;
+        ctx.lineWidth = coreBeamWidth * view.scale;
         ctx.stroke();
 
         // Draw Polarization Glyphs
@@ -1123,6 +1146,8 @@ function draw() {
     drawFiberConnectingLine();
     drawPendingBoardPreview();
     drawHints();
+    // Reset global alpha in case it was changed during board drawing
+    ctx.globalAlpha = 1.0;
 }
 
 /**
