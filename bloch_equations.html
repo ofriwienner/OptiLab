@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Bloch Sphere Dynamics</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Three.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- Google Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; overflow: hidden; }
+        canvas { outline: none; }
+        .control-panel {
+            background: rgba(17, 24, 39, 0.95);
+            backdrop-filter: blur(10px);
+        }
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #1f2937; }
+        ::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 3px; }
+        
+        .view-btn {
+            transition: all 0.2s;
+            opacity: 0.8;
+        }
+        .view-btn:hover {
+            opacity: 1;
+            transform: scale(1.05);
+        }
+        
+        #lab-view-label {
+            pointer-events: none;
+            text-shadow: 0px 1px 3px rgba(0,0,0,0.8);
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-white h-screen w-screen flex flex-col md:flex-row">
+
+    <!-- Left: 3D Visualization -->
+    <div id="canvas-container" class="relative w-full md:w-1/2 h-1/2 md:h-full bg-black cursor-move">
+        <div class="absolute top-4 left-4 pointer-events-none select-none z-10">
+            <h1 class="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-500">Bloch Sphere Sim</h1>
+            <p class="text-sm text-gray-400 mt-1">Drag vector tips to interact</p>
+            <div class="mt-2 text-xs text-gray-500 space-y-1">
+                <div class="flex items-center"><span class="w-3 h-3 rounded-full bg-red-500 mr-2"></span> State Vector (R)</div>
+                <div class="flex items-center"><span class="w-3 h-3 rounded-full bg-blue-500 mr-2"></span> DC Field (B_dc)</div>
+                <div class="flex items-center"><span class="w-3 h-3 rounded-full bg-green-500 mr-2"></span> AC Field Axis (B_ac)</div>
+                <div class="flex items-center"><span class="w-3 h-3 rounded-full bg-yellow-400 mr-2"></span> Optical Pump</div>
+            </div>
+        </div>
+
+        <!-- View Controls -->
+        <div class="absolute top-4 right-4 flex flex-col space-y-2 z-20">
+            <button onclick="setView('default')" class="view-btn bg-blue-900 hover:bg-blue-800 text-white text-xs px-3 py-1.5 rounded border border-blue-700 shadow-lg font-medium">Reset View</button>
+        </div>
+        
+        <!-- Lab View Label -->
+        <div id="lab-view-label" class="absolute bottom-2 left-2 z-10 text-xs font-mono text-gray-500 border-l-2 border-gray-600 pl-2">
+            LAB FRAME (X-Z)<br>
+            Top View
+        </div>
+
+        <!-- Reset Button -->
+        <button id="reset-btn" class="absolute bottom-4 right-4 bg-gray-700 hover:bg-gray-600 text-white px-3 py-1 rounded text-sm z-10 transition">
+            Reset Vectors
+        </button>
+    </div>
+
+    <!-- Right: Analysis & Controls -->
+    <div class="w-full md:w-1/2 h-1/2 md:h-full flex flex-col border-l border-gray-800 bg-gray-900">
+        
+        <!-- Graphs Container -->
+        <div class="flex-1 flex flex-col p-4 space-y-4 overflow-hidden">
+            <!-- Time Domain Plot -->
+            <div class="flex-1 bg-gray-800 rounded-lg p-3 relative flex flex-col min-h-0">
+                <div class="flex justify-between items-center mb-2">
+                    <h3 class="text-sm font-semibold text-gray-300">Time Evolution ($S_x$)</h3>
+                    <span class="text-xs text-gray-500">Live</span>
+                </div>
+                <canvas id="time-plot" class="w-full h-full block"></canvas>
+            </div>
+
+            <!-- Frequency Domain Plot (FFT) -->
+            <div class="flex-1 bg-gray-800 rounded-lg p-3 relative flex flex-col min-h-0">
+                <div class="flex justify-between items-center mb-2">
+                    <h3 class="text-sm font-semibold text-gray-300">Spectrum (FFT of $S_x$)</h3>
+                    <span class="text-xs text-gray-500">Window: 1024 pts</span>
+                </div>
+                <canvas id="fft-plot" class="w-full h-full block"></canvas>
+            </div>
+        </div>
+
+        <!-- Controls Panel -->
+        <div class="control-panel p-4 border-t border-gray-800">
+            <div class="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                    <label class="block text-gray-400 mb-1">AC Frequency ($\omega$)</label>
+                    <input type="range" id="ac-freq" min="0" max="10" step="0.1" value="5" class="w-full h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer">
+                    <div class="flex justify-between text-xs text-gray-500 mt-1">
+                        <span>0</span>
+                        <span id="ac-freq-val">5.0</span>
+                        <span>10</span>
+                    </div>
+                </div>
+                <div>
+                     <label class="block text-gray-400 mb-1">Simulation Speed</label>
+                    <input type="range" id="sim-speed" min="0.1" max="2" step="0.1" value="1" class="w-full h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer">
+                    <div class="flex justify-between text-xs text-gray-500 mt-1">
+                        <span>Slow</span>
+                        <span id="speed-val">1.0x</span>
+                        <span>Fast</span>
+                    </div>
+                </div>
+                <div class="col-span-2 border-t border-gray-700 pt-3">
+                    <label class="block text-yellow-400 mb-1 font-semibold">Optical Pump Power</label>
+                    <input type="range" id="pump-rate" min="0" max="5" step="0.1" value="0.5" class="w-full h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-yellow-500">
+                    <div class="flex justify-between text-xs text-gray-500 mt-1">
+                        <span>Off</span>
+                        <span id="pump-val">0.5</span>
+                        <span>Max</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+<script>
+/**
+ * 1. PHYSICS ENGINE
+ */
+const STATE = {
+    // Default Orientation: Z-axis aligned
+    S: new THREE.Vector3(0, 0, 1),        
+    B_dc: new THREE.Vector3(0, 0, 2),     
+    B_ac_axis: new THREE.Vector3(2, 0, 0), // AC on X to start, otherwise no dynamics
+    pumpDir: new THREE.Vector3(0, 0, 1),   // Pump along Z
+    
+    omega: 5.0,                          
+    pumpRate: 0.5,                       
+    time: 0,
+    historySx: [],                       
+    maxHistory: 512,                     
+    fftWindow: 1024,                     
+    fftBuffer: [],                       
+    running: true,
+    speed: 1.0
+};
+
+// Physics Constants
+const GAMMA = 1.0; 
+const DT = 0.01;   
+
+function getBField(t) {
+    const cosWt = Math.cos(STATE.omega * t);
+    const B_total = new THREE.Vector3().copy(STATE.B_dc);
+    const B_ac_inst = new THREE.Vector3().copy(STATE.B_ac_axis).multiplyScalar(cosWt);
+    B_total.add(B_ac_inst);
+    return B_total;
+}
+
+function getDerivative(S, t) {
+    const B = getBField(t);
+    const dS = new THREE.Vector3().crossVectors(S, B).multiplyScalar(GAMMA);
+    
+    if (STATE.pumpRate > 0) {
+        // Relax towards the Pump Vector Direction
+        const target = STATE.pumpDir.clone().normalize();
+        const relaxation = new THREE.Vector3().copy(target).sub(S).multiplyScalar(STATE.pumpRate);
+        dS.add(relaxation);
+    }
+    return dS;
+}
+
+function solvePhysics() {
+    if (!STATE.running) return;
+
+    const steps = 4;
+    const dt = (DT * STATE.speed) / steps;
+
+    for (let i = 0; i < steps; i++) {
+        const S = STATE.S;
+        const t = STATE.time;
+
+        const k1 = getDerivative(S, t);
+        const S_k1 = new THREE.Vector3().copy(S).addScaledVector(k1, dt * 0.5);
+        const k2 = getDerivative(S_k1, t + dt * 0.5);
+        const S_k2 = new THREE.Vector3().copy(S).addScaledVector(k2, dt * 0.5);
+        const k3 = getDerivative(S_k2, t + dt * 0.5);
+        const S_k3 = new THREE.Vector3().copy(S).addScaledVector(k3, dt);
+        const k4 = getDerivative(S_k3, t + dt);
+
+        const delta = new THREE.Vector3()
+            .add(k1).addScaledVector(k2, 2).addScaledVector(k3, 2).add(k4)
+            .multiplyScalar(dt / 6.0);
+        
+        STATE.S.add(delta);
+        STATE.S.normalize(); 
+        STATE.time += dt;
+
+        if (i === steps - 1) {
+            STATE.historySx.push(STATE.S.x);
+            if (STATE.historySx.length > STATE.maxHistory) STATE.historySx.shift();
+            
+            STATE.fftBuffer.push(STATE.S.x);
+            if (STATE.fftBuffer.length > STATE.fftWindow) STATE.fftBuffer.shift();
+        }
+    }
+}
+
+
+/**
+ * 2. 3D VISUALIZATION (THREE.JS)
+ */
+const container = document.getElementById('canvas-container');
+const scene = new THREE.Scene();
+
+// --- Main Camera (Perspective) ---
+const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 100);
+// Start looking somewhat from top-side to see Z alignment
+camera.position.set(4, 3, 5);
+camera.lookAt(0,0,0);
+
+// --- Lab Camera (Orthographic, Fixed Top View) ---
+// Frustum size 5
+const aspect = container.clientWidth / container.clientHeight; // Approx, refined in render
+const frustumSize = 8;
+const labCamera = new THREE.OrthographicCamera(
+    frustumSize * aspect / -2, frustumSize * aspect / 2,
+    frustumSize / 2, frustumSize / -2,
+    1, 1000
+);
+// Positioned on Y axis, looking at origin
+labCamera.position.set(0, 10, 0); 
+labCamera.lookAt(0, 0, 0);
+// Orient so Z is UP on screen, X is RIGHT on screen (Standard physics plot)
+labCamera.up.set(0, 0, -1); 
+
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(window.devicePixelRatio);
+renderer.setSize(container.clientWidth, container.clientHeight);
+renderer.setScissorTest(true); // Enable split screen
+container.appendChild(renderer.domElement);
+
+// Controls Logic
+let isDraggingBackground = false;
+let previousMousePosition = { x: 0, y: 0 };
+let theta = Math.PI / 4, phi = Math.PI / 4;
+
+function getFitRadius() {
+    const asp = container.clientWidth / container.clientHeight;
+    const verticalFit = 7.0; 
+    return asp < 1 ? verticalFit / asp : verticalFit;
+}
+let radius = getFitRadius();
+
+function updateCamera() {
+    theta = Math.max(0.01, Math.min(Math.PI - 0.01, theta));
+    camera.position.x = radius * Math.sin(theta) * Math.cos(phi);
+    camera.position.y = radius * Math.cos(theta);
+    camera.position.z = radius * Math.sin(theta) * Math.sin(phi);
+    camera.lookAt(0, 0, 0);
+}
+updateCamera();
+
+window.setView = function(view) {
+    if (view === 'default') {
+        theta = Math.PI / 4;
+        phi = Math.PI / 4;
+    }
+    updateCamera();
+};
+
+// Lights
+scene.add(new THREE.AmbientLight(0x404040, 2));
+const dirLight = new THREE.DirectionalLight(0xffffff, 1);
+dirLight.position.set(5, 10, 7);
+scene.add(dirLight);
+
+// Objects
+const sphereGeo = new THREE.SphereGeometry(1, 32, 16);
+const sphereMat = new THREE.MeshBasicMaterial({ color: 0x333333, wireframe: true, transparent: true, opacity: 0.2 });
+const sphere = new THREE.Mesh(sphereGeo, sphereMat);
+scene.add(sphere);
+
+const axesHelper = new THREE.AxesHelper(1.2);
+scene.add(axesHelper);
+
+const gridHelper = new THREE.GridHelper(4, 10, 0x444444, 0x222222);
+scene.add(gridHelper);
+
+// Arrows
+function createArrow(color, name) {
+    const group = new THREE.Group();
+    const shaftGeo = new THREE.CylinderGeometry(0.02, 0.02, 1, 8);
+    const shaftMat = new THREE.MeshLambertMaterial({ color: color });
+    const shaft = new THREE.Mesh(shaftGeo, shaftMat);
+    shaft.position.y = 0.5; 
+    
+    const headGeo = new THREE.ConeGeometry(0.08, 0.2, 16);
+    const headMat = new THREE.MeshLambertMaterial({ color: color });
+    const head = new THREE.Mesh(headGeo, headMat);
+    head.position.y = 1.0;
+    head.name = "head_" + name; 
+
+    group.add(shaft);
+    group.add(head);
+    group.userData = { type: name, length: 1 };
+    scene.add(group);
+    return { group, shaft, head };
+}
+
+const arrowS = createArrow(0xff4444, "S");     
+const arrowBdc = createArrow(0x4444ff, "B_dc"); 
+const arrowBac = createArrow(0x44ff44, "B_ac"); 
+const arrowPump = createArrow(0xffdd00, "Pump"); // New Pump Arrow
+
+function updateArrow(arrowObj, vector) {
+    const len = vector.length();
+    const safeLen = len < 0.001 ? 0.001 : len;
+    const dir = vector.clone().normalize();
+    const quaternion = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
+    arrowObj.group.setRotationFromQuaternion(quaternion);
+    arrowObj.shaft.scale.set(1, safeLen, 1);
+    arrowObj.shaft.position.y = safeLen / 2;
+    arrowObj.head.position.y = safeLen;
+}
+
+// Ghosts
+const ghostBacGeo = new THREE.CylinderGeometry(0.005, 0.005, 1, 8);
+const ghostBacMat = new THREE.MeshBasicMaterial({ color: 0x00ff00, transparent: true, opacity: 0.3 });
+const ghostBac = new THREE.Mesh(ghostBacGeo, ghostBacMat);
+scene.add(ghostBac);
+
+// Pump Laser Visual (Yellow Cylinder) - Now follows pump vector
+const laserGeo = new THREE.CylinderGeometry(0.02, 0.02, 3, 16);
+const laserMat = new THREE.MeshBasicMaterial({ color: 0xffdd00, transparent: true, opacity: 0.0 });
+const laserBeam = new THREE.Mesh(laserGeo, laserMat);
+// We don't add laserBeam to scene directly anymore, we attach it to Pump Arrow or handle separately
+// Let's just make it a free object that aligns with pumpDir
+laserBeam.geometry.translate(0, 1.5, 0); // Pivot at bottom
+scene.add(laserBeam);
+
+
+/**
+ * 3. INTERACTION & MULTI-VIEW
+ */
+const raycaster = new THREE.Raycaster();
+const mouse = new THREE.Vector2();
+let selectedObject = null;
+let isDragging = false;
+let dragPlane = new THREE.Plane();
+let dragViewport = 'main'; // 'main' or 'lab'
+
+// Viewport Configuration
+// Main: Top 70%, Lab: Bottom 30%
+const splitY = 0.3; // 30% from bottom
+
+container.addEventListener('mousedown', onMouseDown);
+container.addEventListener('mousemove', onMouseMove);
+window.addEventListener('mouseup', onMouseUp);
+
+function onMouseDown(event) {
+    const rect = container.getBoundingClientRect();
+    // Normalized device coordinates (0 to 1) for X and Y (from bottom)
+    const ndcX = (event.clientX - rect.left) / rect.width;
+    const ndcY = 1.0 - (event.clientY - rect.top) / rect.height; // 0 at bottom, 1 at top
+
+    isDragging = false;
+    isDraggingBackground = false;
+
+    // Check which viewport
+    let camToUse = null;
+    
+    if (ndcY < splitY) {
+        // LAB VIEW
+        dragViewport = 'lab';
+        camToUse = labCamera;
+        // Remap mouse to -1..1 for this sub-viewport
+        // Y range is [0, splitY] -> map to [-1, 1]
+        mouse.x = (ndcX * 2) - 1;
+        mouse.y = (ndcY / splitY) * 2 - 1;
+    } else {
+        // MAIN VIEW
+        dragViewport = 'main';
+        camToUse = camera;
+        // Y range is [splitY, 1] -> map to [-1, 1]
+        mouse.x = (ndcX * 2) - 1;
+        mouse.y = ((ndcY - splitY) / (1 - splitY)) * 2 - 1;
+    }
+
+    raycaster.setFromCamera(mouse, camToUse);
+    const intersects = raycaster.intersectObjects(scene.children, true);
+
+    if (intersects.length > 0) {
+        const hit = intersects.find(obj => obj.object.name.startsWith("head_"));
+        if (hit) {
+            isDragging = true;
+            selectedObject = hit.object.parent;
+            
+            // Setup drag plane
+            if (dragViewport === 'lab') {
+                // In lab view (X-Z plane), drag plane is strictly Y=0 (or Y=height of object)
+                // Actually, since camera is Ortho looking down Y, plane normal is Y.
+                dragPlane.set(new THREE.Vector3(0, 1, 0), 0);
+            } else {
+                // Perspective
+                const normal = camToUse.getWorldDirection(new THREE.Vector3());
+                dragPlane.setFromNormalAndCoplanarPoint(normal, hit.point);
+            }
+            return;
+        }
+    }
+    
+    // Background interaction only allowed in Main view
+    if (dragViewport === 'main') {
+        isDraggingBackground = true;
+        previousMousePosition = { x: event.clientX, y: event.clientY };
+    }
+}
+
+function onMouseMove(event) {
+    const rect = container.getBoundingClientRect();
+    const ndcX = (event.clientX - rect.left) / rect.width;
+    const ndcY = 1.0 - (event.clientY - rect.top) / rect.height;
+
+    if (isDragging && selectedObject) {
+        let camToUse = (dragViewport === 'lab') ? labCamera : camera;
+        
+        // Remap mouse for raycaster
+        if (dragViewport === 'lab') {
+            mouse.x = (ndcX * 2) - 1;
+            mouse.y = (ndcY / splitY) * 2 - 1;
+        } else {
+            mouse.x = (ndcX * 2) - 1;
+            mouse.y = ((ndcY - splitY) / (1 - splitY)) * 2 - 1;
+        }
+
+        raycaster.setFromCamera(mouse, camToUse);
+        const target = new THREE.Vector3();
+        raycaster.ray.intersectPlane(dragPlane, target);
+
+        if (target) {
+            if (target.length() > 3.0) target.setLength(3.0);
+            
+            const type = selectedObject.userData.type;
+            
+            if (type === "S") {
+                target.normalize();
+                STATE.S.copy(target);
+            } else if (type === "B_dc") {
+                STATE.B_dc.copy(target);
+            } else if (type === "B_ac") {
+                STATE.B_ac_axis.copy(target);
+            } else if (type === "Pump") {
+                // Update Pump Direction
+                STATE.pumpDir.copy(target);
+            }
+        }
+    } else if (isDraggingBackground) {
+        const deltaMove = { x: event.clientX - previousMousePosition.x, y: event.clientY - previousMousePosition.y };
+        theta -= deltaMove.y * 0.005;
+        phi -= deltaMove.x * 0.005;
+        updateCamera();
+        previousMousePosition = { x: event.clientX, y: event.clientY };
+    }
+}
+
+function onMouseUp() {
+    isDragging = false;
+    isDraggingBackground = false;
+    selectedObject = null;
+}
+
+// UI Controls
+document.getElementById('reset-btn').addEventListener('click', () => {
+    STATE.S.set(0, 0, 1);
+    STATE.B_dc.set(0, 0, 2);
+    STATE.B_ac_axis.set(2, 0, 0);
+    STATE.pumpDir.set(0, 0, 1);
+    STATE.historySx = [];
+    STATE.fftBuffer = [];
+});
+
+const freqSlider = document.getElementById('ac-freq');
+const freqVal = document.getElementById('ac-freq-val');
+freqSlider.addEventListener('input', (e) => {
+    STATE.omega = parseFloat(e.target.value);
+    freqVal.textContent = STATE.omega.toFixed(1);
+});
+
+const speedSlider = document.getElementById('sim-speed');
+const speedVal = document.getElementById('speed-val');
+speedSlider.addEventListener('input', (e) => {
+    STATE.speed = parseFloat(e.target.value);
+    speedVal.textContent = STATE.speed.toFixed(1) + "x";
+});
+
+const pumpSlider = document.getElementById('pump-rate');
+const pumpVal = document.getElementById('pump-val');
+pumpSlider.addEventListener('input', (e) => {
+    STATE.pumpRate = parseFloat(e.target.value);
+    pumpVal.textContent = STATE.pumpRate.toFixed(1);
+});
+
+/**
+ * 4. PLOTTING SYSTEM
+ */
+const timeCanvas = document.getElementById('time-plot');
+const fftCanvas = document.getElementById('fft-plot');
+const timeCtx = timeCanvas.getContext('2d');
+const fftCtx = fftCanvas.getContext('2d');
+
+function resizeCanvas(canvas) {
+    const parent = canvas.parentElement;
+    if (canvas.width !== parent.clientWidth || canvas.height !== parent.clientHeight) {
+        canvas.width = parent.clientWidth;
+        canvas.height = parent.clientHeight;
+        return true;
+    }
+    return false;
+}
+
+function drawTimePlot() {
+    resizeCanvas(timeCanvas);
+    const w = timeCanvas.width;
+    const h = timeCanvas.height;
+    timeCtx.clearRect(0, 0, w, h);
+    timeCtx.strokeStyle = '#374151';
+    timeCtx.lineWidth = 1;
+    timeCtx.beginPath();
+    timeCtx.moveTo(0, h/2);
+    timeCtx.lineTo(w, h/2);
+    timeCtx.stroke();
+    timeCtx.strokeStyle = '#ef4444'; 
+    timeCtx.lineWidth = 2;
+    timeCtx.beginPath();
+    const data = STATE.historySx;
+    const step = w / STATE.maxHistory;
+    for (let i = 0; i < data.length; i++) {
+        const x = i * step;
+        const y = h/2 - (data[i] * h/2.2); 
+        if (i === 0) timeCtx.moveTo(x, y);
+        else timeCtx.lineTo(x, y);
+    }
+    timeCtx.stroke();
+}
+
+function fft(data) {
+    const n = data.length;
+    if (n <= 1) return data.map(v => ({ re: v, im: 0 }));
+    if (n & (n - 1) !== 0) return fft(data.slice(0, Math.pow(2, Math.floor(Math.log2(n)))));
+    const even = fft(data.filter((_, i) => i % 2 === 0));
+    const odd = fft(data.filter((_, i) => i % 2 === 1));
+    const res = new Array(n);
+    for (let k = 0; k < n / 2; k++) {
+        const tRe = Math.cos(-2 * Math.PI * k / n);
+        const tIm = Math.sin(-2 * Math.PI * k / n);
+        const oddRe = odd[k].re * tRe - odd[k].im * tIm;
+        const oddIm = odd[k].re * tIm + odd[k].im * tRe;
+        res[k] = { re: even[k].re + oddRe, im: even[k].im + oddIm };
+        res[k + n / 2] = { re: even[k].re - oddRe, im: even[k].im - oddIm };
+    }
+    return res;
+}
+
+let lastFFTTime = 0;
+let fftResult = [];
+
+function drawFFTPlot(timestamp) {
+    resizeCanvas(fftCanvas);
+    const w = fftCanvas.width;
+    const h = fftCanvas.height;
+    if (timestamp - lastFFTTime > 200 && STATE.fftBuffer.length >= 64) {
+        const complex = fft(STATE.fftBuffer);
+        const halfN = complex.length / 2;
+        fftResult = complex.slice(1, halfN).map(c => Math.sqrt(c.re*c.re + c.im*c.im));
+        lastFFTTime = timestamp;
+    }
+    fftCtx.clearRect(0, 0, w, h);
+    if (fftResult.length > 0) {
+        fftCtx.fillStyle = '#60a5fa'; 
+        const barWidth = w / fftResult.length;
+        const maxVal = Math.max(...fftResult, 0.001);
+        for (let i = 0; i < fftResult.length; i++) {
+            const val = fftResult[i];
+            const barHeight = (val / maxVal) * (h * 0.9);
+            fftCtx.fillRect(i * barWidth, h - barHeight, barWidth - 1, barHeight);
+        }
+    }
+}
+
+/**
+ * 5. MAIN LOOP
+ */
+function render() {
+    const width = container.clientWidth;
+    const height = container.clientHeight;
+
+    // 1. Render MAIN View (Top 70%)
+    renderer.setViewport(0, height * splitY, width, height * (1 - splitY));
+    renderer.setScissor(0, height * splitY, width, height * (1 - splitY));
+    renderer.setScissorTest(true);
+    camera.aspect = width / (height * (1 - splitY));
+    camera.updateProjectionMatrix();
+    
+    // Hide grid helper in perspective if desired, but let's keep it
+    renderer.render(scene, camera);
+
+    // 2. Render LAB View (Bottom 30%)
+    renderer.setViewport(0, 0, width, height * splitY);
+    renderer.setScissor(0, 0, width, height * splitY);
+    renderer.setScissorTest(true);
+    
+    const labAspect = width / (height * splitY);
+    labCamera.left = -frustumSize * labAspect / 2;
+    labCamera.right = frustumSize * labAspect / 2;
+    labCamera.top = frustumSize / 2;
+    labCamera.bottom = -frustumSize / 2;
+    labCamera.updateProjectionMatrix();
+    
+    renderer.render(scene, labCamera);
+}
+
+function animate(timestamp) {
+    requestAnimationFrame(animate);
+
+    solvePhysics();
+
+    updateArrow(arrowS, STATE.S);
+    updateArrow(arrowBdc, STATE.B_dc);
+    updateArrow(arrowBac, STATE.B_ac_axis);
+    updateArrow(arrowPump, STATE.pumpDir);
+
+    const axisLen = STATE.B_ac_axis.length() * 2;
+    ghostBac.scale.set(1, axisLen || 0.001, 1);
+    const ghostQuat = new THREE.Quaternion().setFromUnitVectors(
+        new THREE.Vector3(0, 1, 0), 
+        STATE.B_ac_axis.clone().normalize()
+    );
+    ghostBac.setRotationFromQuaternion(ghostQuat);
+
+    // Align Laser Beam with Pump Arrow
+    // Position it just above the pump arrow tip or coming from infinity
+    // Simpler: Just make it overlay the Pump arrow line but extend far
+    const pumpLen = STATE.pumpDir.length();
+    // Align beam
+    const pumpQuat = new THREE.Quaternion().setFromUnitVectors(
+        new THREE.Vector3(0, 1, 0), 
+        STATE.pumpDir.clone().normalize()
+    );
+    laserBeam.setRotationFromQuaternion(pumpQuat);
+    // Position: it pivots at 0,0,0, extend outwards
+    laserBeam.position.set(0,0,0);
+    // Pulse and Opacity
+    laserBeam.material.opacity = Math.min(0.6, STATE.pumpRate * 0.3);
+    if (STATE.pumpRate > 0) {
+        const pulse = 1 + Math.sin(timestamp * 0.01) * 0.1;
+        laserBeam.scale.set(pulse, 1, pulse);
+    }
+
+    drawTimePlot();
+    drawFFTPlot(timestamp);
+
+    render();
+}
+
+window.addEventListener('resize', () => {
+    const width = container.clientWidth;
+    const height = container.clientHeight;
+    renderer.setSize(width, height);
+    
+    radius = getFitRadius();
+    updateCamera();
+});
+
+animate(0);
+
+</script>
+</body>
+</html>

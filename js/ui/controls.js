@@ -673,4 +673,13 @@ function togglePolarization(checked) {
     draw();
 }
 
+/**
+ * Toggle intensity visualization
+ * @param {boolean} checked - Whether checkbox is checked
+ */
+function toggleIntensity(checked) {
+    showIntensity = checked;
+    draw();
+}
+
 

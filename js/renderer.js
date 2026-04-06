@@ -773,18 +773,26 @@ function drawRays(rays) {
         const p1 = worldToScreen(seg.x1, seg.y1);
         const p2 = worldToScreen(seg.x2, seg.y2);
 
+        // Apply intensity override if intensity display is disabled
+        let beamColor = seg.color;
+        if (!showIntensity) {
+            // Replace the opacity part with a fixed value (1.0 for full brightness)
+            // Color format is 'rgba(r, g, b, intensity)', so we replace the last number before ')'
+            beamColor = beamColor.replace(/,\s*[\d.]+\s*\)$/, ', 1.0)');
+        }
+
         // Draw main beam
         ctx.beginPath();
         ctx.moveTo(p1.x, p1.y);
         ctx.lineTo(p2.x, p2.y);
-        ctx.strokeStyle = seg.color.replace(')', ', 0.3)').replace('rgb', 'rgba');
+        ctx.strokeStyle = beamColor.replace(')', ', 0.3)').replace('rgb', 'rgba');
         ctx.lineWidth = 3 * view.scale;
         ctx.stroke();
 
         ctx.beginPath();
         ctx.moveTo(p1.x, p1.y);
         ctx.lineTo(p2.x, p2.y);
-        ctx.strokeStyle = seg.color;
+        ctx.strokeStyle = beamColor;
         ctx.lineWidth = 1 * view.scale;
         ctx.stroke();
 

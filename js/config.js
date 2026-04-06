@@ -34,6 +34,9 @@ const MAX_BOUNCES = 100;
 
 // Polarization visualization toggle
 let showPolarization = true;
+
+// Intensity visualization toggle
+let showIntensity = true;
 const SNAP_ROTATION = 45;
 
 // Waveplate constants
