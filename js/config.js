@@ -37,7 +37,7 @@ let showPolarization = true;
 
 // Intensity visualization toggle
 let showIntensity = true;
-const SNAP_ROTATION = 45;
+const SNAP_ROTATION = 22.5;
 
 // Waveplate constants
 const WAVEPLATE_KNOB_OFFSET_MM = 18;

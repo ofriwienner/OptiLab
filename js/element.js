@@ -96,6 +96,20 @@ class Element {
                 this.height = 30;
                 this.aperture = 0.5;     // Aperture ratio (0-1), visual only for now
                 break;
+            case 'twinleaf':
+                this.width = 4 * GRID_PITCH_MM;
+                this.height = 3 * GRID_PITCH_MM;
+                break;
+            case 'cell':
+                this.width = GRID_PITCH_MM;
+                this.height = GRID_PITCH_MM;
+                break;
+            case 'filter':
+                this.width = 5;
+                this.height = 30;
+                this.rotation = 0;
+                this.blockedLasers = [];
+                break;
         }
     }
 
@@ -266,6 +280,18 @@ class Element {
             // Amplifier has fiber input (left) and direct laser output (right)
             // No ray interaction segments needed - light comes in via fiber connection
             // and outputs as a new ray from the output face
+        } else if (this.type === 'twinleaf') {
+            // Twinleaf is a passive reference device - no optical interaction
+        } else if (this.type === 'cell') {
+            // Cell is a passive visual component - no optical interaction
+        } else if (this.type === 'filter') {
+            const start = rotatePoint({ x: 0, y: -this.height / 2 }, this.rotation);
+            const end = rotatePoint({ x: 0, y: this.height / 2 }, this.rotation);
+            segments.push({
+                p1: { x: cx + start.x, y: cy + start.y },
+                p2: { x: cx + end.x, y: cy + end.y },
+                type: 'filter'
+            });
         } else if (this.type === 'iris') {
             // Iris pass-through segment (vertical line through center)
             const start = rotatePoint({ x: 0, y: -this.height / 2 }, this.rotation);

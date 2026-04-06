@@ -4,6 +4,17 @@
  */
 
 /**
+ * Get a laser's display name: custom title or "Laser N" by order
+ * @param {Object} laser - Laser element
+ * @returns {string}
+ */
+function getLaserName(laser) {
+    if (laser.title) return laser.title;
+    const lasers = elements.filter(e => e.type === 'laser');
+    return 'Laser ' + (lasers.indexOf(laser) + 1);
+}
+
+/**
  * Update the UI panel based on current selection
  */
 function updateUI() {
@@ -51,6 +62,56 @@ function updateUI() {
             select.appendChild(optH);
             select.appendChild(optV);
             div.appendChild(select);
+
+            // Beam Color
+            const colorRow = document.createElement('div');
+            colorRow.className = "flex items-center justify-between mt-2";
+            const colorLabel = document.createElement('label');
+            colorLabel.className = "text-[9px] text-gray-400";
+            colorLabel.innerText = "Beam Color";
+            const colorInput = document.createElement('input');
+            colorInput.type = "color";
+            colorInput.value = p.beamColor || '#ff3232';
+            colorInput.className = "w-8 h-5 rounded cursor-pointer border-0 bg-transparent";
+            colorInput.style.padding = '0';
+            colorInput.onmousedown = (e) => e.stopPropagation();
+            colorInput.oninput = (e) => {
+                p.beamColor = e.target.value;
+                draw();
+            };
+            colorRow.appendChild(colorLabel);
+            colorRow.appendChild(colorInput);
+            div.appendChild(colorRow);
+
+            // Beam Thickness
+            const thickDiv = document.createElement('div');
+            thickDiv.className = "mt-2";
+            const thickHeader = document.createElement('div');
+            thickHeader.className = "flex items-center justify-between text-[9px] text-gray-400 mb-1";
+            const thickLabelSpan = document.createElement('span');
+            thickLabelSpan.innerText = "Beam Thickness";
+            const thickVal = document.createElement('span');
+            thickVal.className = "font-mono";
+            thickVal.innerText = (p.beamThickness ?? 1).toFixed(1) + '×';
+            thickHeader.appendChild(thickLabelSpan);
+            thickHeader.appendChild(thickVal);
+            thickDiv.appendChild(thickHeader);
+            const thickSlider = document.createElement('input');
+            thickSlider.type = 'range';
+            thickSlider.min = '0.5';
+            thickSlider.max = '4';
+            thickSlider.step = '0.5';
+            thickSlider.value = p.beamThickness ?? 1;
+            thickSlider.className = "w-full accent-red-400 h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer";
+            thickSlider.onmousedown = (e) => e.stopPropagation();
+            thickSlider.oninput = (e) => {
+                p.beamThickness = parseFloat(e.target.value);
+                thickVal.innerText = p.beamThickness.toFixed(1) + '×';
+                draw();
+            };
+            thickDiv.appendChild(thickSlider);
+            div.appendChild(thickDiv);
+
             btnContainer.appendChild(div);
         }
 
@@ -104,6 +165,55 @@ function updateUI() {
             aomBox.appendChild(hint);
 
             btnContainer.appendChild(aomBox);
+        }
+
+        // Filter Controls
+        if (p.type === 'filter') {
+            const filterBox = document.createElement('div');
+            filterBox.className = "mt-2 border-t border-gray-600 pt-2 space-y-1";
+
+            const title = document.createElement('div');
+            title.className = "text-[10px] uppercase text-gray-400 mb-1";
+            title.innerText = "Laser Pass/Block";
+            filterBox.appendChild(title);
+
+            const lasers = elements.filter(e => e.type === 'laser');
+            if (lasers.length === 0) {
+                const empty = document.createElement('p');
+                empty.className = "text-[9px] text-gray-500";
+                empty.innerText = "No lasers in scene.";
+                filterBox.appendChild(empty);
+            } else {
+                lasers.forEach(laser => {
+                    const blocked = (p.blockedLasers || []).includes(laser.id);
+                    const row = document.createElement('div');
+                    row.className = "flex items-center justify-between";
+
+                    const nameSpan = document.createElement('span');
+                    nameSpan.className = "text-[10px] text-gray-300 truncate";
+                    nameSpan.innerText = getLaserName(laser);
+
+                    const btn = document.createElement('button');
+                    btn.className = `text-[9px] px-2 py-0.5 rounded border cursor-pointer transition ${blocked ? 'bg-red-900/50 border-red-600 text-red-200 hover:bg-red-800' : 'bg-green-900/50 border-green-600 text-green-200 hover:bg-green-800'}`;
+                    btn.innerText = blocked ? 'Blocked' : 'Pass';
+                    btn.onclick = () => {
+                        if (!p.blockedLasers) p.blockedLasers = [];
+                        if (blocked) {
+                            p.blockedLasers = p.blockedLasers.filter(id => id !== laser.id);
+                        } else {
+                            p.blockedLasers.push(laser.id);
+                        }
+                        draw();
+                        updateUI();
+                    };
+
+                    row.appendChild(nameSpan);
+                    row.appendChild(btn);
+                    filterBox.appendChild(row);
+                });
+            }
+
+            btnContainer.appendChild(filterBox);
         }
 
         // Lens Controls

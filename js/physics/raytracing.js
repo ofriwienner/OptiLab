@@ -43,6 +43,7 @@ function traceRay(ray, depth, results) {
             x2: closestHit.x,
             y2: closestHit.y,
             color: ray.color + ray.intensity + ')',
+            thickness: ray.thickness ?? 1,
             stokes: ray.stokes
         });
 
@@ -294,6 +295,19 @@ function traceRay(ray, depth, results) {
                 }
             }
 
+        } else if (hitObject.type === 'filter') {
+            // Filter - pass or block based on laser source
+            const isBlocked = (hitObject.blockedLasers || []).includes(ray.laserId);
+            if (!isBlocked) {
+                traceRay({
+                    ...ray,
+                    x: closestHit.x + inc.x * 0.1,
+                    y: closestHit.y + inc.y * 0.1,
+                    dx: inc.x,
+                    dy: inc.y,
+                }, depth + 1, results);
+            }
+
         } else if (hitObject.type === 'iris') {
             // Iris pass-through (visual only for now)
             traceRay({
@@ -327,6 +341,7 @@ function traceRay(ray, depth, results) {
             x2: ray.x + ray.dx * 2000,
             y2: ray.y + ray.dy * 2000,
             color: ray.color + ray.intensity + ')',
+            thickness: ray.thickness ?? 1,
             stokes: ray.stokes
         });
     }
@@ -352,13 +367,19 @@ function castRays() {
             MuellerMath.rotateComponent(MuellerMath.MATRICES.POLARIZER_H, theta)
         );
 
+        const hexColor = laser.beamColor || '#ff3232';
+        const r = parseInt(hexColor.slice(1, 3), 16);
+        const g = parseInt(hexColor.slice(3, 5), 16);
+        const b = parseInt(hexColor.slice(5, 7), 16);
         let ray = {
             x: laser.x + start.x,
             y: laser.y + start.y,
             dx: dir.x,
             dy: dir.y,
             intensity: sourceStokes[0],
-            color: 'rgba(255, 50, 50, ',
+            color: `rgba(${r}, ${g}, ${b}, `,
+            thickness: laser.beamThickness ?? 1,
+            laserId: laser.id,
             stokes: sourceStokes
         };
 

@@ -88,8 +88,13 @@ function copySelected() {
         if (el.type === 'lens' && el.optics) {
             data.optics = { focalLength: el.optics.focalLength };
         }
-        if (el.type === 'laser' && typeof el.polAngle === 'number') {
-            data.polAngle = el.polAngle;
+        if (el.type === 'laser') {
+            if (typeof el.polAngle === 'number') data.polAngle = el.polAngle;
+            if (el.beamColor) data.beamColor = el.beamColor;
+            if (typeof el.beamThickness === 'number') data.beamThickness = el.beamThickness;
+        }
+        if (el.type === 'filter' && Array.isArray(el.blockedLasers)) {
+            data.blockedLasers = el.blockedLasers;
         }
 
         return data;
@@ -143,8 +148,13 @@ function pasteElements() {
         if (el.type === 'lens' && data.optics) {
             el.optics = { focalLength: data.optics.focalLength };
         }
-        if (el.type === 'laser' && typeof data.polAngle === 'number') {
-            el.polAngle = data.polAngle;
+        if (el.type === 'laser') {
+            if (typeof data.polAngle === 'number') el.polAngle = data.polAngle;
+            if (data.beamColor) el.beamColor = data.beamColor;
+            if (typeof data.beamThickness === 'number') el.beamThickness = data.beamThickness;
+        }
+        if (el.type === 'filter' && Array.isArray(data.blockedLasers)) {
+            el.blockedLasers = data.blockedLasers;
         }
 
         elements.push(el);

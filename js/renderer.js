@@ -125,13 +125,20 @@ function drawElement(el) {
         drawWaveplate(el, isSelected);
     } else if (el.type === 'iris') {
         drawIris(el);
+    } else if (el.type === 'twinleaf') {
+        drawTwinleaf(el);
+    } else if (el.type === 'cell') {
+        drawCell(el);
+    } else if (el.type === 'filter') {
+        drawFilter(el);
     }
 
-    // Draw Title Label
-    if (el.title) {
+    // Draw Title Label (lasers show title inside their body instead)
+    if (el.title && el.type !== 'laser') {
         ctx.fillStyle = '#9ca3af';
         ctx.font = '10px sans-serif';
         ctx.textAlign = 'left';
+        ctx.textBaseline = 'alphabetic';
         const textY = el.type === 'board' ? (-el.height / 2 - 5) : (-el.height / 2 - 8);
         const textX = el.type === 'board' ? (-el.width / 2 + 5) : (-el.width / 2);
         ctx.fillText(el.title, textX, textY);
@@ -217,7 +224,9 @@ function drawLaser(el) {
     ctx.fillRect(el.width / 2 - 2, -1.5, 2, 3);
     ctx.fillStyle = '#999';
     ctx.font = '8px sans-serif';
-    ctx.fillText("LASER", -15, 3);
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(el.title || 'LASER', 0, 0);
 }
 
 /**
@@ -581,6 +590,128 @@ function drawIris(el) {
 }
 
 /**
+ * Draw Twinleaf element - silver rounded rectangle passive device
+ */
+function drawTwinleaf(el) {
+    const w = el.width;
+    const h = el.height;
+    const r = 6; // corner radius
+
+    // Silver body with gradient
+    const grad = ctx.createLinearGradient(-w / 2, -h / 2, w / 2, h / 2);
+    grad.addColorStop(0, '#c0c8d0');
+    grad.addColorStop(0.4, '#e8ecf0');
+    grad.addColorStop(0.7, '#b8c0c8');
+    grad.addColorStop(1, '#a0a8b0');
+
+    ctx.beginPath();
+    if (ctx.roundRect) {
+        ctx.roundRect(-w / 2, -h / 2, w, h, r);
+    } else {
+        ctx.moveTo(-w / 2 + r, -h / 2);
+        ctx.lineTo(w / 2 - r, -h / 2);
+        ctx.arcTo(w / 2, -h / 2, w / 2, -h / 2 + r, r);
+        ctx.lineTo(w / 2, h / 2 - r);
+        ctx.arcTo(w / 2, h / 2, w / 2 - r, h / 2, r);
+        ctx.lineTo(-w / 2 + r, h / 2);
+        ctx.arcTo(-w / 2, h / 2, -w / 2, h / 2 - r, r);
+        ctx.lineTo(-w / 2, -h / 2 + r);
+        ctx.arcTo(-w / 2, -h / 2, -w / 2 + r, -h / 2, r);
+        ctx.closePath();
+    }
+    ctx.fillStyle = grad;
+    ctx.fill();
+    ctx.strokeStyle = '#788090';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // Inner panel inset
+    ctx.beginPath();
+    const inset = 5;
+    if (ctx.roundRect) {
+        ctx.roundRect(-w / 2 + inset, -h / 2 + inset, w - inset * 2, h - inset * 2, r - 2);
+    } else {
+        ctx.rect(-w / 2 + inset, -h / 2 + inset, w - inset * 2, h - inset * 2);
+    }
+    ctx.strokeStyle = 'rgba(100, 120, 140, 0.5)';
+    ctx.lineWidth = 0.7;
+    ctx.stroke();
+
+    // Label
+    ctx.fillStyle = '#3a4050';
+    ctx.font = 'bold 8px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('TWINLEAF', 0, 0);
+}
+
+/**
+ * Draw Cell element - 1x1 glassy box
+ */
+function drawCell(el) {
+    const w = el.width;
+    const h = el.height;
+    const r = 3;
+
+    ctx.beginPath();
+    if (ctx.roundRect) {
+        ctx.roundRect(-w / 2, -h / 2, w, h, r);
+    } else {
+        ctx.rect(-w / 2, -h / 2, w, h);
+    }
+
+    // Glassy fill - deep teal/cyan tint
+    const fill = ctx.createLinearGradient(-w / 2, -h / 2, w / 2, h / 2);
+    fill.addColorStop(0, 'rgba(180, 230, 240, 0.55)');
+    fill.addColorStop(0.45, 'rgba(220, 245, 255, 0.75)');
+    fill.addColorStop(1, 'rgba(140, 200, 220, 0.45)');
+    ctx.fillStyle = fill;
+    ctx.fill();
+
+    // Glass border
+    ctx.strokeStyle = 'rgba(180, 220, 240, 0.9)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // Specular highlight streak (top-left)
+    ctx.beginPath();
+    ctx.moveTo(-w / 2 + 3, -h / 2 + 2);
+    ctx.lineTo(w / 2 - 5, -h / 2 + 2);
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.55)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+}
+
+/**
+ * Draw Filter element - thin optical filter (visual only)
+ */
+function drawFilter(el) {
+    const w = el.width;
+    const h = el.height;
+
+    // Amber-tinted glass body
+    const fill = ctx.createLinearGradient(-w / 2, 0, w / 2, 0);
+    fill.addColorStop(0, 'rgba(255, 180, 60, 0.35)');
+    fill.addColorStop(0.4, 'rgba(255, 210, 100, 0.65)');
+    fill.addColorStop(1, 'rgba(220, 150, 40, 0.35)');
+    ctx.fillStyle = fill;
+    ctx.fillRect(-w / 2, -h / 2, w, h);
+
+    // Border
+    ctx.strokeStyle = 'rgba(255, 200, 80, 0.85)';
+    ctx.lineWidth = 0.7;
+    ctx.strokeRect(-w / 2, -h / 2, w, h);
+
+    // Specular highlight
+    ctx.beginPath();
+    ctx.moveTo(-w / 2 + 0.5, -h / 2 + 3);
+    ctx.lineTo(-w / 2 + 0.5, h / 2 - 3);
+    ctx.strokeStyle = 'rgba(255, 255, 200, 0.5)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+}
+
+/**
  * Draw waveplate (HWP or QWP)
  */
 function drawWaveplate(el, isSelected) {
@@ -782,18 +913,19 @@ function drawRays(rays) {
         }
 
         // Draw main beam
+        const thickness = seg.thickness ?? 1;
         ctx.beginPath();
         ctx.moveTo(p1.x, p1.y);
         ctx.lineTo(p2.x, p2.y);
         ctx.strokeStyle = beamColor.replace(')', ', 0.3)').replace('rgb', 'rgba');
-        ctx.lineWidth = 3 * view.scale;
+        ctx.lineWidth = 3 * thickness * view.scale;
         ctx.stroke();
 
         ctx.beginPath();
         ctx.moveTo(p1.x, p1.y);
         ctx.lineTo(p2.x, p2.y);
         ctx.strokeStyle = beamColor;
-        ctx.lineWidth = 1 * view.scale;
+        ctx.lineWidth = 1 * thickness * view.scale;
         ctx.stroke();
 
         // Draw Polarization Glyphs

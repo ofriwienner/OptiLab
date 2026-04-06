@@ -119,9 +119,16 @@ function rehydrateElement(data) {
         if (typeof data.gain === 'number') el.gain = data.gain;
     }
 
-    // Laser polarization
-    if (el.type === 'laser' && typeof data.polAngle === 'number') {
-        el.polAngle = data.polAngle;
+    // Filter blocked lasers
+    if (el.type === 'filter' && Array.isArray(data.blockedLasers)) {
+        el.blockedLasers = data.blockedLasers;
+    }
+
+    // Laser polarization, color, and thickness
+    if (el.type === 'laser') {
+        if (typeof data.polAngle === 'number') el.polAngle = data.polAngle;
+        if (data.beamColor) el.beamColor = data.beamColor;
+        if (typeof data.beamThickness === 'number') el.beamThickness = data.beamThickness;
     }
 
     if (data.imgConfig) {

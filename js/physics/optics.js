@@ -82,9 +82,9 @@ function updateWaveplateAxisFromPoint(el, worldPoint) {
     const knobWorld = el.getAxisKnobWorldPosition();
     const angle = Math.atan2(worldPoint.y - knobWorld.y, worldPoint.x - knobWorld.x);
     let normalized = clampWaveplateAngle(angle);
-    let stepRad = Math.PI / 4; // 45°
+    let stepRad = Math.PI / 8; // 22.5°
     if (ctrlPressed) stepRad = toRad(WAVEPLATE_FINE_STEP_DEG); // 5°
-    else if (shiftPressed) stepRad = Math.PI / 8; // 22.5°
+    else if (shiftPressed) stepRad = Math.PI / 4; // 45°
     normalized = snapWaveplateAngle(normalized, stepRad);
     if (typeof el.axisAngle !== 'number' || Math.abs(el.axisAngle - normalized) > 0.0005) {
         el.axisAngle = normalized;

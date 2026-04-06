@@ -425,6 +425,35 @@ canvas {
     border-radius: 50%;
 }
 
+.icon-twinleaf {
+    width: 22px;
+    height: 16px;
+    background: linear-gradient(135deg, #c0c8d0 0%, #e8ecf0 50%, #b8c0c8 100%);
+    border: 1px solid #788090;
+    border-radius: 3px;
+    position: relative;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4), inset 0 1px 1px rgba(255,255,255,0.6);
+}
+
+.icon-cell {
+    width: 16px;
+    height: 16px;
+    background: linear-gradient(135deg, rgba(180,230,240,0.55) 0%, rgba(220,245,255,0.85) 50%, rgba(140,200,220,0.55) 100%);
+    border: 1px solid rgba(180, 220, 240, 0.9);
+    border-radius: 2px;
+    position: relative;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.6);
+}
+
+.icon-filter {
+    width: 6px;
+    height: 20px;
+    background: linear-gradient(90deg, rgba(255,180,60,0.4) 0%, rgba(255,210,100,0.75) 50%, rgba(220,150,40,0.4) 100%);
+    border: 1px solid rgba(255, 200, 80, 0.85);
+    position: relative;
+    box-shadow: 0 0 6px rgba(255, 200, 80, 0.4);
+}
+
 /* Calibration Modal - Modern Toast Style */
 .calibration-modal {
     position: fixed;
