@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Co-Magnetometer Signal Visualization</title>
+    <style>
+        :root {
+            --bg-color: #0d1117;
+            --text-color: #c9d1d9;
+            --dim-color: #30363d;
+            --math-gray: #484f58; /* Muted gray for orphan symbols */
+            
+            /* Physics Elements Colors */
+            --probe-color: #ff7b72;
+            --pump-color: #ffd84d; /* Yellow */
+            --coil-color: #7ee787;
+            --env-color: #d2a8ff;
+            --atom-color: #f2cc60;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        #schematic-pane {
+            flex: 7;
+            position: relative;
+            border-bottom: 2px solid var(--dim-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #010409;
+        }
+
+        svg {
+            width: 100%;
+            height: 100%;
+            max-width: 1200px;
+        }
+
+        #equation-pane {
+            flex: 3;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            font-size: 1.2rem;
+            background-color: #0d1117;
+        }
+
+        .instruction {
+            font-size: 0.9rem;
+            color: #8b949e;
+            margin-bottom: 15px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .interactive {
+            cursor: pointer;
+            transition: opacity 0.3s ease, filter 0.3s ease, color 0.3s ease;
+        }
+
+        /* Prevent hitboxes from rendering their strokes/fills on hover */
+        .hitbox {
+            fill: transparent !important;
+            stroke: none !important;
+            filter: none !important;
+            opacity: 0 !important;
+            pointer-events: all;
+        }
+
+        text {
+            font-family: monospace;
+            font-size: 14px;
+            pointer-events: auto;
+            transition: filter 0.3s ease;
+        }
+
+        /* Match SVG text colors to their parent groups permanently */
+        .term-probe text { fill: var(--probe-color); }
+        .term-pump text { fill: var(--pump-color); }
+        .term-coil text { fill: var(--coil-color); }
+        .term-env text { fill: var(--env-color); }
+        .term-atom text { fill: var(--atom-color); }
+
+        /* --- Hover Dimming Logistics --- */
+        
+        body[data-active] .term-probe,
+        body[data-active] .term-pump,
+        body[data-active] .term-coil,
+        body[data-active] .term-env,
+        body[data-active] .term-atom {
+            opacity: 0.2;
+            transition: opacity 0.3s ease;
+        }
+
+        /* Dim all un-classed math characters (parentheses, plus signs, P_z, gamma) when hovering */
+        #math-container {
+            transition: color 0.3s ease;
+        }
+        body[data-active] #math-container {
+            color: var(--math-gray); 
+        }
+
+        /* Keep 'S =' bright at all times */
+        .keep-white {
+            color: var(--text-color) !important;
+        }
+
+        /* Ensure interactive equation terms keep their base white color so they only dim via opacity */
+        mjx-container .interactive {
+            color: var(--text-color);
+        }
+
+        /* Highlighting Logic - Overrides everything else when active */
+        body[data-active="probe"] .term-probe { opacity: 1; color: var(--probe-color) !important; filter: drop-shadow(0 0 8px var(--probe-color)); }
+        body[data-active="pump"] .term-pump { opacity: 1; color: var(--pump-color) !important; filter: drop-shadow(0 0 8px var(--pump-color)); }
+        body[data-active="coil"] .term-coil { opacity: 1; color: var(--coil-color) !important; filter: drop-shadow(0 0 8px var(--coil-color)); }
+        body[data-active="env"] .term-env { opacity: 1; color: var(--env-color) !important; filter: drop-shadow(0 0 8px var(--env-color)); }
+        body[data-active="atom"] .term-atom { opacity: 1; color: var(--atom-color) !important; filter: drop-shadow(0 0 8px var(--atom-color)); }
+
+        mjx-container {
+            transition: all 0.3s ease;
+        }
+        mjx-container .interactive {
+            transition: color 0.3s ease;
+        }
+    </style>
+    
+    <script>
+        window.MathJax = {
+            loader: {load: ['[tex]/html']},
+            tex: {
+                packages: {'[+]': ['html']},
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']]
+            },
+            startup: {
+                pageReady: () => {
+                    return MathJax.startup.defaultPageReady().then(() => {
+                        const categories = ['probe', 'pump', 'coil', 'env', 'atom'];
+                        categories.forEach(cat => {
+                            document.querySelectorAll(`.term-${cat}`).forEach(el => {
+                                el.addEventListener('mouseenter', () => document.body.setAttribute('data-active', cat));
+                                el.addEventListener('mouseleave', () => document.body.removeAttribute('data-active'));
+                            });
+                        });
+                    });
+                }
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+</head>
+<body>
+
+    <div id="schematic-pane">
+        <svg viewBox="0 0 1000 600">
+            <defs>
+                <marker id="arrow-grid-up" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="14" markerHeight="14" markerUnits="userSpaceOnUse" orient="-90">
+                    <path d="M 0 0 L 10 5 L 0 10 z" fill="#8b949e" />
+                </marker>
+                <marker id="arrow-grid-left" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="14" markerHeight="14" markerUnits="userSpaceOnUse" orient="180">
+                    <path d="M 0 0 L 10 5 L 0 10 z" fill="#8b949e" />
+                </marker>
+                <marker id="arrow-pump" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="20" markerHeight="20" markerUnits="userSpaceOnUse" orient="auto">
+                    <path d="M 0 0 L 10 5 L 0 10 z" fill="#ffd84d" />
+                </marker>
+                <marker id="arrow-coil" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="16" markerHeight="16" markerUnits="userSpaceOnUse" orient="auto">
+                    <path d="M 0 0 L 10 5 L 0 10 z" fill="#7ee787" />
+                </marker>
+                <marker id="arrow-env" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="14" markerHeight="14" markerUnits="userSpaceOnUse" orient="auto">
+                    <path d="M 0 0 L 10 5 L 0 10 z" fill="#d2a8ff" />
+                </marker>
+                <marker id="arrow-probe" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="18" markerHeight="18" markerUnits="userSpaceOnUse" orient="auto">
+                    <path d="M 0 0 L 10 5 L 0 10 z" fill="#ff7b72" />
+                </marker>
+                <radialGradient id="atom-glow" cx="50%" cy="50%" r="50%">
+                    <stop offset="0%" stop-color="#f2cc60" stop-opacity="0.9" />
+                    <stop offset="100%" stop-color="#f2cc60" stop-opacity="0.2" />
+                </radialGradient>
+            </defs>
+
+            <g class="grid" stroke="#30363d" stroke-dasharray="5,5" stroke-width="1.5">
+                <line x1="500" y1="500" x2="500" y2="100" marker-end="url(#arrow-grid-up)" />
+                <text x="510" y="110" fill="#8b949e">Z</text>
+                
+                <line x1="900" y1="300" x2="100" y2="300" marker-end="url(#arrow-grid-left)" />
+                <text x="110" y="290" fill="#8b949e">X</text>
+            </g>
+
+            <g class="interactive term-env">
+                <rect class="hitbox" x="80" y="40" width="220" height="200" />
+                
+                <line x1="220" y1="160" x2="120" y2="160" stroke="#d2a8ff" stroke-width="3" marker-end="url(#arrow-env)"/>
+                <line x1="220" y1="160" x2="220" y2="60" stroke="#d2a8ff" stroke-width="3" marker-end="url(#arrow-env)"/>
+                
+                <text x="120" y="145" fill="#d2a8ff" style="font-weight: bold; font-size: 15px;">Residual B<tspan baseline-shift="sub" font-size="0.75em">x</tspan></text>
+                <text x="235" y="75" fill="#d2a8ff" style="font-weight: bold; font-size: 15px;">Residual B<tspan baseline-shift="sub" font-size="0.75em">z</tspan></text>
+            </g>
+
+            <g class="interactive term-coil">
+                <rect class="hitbox" x="350" y="80" width="300" height="400" />
+                
+                <rect x="370" y="170" width="260" height="260" fill="none" stroke="#7ee787" stroke-width="4" opacity="0.6"/>
+                
+                <line x1="500" y1="300" x2="461" y2="100" stroke="#7ee787" stroke-width="4" marker-end="url(#arrow-coil)"/>
+                
+                <text x="475" y="150" fill="#7ee787" style="font-weight: bold; font-size: 16px;">B<tspan baseline-shift="sub" font-size="0.75em">z</tspan> (β)</text>
+            </g>
+
+            <g class="interactive term-pump">
+                <polygon class="hitbox" points="350,0 650,600 350,600" />
+                
+                <line x1="600" y1="550" x2="400" y2="50" stroke="#ffd84d" stroke-width="12" opacity="0.6" marker-end="url(#arrow-pump)" />
+                <text x="240" y="60" fill="#ffd84d" style="font-weight: bold; font-size: 16px;">Pump Beam (α)</text>
+            </g>
+
+            <g class="interactive term-probe">
+                <rect class="hitbox" x="20" y="200" width="960" height="180" />
+                
+                <line x1="950" y1="300" x2="50" y2="300" stroke="#ff7b72" stroke-width="6" opacity="0.8" marker-end="url(#arrow-probe)" />
+                
+                <rect x="850" y="260" width="20" height="80" fill="#ff7b72" opacity="0.4" />
+                <text x="730" y="250" fill="#ff7b72" style="font-weight: bold; font-size: 15px;">Probe Beam (-ε)</text>
+                
+                <rect x="430" y="230" width="140" height="140" fill="none" stroke="#ff7b72" stroke-width="3" opacity="0.4" rx="8" />
+                <text x="435" y="390" fill="#ff7b72">Cell Windows (ζ<tspan baseline-shift="sub" font-size="0.75em">1</tspan>, ζ<tspan baseline-shift="sub" font-size="0.75em">2</tspan>)</text>
+            </g>
+
+            <g class="interactive term-atom">
+                <circle class="hitbox" cx="500" cy="300" r="60" />
+                <circle cx="500" cy="300" r="60" fill="url(#atom-glow)" style="pointer-events: none;" />
+                <text x="475" y="305" fill="#f2cc60" style="font-weight: bold; text-shadow: 0 0 5px #000;">Alkali</text>
+            </g>
+
+        </svg>
+    </div>
+
+    <div id="equation-pane">
+        <div class="instruction">Hover over the equation terms or the physical schematic to map variables</div>
+        <div id="math-container">
+            $$
+            \require{html}
+            \class{keep-white}{S =} P_z \frac{ \class{interactive term-atom}{R_2^{tot}} }{ \class{interactive term-atom}{ (R_2^{tot})^2 + (\gamma(B_z + L_z))^2 } }
+            \left(
+              \underbrace{ \gamma( \class{interactive term-coil}{B_y} + \class{interactive term-coil}{\beta_y B_z} + \class{interactive term-env}{B_{res,y}} + \class{interactive term-pump}{\alpha_y L_z} ) }_{\text{total } B_y}
+              + \underbrace{ \class{interactive term-pump}{R_1^{tot}\alpha_x} }_{\text{pump misalignment in } x}
+              + \class{interactive term-atom}{ \frac{\gamma(B_z + L_z)}{R_2^{tot}} }
+              \left(
+                \underbrace{ \gamma( \class{interactive term-coil}{B_x} + \class{interactive term-coil}{\beta_x B_z} + \class{interactive term-env}{B_{res,x}} + \class{interactive term-pump}{\alpha_x L_z} ) }_{\text{total } B_x}
+                - \underbrace{ \class{interactive term-pump}{R_1^{tot}\alpha_y} }_{\text{pump misalignment in } y}
+              \right)
+            \right)
+            - \underbrace{ \class{interactive term-probe}{\tilde{\epsilon}} }_{\text{probe pol. misalignment}}
+            + \underbrace{ \class{interactive term-probe}{\zeta_2(\delta - \zeta_1)} }_{\text{birefringence and ellipticity}}
+            $$
+        </div>
+    </div>
+
+</body>
+</html>
