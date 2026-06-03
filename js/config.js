@@ -97,6 +97,9 @@ const FIBER_COLORS = [
     '#f97316', // Orange-red
 ];
 
+// Custom component library (user-defined reusable component templates)
+let customComponentLibrary = [];
+
 // Alignment state
 let alignPreference = 0;
 let hasCycleOptions = false;

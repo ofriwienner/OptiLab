@@ -454,6 +454,28 @@ canvas {
     box-shadow: 0 0 6px rgba(255, 200, 80, 0.4);
 }
 
+.icon-custom {
+    width: 18px;
+    height: 18px;
+    background: rgba(59, 130, 246, 0.2);
+    border: 2px solid rgba(59, 130, 246, 0.7);
+    border-radius: 4px;
+    position: relative;
+    box-shadow: 0 0 6px rgba(59, 130, 246, 0.3);
+}
+
+.icon-custom::after {
+    content: '+';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 14px;
+    color: rgba(147, 197, 253, 0.9);
+    font-weight: 300;
+    line-height: 1;
+}
+
 /* Calibration Modal - Modern Toast Style */
 .calibration-modal {
     position: fixed;

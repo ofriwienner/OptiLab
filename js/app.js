@@ -29,6 +29,10 @@ function init() {
     updateTableSize();
     resetView();
 
+    // Load custom component library (always runs regardless of saved state)
+    loadCustomLibrary();
+    renderCustomLibrary();
+
     // Try to auto-load last saved state
     const savedData = localStorage.getItem('opticalBenchState');
     if (savedData) {
@@ -99,6 +103,11 @@ function exposeGlobalFunctions() {
     window.redo = redo;
     window.saveToHistory = saveToHistory;
     window.updateUI = updateUI;
+    window.downloadCustomLibrary = downloadCustomLibrary;
+    window.uploadCustomLibrary = uploadCustomLibrary;
+    window.deleteCustomComponent = deleteCustomComponent;
+    window.saveCustomComponentToLibrary = saveCustomComponentToLibrary;
+    window.renderCustomLibrary = renderCustomLibrary;
     window.tryAutoAlign = tryAutoAlign;
     window.cycleSnapRotation = cycleSnapRotation;
 }

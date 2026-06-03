@@ -4,6 +4,27 @@
  */
 
 /**
+ * Create a labeled color picker row
+ */
+function makeColorRow(label, value, onChange) {
+    const row = document.createElement('div');
+    row.className = "flex items-center justify-between mt-1";
+    const lbl = document.createElement('label');
+    lbl.className = "text-[9px] text-gray-400";
+    lbl.innerText = label;
+    const inp = document.createElement('input');
+    inp.type = 'color';
+    inp.value = value;
+    inp.className = "w-8 h-5 rounded cursor-pointer border-0 bg-transparent";
+    inp.style.padding = '0';
+    inp.onmousedown = e => e.stopPropagation();
+    inp.oninput = e => onChange(e.target.value);
+    row.appendChild(lbl);
+    row.appendChild(inp);
+    return row;
+}
+
+/**
  * Get a laser's display name: custom title or "Laser N" by order
  * @param {Object} laser - Laser element
  * @returns {string}
@@ -330,6 +351,129 @@ function updateUI() {
             }
 
             btnContainer.appendChild(fiberBox);
+        }
+
+        // Custom Component Controls
+        if (p.type === 'custom') {
+            const customBox = document.createElement('div');
+            customBox.className = "mt-2 border-t border-gray-600 pt-2 space-y-1";
+
+            const sectionTitle = document.createElement('div');
+            sectionTitle.className = "text-[10px] uppercase text-gray-400 mb-1";
+            sectionTitle.innerText = "Custom Component";
+            customBox.appendChild(sectionTitle);
+
+            // Shape selector
+            const shapeRow = document.createElement('div');
+            shapeRow.className = "flex items-center justify-between";
+            const shapeLabel = document.createElement('label');
+            shapeLabel.className = "text-[9px] text-gray-400";
+            shapeLabel.innerText = "Shape";
+            const shapeSelect = document.createElement('select');
+            shapeSelect.className = "bg-gray-700 border border-gray-600 rounded px-1 py-0.5 text-[10px] text-white cursor-pointer";
+            shapeSelect.onmousedown = e => e.stopPropagation();
+            ['rectangle', 'circle', 'triangle', 'diamond'].forEach(s => {
+                const opt = document.createElement('option');
+                opt.value = s;
+                opt.innerText = s.charAt(0).toUpperCase() + s.slice(1);
+                if ((p.customShape || 'rectangle') === s) opt.selected = true;
+                shapeSelect.appendChild(opt);
+            });
+            shapeSelect.onchange = e => { p.customShape = e.target.value; draw(); };
+            shapeRow.appendChild(shapeLabel);
+            shapeRow.appendChild(shapeSelect);
+            customBox.appendChild(shapeRow);
+
+            // Size inputs
+            const sizeRow = document.createElement('div');
+            sizeRow.className = "flex items-center gap-1 mt-1";
+            const wLabel = document.createElement('span');
+            wLabel.className = "text-[9px] text-gray-400";
+            wLabel.innerText = "W";
+            const wInput = document.createElement('input');
+            wInput.type = 'number';
+            wInput.min = '5'; wInput.max = '200';
+            wInput.value = Math.round(p.width);
+            wInput.className = "w-14 bg-gray-700 border border-gray-600 rounded px-1 py-0.5 text-[10px] text-white";
+            wInput.onmousedown = e => e.stopPropagation();
+            wInput.oninput = e => { const v = parseInt(e.target.value); if (v > 0) { p.width = v; draw(); } };
+            const hLabel = document.createElement('span');
+            hLabel.className = "text-[9px] text-gray-400";
+            hLabel.innerText = "H";
+            const hInput = document.createElement('input');
+            hInput.type = 'number';
+            hInput.min = '5'; hInput.max = '200';
+            hInput.value = Math.round(p.height);
+            hInput.className = "w-14 bg-gray-700 border border-gray-600 rounded px-1 py-0.5 text-[10px] text-white";
+            hInput.onmousedown = e => e.stopPropagation();
+            hInput.oninput = e => { const v = parseInt(e.target.value); if (v > 0) { p.height = v; draw(); } };
+            sizeRow.appendChild(wLabel); sizeRow.appendChild(wInput);
+            sizeRow.appendChild(hLabel); sizeRow.appendChild(hInput);
+            customBox.appendChild(sizeRow);
+
+            // Colors
+            customBox.appendChild(makeColorRow('Fill', p.customColor || '#3b82f6', v => { p.customColor = v; draw(); }));
+            customBox.appendChild(makeColorRow('Border', p.customBorderColor || '#93c5fd', v => { p.customBorderColor = v; draw(); }));
+
+            // Text inside shape
+            const textRow = document.createElement('div');
+            textRow.className = "mt-1";
+            const textLbl = document.createElement('label');
+            textLbl.className = "text-[9px] text-gray-400 block mb-0.5";
+            textLbl.innerText = "Shape Text";
+            const textInp = document.createElement('input');
+            textInp.type = 'text';
+            textInp.value = p.customText || '';
+            textInp.placeholder = 'Text inside shape';
+            textInp.className = "w-full bg-gray-700 border border-gray-600 rounded px-1 py-0.5 text-[10px] text-white placeholder-gray-500";
+            textInp.onmousedown = e => e.stopPropagation();
+            textInp.oninput = e => { p.customText = e.target.value; draw(); };
+            textRow.appendChild(textLbl);
+            textRow.appendChild(textInp);
+            customBox.appendChild(textRow);
+
+            customBox.appendChild(makeColorRow('Text Color', p.customTextColor || '#ffffff', v => { p.customTextColor = v; draw(); }));
+
+            // Font size + bold
+            const fontRow = document.createElement('div');
+            fontRow.className = "flex items-center justify-between mt-1";
+            const fsLbl = document.createElement('span');
+            fsLbl.className = "text-[9px] text-gray-400";
+            fsLbl.innerText = "Font";
+            const fsControls = document.createElement('div');
+            fsControls.className = "flex items-center gap-1";
+            const fsInput = document.createElement('input');
+            fsInput.type = 'number';
+            fsInput.min = '6'; fsInput.max = '24';
+            fsInput.value = p.customFontSize || 10;
+            fsInput.className = "w-12 bg-gray-700 border border-gray-600 rounded px-1 py-0.5 text-[10px] text-white";
+            fsInput.onmousedown = e => e.stopPropagation();
+            fsInput.oninput = e => { const v = parseInt(e.target.value); if (v > 0) { p.customFontSize = v; draw(); } };
+            const boldChk = document.createElement('input');
+            boldChk.type = 'checkbox';
+            boldChk.checked = !!p.customFontBold;
+            boldChk.title = 'Bold';
+            boldChk.className = "accent-blue-400 cursor-pointer";
+            boldChk.onmousedown = e => e.stopPropagation();
+            boldChk.onchange = e => { p.customFontBold = e.target.checked; draw(); };
+            const boldLbl = document.createElement('span');
+            boldLbl.className = "text-[9px] text-gray-400 font-bold";
+            boldLbl.innerText = "B";
+            fsControls.appendChild(fsInput);
+            fsControls.appendChild(boldChk);
+            fsControls.appendChild(boldLbl);
+            fontRow.appendChild(fsLbl);
+            fontRow.appendChild(fsControls);
+            customBox.appendChild(fontRow);
+
+            // Save to Library button
+            const saveLibBtn = document.createElement('button');
+            saveLibBtn.className = "w-full py-1 mt-2 bg-indigo-700/50 border border-indigo-600 rounded text-[10px] text-indigo-100 hover:bg-indigo-700 cursor-pointer transition";
+            saveLibBtn.innerText = "Save to Library";
+            saveLibBtn.onclick = () => saveCustomComponentToLibrary(p);
+            customBox.appendChild(saveLibBtn);
+
+            btnContainer.appendChild(customBox);
         }
 
         // Board Controls

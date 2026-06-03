@@ -110,6 +110,17 @@ class Element {
                 this.rotation = 0;
                 this.blockedLasers = [];
                 break;
+            case 'custom':
+                this.width = 30;
+                this.height = 30;
+                this.customShape = 'rectangle';
+                this.customColor = '#3b82f6';
+                this.customBorderColor = '#93c5fd';
+                this.customText = '';
+                this.customTextColor = '#ffffff';
+                this.customFontSize = 10;
+                this.customFontBold = false;
+                break;
         }
     }
 
@@ -284,6 +295,8 @@ class Element {
             // Twinleaf is a passive reference device - no optical interaction
         } else if (this.type === 'cell') {
             // Cell is a passive visual component - no optical interaction
+        } else if (this.type === 'custom') {
+            // Custom components are visual markers - no optical interaction
         } else if (this.type === 'filter') {
             const start = rotatePoint({ x: 0, y: -this.height / 2 }, this.rotation);
             const end = rotatePoint({ x: 0, y: this.height / 2 }, this.rotation);

@@ -135,6 +135,17 @@ function rehydrateElement(data) {
         el.imgConfig = data.imgConfig;
     }
 
+    // Custom component properties
+    if (el.type === 'custom') {
+        if (data.customShape) el.customShape = data.customShape;
+        if (data.customColor) el.customColor = data.customColor;
+        if (data.customBorderColor) el.customBorderColor = data.customBorderColor;
+        if (typeof data.customText === 'string') el.customText = data.customText;
+        if (data.customTextColor) el.customTextColor = data.customTextColor;
+        if (typeof data.customFontSize === 'number') el.customFontSize = data.customFontSize;
+        if (typeof data.customFontBold === 'boolean') el.customFontBold = data.customFontBold;
+    }
+
     return el;
 }
 
@@ -193,6 +204,79 @@ function importState(input) {
         }
     };
     reader.readAsText(file);
+}
+
+// ── Custom Component Library ──────────────────────────────────────────────────
+
+function loadCustomLibrary() {
+    try {
+        const data = localStorage.getItem('customComponentLibrary');
+        if (data) customComponentLibrary = JSON.parse(data);
+    } catch (e) {
+        customComponentLibrary = [];
+    }
+}
+
+function saveCustomLibrary() {
+    localStorage.setItem('customComponentLibrary', JSON.stringify(customComponentLibrary));
+}
+
+function saveCustomComponentToLibrary(el) {
+    const template = {
+        id: Date.now() + Math.random(),
+        name: el.title || 'Custom',
+        width: el.width,
+        height: el.height,
+        customShape: el.customShape || 'rectangle',
+        customColor: el.customColor || '#3b82f6',
+        customBorderColor: el.customBorderColor || '#93c5fd',
+        customText: el.customText || '',
+        customTextColor: el.customTextColor || '#ffffff',
+        customFontSize: el.customFontSize || 10,
+        customFontBold: !!el.customFontBold
+    };
+    customComponentLibrary.push(template);
+    saveCustomLibrary();
+    renderCustomLibrary();
+}
+
+function deleteCustomComponent(id) {
+    customComponentLibrary = customComponentLibrary.filter(c => c.id !== id);
+    saveCustomLibrary();
+    renderCustomLibrary();
+}
+
+function downloadCustomLibrary() {
+    const data = JSON.stringify(customComponentLibrary, null, 2);
+    const blob = new Blob([data], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'custom-components.json';
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+function uploadCustomLibrary(input) {
+    const file = input.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+        try {
+            const data = JSON.parse(e.target.result);
+            if (Array.isArray(data)) {
+                customComponentLibrary = data;
+                saveCustomLibrary();
+                renderCustomLibrary();
+            } else {
+                alert('Invalid custom components file');
+            }
+        } catch (err) {
+            alert('Error reading custom components file');
+        }
+    };
+    reader.readAsText(file);
+    input.value = '';
 }
 
 

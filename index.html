@@ -113,6 +113,27 @@
                 <div onmousedown="startSidebarDrag(event, 'filter')" class="tool-item flex flex-col items-center p-1.5 bg-gray-800/50 rounded-lg border border-gray-700/50 text-[9px] hover:border-yellow-400/50">
                     <div class="icon-container"><div class="icon-filter"></div></div> <span class="mt-0.5 text-gray-300">Filter</span>
                 </div>
+                <div onmousedown="startSidebarDrag(event, 'custom')" class="tool-item flex flex-col items-center p-1.5 bg-gray-800/50 rounded-lg border border-gray-700/50 text-[9px] hover:border-blue-500/50">
+                    <div class="icon-container"><div class="icon-custom"></div></div> <span class="mt-0.5 text-gray-300">Custom</span>
+                </div>
+            </div>
+
+            <!-- My Components Library -->
+            <div class="mt-4 bg-gradient-to-br from-gray-800/80 to-gray-900/80 p-2 rounded-lg border border-gray-800 shadow-md">
+                <div class="flex items-center justify-between mb-1.5">
+                    <h3 class="text-[10px] font-bold text-gray-300 uppercase tracking-wider flex items-center gap-1.5">
+                        <svg class="w-3 h-3 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2zm7 4v6m-3-3h6"/>
+                        </svg>
+                        My Components
+                    </h3>
+                    <div class="flex items-center gap-1">
+                        <button onclick="downloadCustomLibrary()" title="Download library as JSON" class="px-1.5 py-0.5 rounded bg-gray-700 hover:bg-gray-600 text-gray-300 hover:text-white text-[10px] cursor-pointer transition leading-none">↓ JSON</button>
+                        <label for="customLibraryInput" title="Upload library from JSON" class="px-1.5 py-0.5 rounded bg-gray-700 hover:bg-gray-600 text-gray-300 hover:text-white text-[10px] cursor-pointer transition leading-none">↑ JSON</label>
+                        <input type="file" id="customLibraryInput" accept=".json" class="hidden" onchange="uploadCustomLibrary(this)">
+                    </div>
+                </div>
+                <div id="custom-components-list"></div>
             </div>
 
             <h2 class="text-[11px] font-bold text-gray-300 uppercase tracking-wider mb-3 mt-6 flex items-center gap-2">

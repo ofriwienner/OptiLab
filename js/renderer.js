@@ -131,6 +131,8 @@ function drawElement(el) {
         drawCell(el);
     } else if (el.type === 'filter') {
         drawFilter(el);
+    } else if (el.type === 'custom') {
+        drawCustom(el);
     }
 
     // Draw Title Label (lasers show title inside their body instead)
@@ -1318,6 +1320,50 @@ function drawPendingBoardPreview() {
     ctx.fillText(title, -width * PIXELS_PER_MM * view.scale / 2 + 5, -height * PIXELS_PER_MM * view.scale / 2 - 18);
     
     ctx.restore();
+}
+
+/**
+ * Draw custom user-defined component
+ * @param {Object} el - Custom element
+ */
+function drawCustom(el) {
+    const w = el.width;
+    const h = el.height;
+    const shape = el.customShape || 'rectangle';
+
+    ctx.fillStyle = el.customColor || '#3b82f6';
+    ctx.strokeStyle = el.customBorderColor || '#93c5fd';
+    ctx.lineWidth = 0.8;
+
+    ctx.beginPath();
+    if (shape === 'circle') {
+        ctx.arc(0, 0, Math.min(w, h) / 2, 0, Math.PI * 2);
+    } else if (shape === 'triangle') {
+        ctx.moveTo(0, -h / 2);
+        ctx.lineTo(w / 2, h / 2);
+        ctx.lineTo(-w / 2, h / 2);
+        ctx.closePath();
+    } else if (shape === 'diamond') {
+        ctx.moveTo(0, -h / 2);
+        ctx.lineTo(w / 2, 0);
+        ctx.lineTo(0, h / 2);
+        ctx.lineTo(-w / 2, 0);
+        ctx.closePath();
+    } else {
+        ctx.rect(-w / 2, -h / 2, w, h);
+    }
+    ctx.fill();
+    ctx.stroke();
+
+    const text = el.customText || '';
+    if (text) {
+        const bold = el.customFontBold ? 'bold ' : '';
+        ctx.fillStyle = el.customTextColor || '#ffffff';
+        ctx.font = `${bold}${el.customFontSize || 10}px sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(text, 0, 0);
+    }
 }
 
 
