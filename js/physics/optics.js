@@ -112,6 +112,45 @@ function getWaveplateKnobHit(mousePoint) {
 }
 
 /**
+ * Get cell polarization-rotation knob hit test
+ * @param {Object} mousePoint - Screen coordinates
+ * @returns {Object|null} Hit cell or null
+ */
+function getCellKnobHit(mousePoint) {
+    const cells = elements.filter(el => el.type === 'cell').reverse();
+    for (let el of cells) {
+        const knobWorld = el.getAxisKnobWorldPosition();
+        const knobScreen = worldToScreen(knobWorld.x, knobWorld.y);
+        const radiusPx = Math.max(8, WAVEPLATE_KNOB_RADIUS_MM * view.scale * PIXELS_PER_MM);
+        const dx = mousePoint.x - knobScreen.x;
+        const dy = mousePoint.y - knobScreen.y;
+        if (dx * dx + dy * dy <= radiusPx * radiusPx) return el;
+    }
+    return null;
+}
+
+/**
+ * Update cell polarization angle from mouse position
+ * @param {Object} el - Cell element
+ * @param {Object} worldPoint - World coordinates of mouse
+ * @returns {boolean} True if angle changed
+ */
+function updateCellAngleFromPoint(el, worldPoint) {
+    if (el.type !== 'cell') return false;
+    const knobWorld = el.getAxisKnobWorldPosition();
+    let angle = Math.atan2(worldPoint.y - knobWorld.y, worldPoint.x - knobWorld.x);
+    let stepRad = toRad(5);
+    if (shiftPressed) stepRad = 0;
+    else if (ctrlPressed) stepRad = toRad(1);
+    if (stepRad > 0) angle = Math.round(angle / stepRad) * stepRad;
+    if (typeof el.cellAngle !== 'number' || Math.abs(el.cellAngle - angle) > 0.0005) {
+        el.cellAngle = angle;
+        return true;
+    }
+    return false;
+}
+
+/**
  * Get AOM direction vector
  * @param {Object} el - AOM element
  * @returns {Object} Normalized direction vector

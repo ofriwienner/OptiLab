@@ -108,6 +108,8 @@ function exposeGlobalFunctions() {
     window.deleteCustomComponent = deleteCustomComponent;
     window.saveCustomComponentToLibrary = saveCustomComponentToLibrary;
     window.renderCustomLibrary = renderCustomLibrary;
+    window.startMeasureTool = startMeasureTool;
+    window.updateMeasureBtn = updateMeasureBtn;
     window.tryAutoAlign = tryAutoAlign;
     window.cycleSnapRotation = cycleSnapRotation;
 }

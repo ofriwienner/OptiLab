@@ -353,6 +353,56 @@ function updateUI() {
             btnContainer.appendChild(fiberBox);
         }
 
+        // Cell Polarization Rotation Controls
+        if (p.type === 'cell') {
+            const angleDeg = Math.round((p.cellAngle || 0) * 180 / Math.PI);
+            const angleRow = document.createElement('div');
+            angleRow.className = "flex items-center justify-between text-[10px] text-gray-300 mt-2";
+            angleRow.innerHTML = `<span>Rotation Angle</span><span class="font-mono text-amber-300">${angleDeg}°</span>`;
+            btnContainer.appendChild(angleRow);
+
+            const hint = document.createElement('p');
+            hint.className = "text-[9px] text-gray-500";
+            hint.innerText = "Use the knob above the cell to set rotation.";
+            btnContainer.appendChild(hint);
+
+            const resetBtn = document.createElement('button');
+            resetBtn.className = "w-full py-1 mt-1 bg-gray-700 border border-gray-600 rounded text-[10px] text-gray-200 hover:bg-gray-600 transition cursor-pointer";
+            resetBtn.innerText = "Reset to 0°";
+            resetBtn.onclick = () => { p.cellAngle = 0; draw(); updateUI(); };
+            btnContainer.appendChild(resetBtn);
+        }
+
+        // Measurement Controls
+        if (p.type === 'measure') {
+            const measureBox = document.createElement('div');
+            measureBox.className = "mt-2 border-t border-gray-600 pt-2 space-y-1";
+
+            const mTitle = document.createElement('div');
+            mTitle.className = "text-[10px] uppercase text-gray-400 mb-1";
+            mTitle.innerText = "Measurement";
+            measureBox.appendChild(mTitle);
+
+            const dist = p.width;
+            const label = dist >= 1000
+                ? `${(dist / 1000).toFixed(3)} m`
+                : dist >= 100
+                    ? `${dist.toFixed(1)} mm`
+                    : `${dist.toFixed(2)} mm`;
+
+            const distRow = document.createElement('div');
+            distRow.className = "flex items-center justify-between text-[10px]";
+            distRow.innerHTML = `<span class="text-gray-400">Distance</span><span class="font-mono text-amber-300 text-[11px] font-bold">${label}</span>`;
+            measureBox.appendChild(distRow);
+
+            const hint = document.createElement('p');
+            hint.className = "text-[9px] text-gray-500 mt-1";
+            hint.innerText = "Move freely. Delete to remove.";
+            measureBox.appendChild(hint);
+
+            btnContainer.appendChild(measureBox);
+        }
+
         // Custom Component Controls
         if (p.type === 'custom') {
             const customBox = document.createElement('div');

@@ -135,6 +135,11 @@ function rehydrateElement(data) {
         el.imgConfig = data.imgConfig;
     }
 
+    // Cell polarization rotation angle
+    if (el.type === 'cell' && typeof data.cellAngle === 'number') {
+        el.cellAngle = data.cellAngle;
+    }
+
     // Custom component properties
     if (el.type === 'custom') {
         if (data.customShape) el.customShape = data.customShape;

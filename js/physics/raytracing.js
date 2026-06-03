@@ -168,6 +168,22 @@ function traceRay(ray, depth, results) {
                 color: ray.color
             }, depth + 1, results);
 
+        } else if (hitObject.type === 'cell') {
+            // Cell: Faraday-like polarization rotation by cellAngle
+            const phi = hitObject.cellAngle || 0;
+            const rotMatrix = MuellerMath.createRotationMatrix(-phi);
+            const newStokes = MuellerMath.interact(ray.stokes, rotMatrix);
+            traceRay({
+                ...ray,
+                x: closestHit.x + inc.x * 0.1,
+                y: closestHit.y + inc.y * 0.1,
+                dx: inc.x,
+                dy: inc.y,
+                intensity: newStokes[0],
+                stokes: newStokes,
+                color: ray.color
+            }, depth + 1, results);
+
         } else if (hitObject.type === 'aom') {
             // AOM diffraction
             const incDir = normalize(inc);

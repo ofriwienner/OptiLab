@@ -97,18 +97,24 @@ class Element {
                 this.aperture = 0.5;     // Aperture ratio (0-1), visual only for now
                 break;
             case 'twinleaf':
-                this.width = 4 * GRID_PITCH_MM;
-                this.height = 3 * GRID_PITCH_MM;
+                this.width = 245;
+                this.height = 325;
                 break;
             case 'cell':
                 this.width = GRID_PITCH_MM;
                 this.height = GRID_PITCH_MM;
+                this.cellAngle = 0;
                 break;
             case 'filter':
                 this.width = 5;
                 this.height = 30;
                 this.rotation = 0;
                 this.blockedLasers = [];
+                break;
+            case 'measure':
+                this.width = 50;
+                this.height = 1;
+                this.rotation = 0;
                 break;
             case 'custom':
                 this.width = 30;
@@ -294,9 +300,19 @@ class Element {
         } else if (this.type === 'twinleaf') {
             // Twinleaf is a passive reference device - no optical interaction
         } else if (this.type === 'cell') {
-            // Cell is a passive visual component - no optical interaction
+            const start = rotatePoint({ x: 0, y: -this.height / 2 }, this.rotation);
+            const end   = rotatePoint({ x: 0, y:  this.height / 2 }, this.rotation);
+            const normal = normalize(rotatePoint({ x: 1, y: 0 }, this.rotation));
+            segments.push({
+                p1: { x: cx + start.x, y: cy + start.y },
+                p2: { x: cx + end.x,   y: cy + end.y   },
+                type: 'cell',
+                normal
+            });
         } else if (this.type === 'custom') {
             // Custom components are visual markers - no optical interaction
+        } else if (this.type === 'measure') {
+            // Measurement annotations have no optical interaction
         } else if (this.type === 'filter') {
             const start = rotatePoint({ x: 0, y: -this.height / 2 }, this.rotation);
             const end = rotatePoint({ x: 0, y: this.height / 2 }, this.rotation);

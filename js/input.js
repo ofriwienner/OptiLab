@@ -3,6 +3,91 @@
  * Mouse, keyboard, and wheel event handling
  */
 
+// ── Measurement tool helpers ──────────────────────────────────────────────────
+
+/**
+ * Snap a candidate world point to the nearest half-grid point (for measure placement)
+ */
+function snapMeasurePoint(w) {
+    const halfGrid = GRID_PITCH_MM / 2; // 12.5 mm
+    return {
+        x: Math.round(w.x / halfGrid) * halfGrid,
+        y: Math.round(w.y / halfGrid) * halfGrid
+    };
+}
+
+/**
+ * Snap the second point to H/V if within 10° of horizontal or vertical
+ * Returns the (possibly snapped) second point.
+ */
+function applyMeasureSnap(p1, p2) {
+    if (!p1 || !p2) return p2;
+    const dx = p2.x - p1.x;
+    const dy = p2.y - p1.y;
+    if (dx === 0 && dy === 0) return p2;
+    const angle = Math.atan2(dy, dx);
+    const absAngle = Math.abs(angle);
+    const threshold = toRad(10);
+    // Snap to horizontal (angle ≈ 0 or ≈ ±π)
+    if (absAngle < threshold || absAngle > Math.PI - threshold) {
+        return { x: p2.x, y: p1.y };
+    }
+    // Snap to vertical (angle ≈ ±π/2)
+    if (Math.abs(absAngle - Math.PI / 2) < threshold) {
+        return { x: p1.x, y: p2.y };
+    }
+    return p2;
+}
+
+/**
+ * Precise line-segment hit test for measure elements.
+ * Returns true if worldPoint is within ~8 mm of the line and within its length.
+ */
+function measureLineHit(el, worldPoint) {
+    const dx = worldPoint.x - el.x;
+    const dy = worldPoint.y - el.y;
+    const cos = Math.cos(-el.rotation);
+    const sin = Math.sin(-el.rotation);
+    const localX = dx * cos - dy * sin;
+    const localY = dx * sin + dy * cos;
+    const hitW = 8;
+    return Math.abs(localX) <= el.width / 2 + hitW && Math.abs(localY) <= hitW;
+}
+
+/**
+ * Toggle the measurement tool on/off (called from sidebar button)
+ */
+function startMeasureTool() {
+    if (isMeasureMode) {
+        isMeasureMode = false;
+        measureP1 = null;
+    } else {
+        isMeasureMode = true;
+        measureP1 = null;
+        selection.clear();
+    }
+    updateMeasureBtn();
+    canvas.style.cursor = 'crosshair';
+    draw();
+}
+
+/**
+ * Reflect current measure-mode state on the sidebar button
+ */
+function updateMeasureBtn() {
+    const btn = document.getElementById('measureToolBtn');
+    if (!btn) return;
+    if (isMeasureMode) {
+        btn.classList.add('border-amber-500', 'text-amber-300', 'bg-amber-900/20');
+        btn.classList.remove('border-gray-700/50', 'text-gray-300');
+    } else {
+        btn.classList.remove('border-amber-500', 'text-amber-300', 'bg-amber-900/20');
+        btn.classList.add('border-gray-700/50', 'text-gray-300');
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 /**
  * Initialize all input event listeners
  */
@@ -69,6 +154,38 @@ function handleMouseDown(e) {
         return;
     }
 
+    // Measure tool placement
+    if (isMeasureMode && e.button === 0) {
+        const raw = screenToWorld(m.x, m.y);
+        const snapped = snapMeasurePoint(raw);
+
+        if (!measureP1) {
+            measureP1 = snapped;
+            draw();
+        } else {
+            const p2 = applyMeasureSnap(measureP1, snapped);
+            const dx = p2.x - measureP1.x;
+            const dy = p2.y - measureP1.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist >= 1) {
+                saveToHistory();
+                const mx  = (measureP1.x + p2.x) / 2;
+                const my  = (measureP1.y + p2.y) / 2;
+                const rot = Math.atan2(dy, dx);
+                const el  = new Element('measure', mx, my, dist, 1, '');
+                el.width = dist;   // setupType sets default 50; override with actual distance
+                el.rotation = rot;
+                elements.push(el);
+                selection.clear();
+                selection.add(el);
+                updateUI();
+            }
+            measureP1 = null;   // ready for next measurement; mode stays active
+            draw();
+        }
+        return;
+    }
+
     // Pan Logic
     if (e.button === 1 || (e.button === 0 && keys[' '])) {
         view.isPanning = true;
@@ -107,6 +224,21 @@ function handleMouseDown(e) {
         
         pendingBoard = null;
         canvas.style.cursor = 'grabbing';
+        updateUI();
+        draw();
+        return;
+    }
+
+    // Cell polarization-knob hit test
+    const cellKnobTarget = getCellKnobHit(m);
+    if (cellKnobTarget) {
+        saveToHistory();
+        selection.clear();
+        selection.add(cellKnobTarget);
+        axisAdjustTarget = cellKnobTarget;
+        isAdjustingAxis = true;
+        canvas.style.cursor = 'grabbing';
+        updateCellAngleFromPoint(cellKnobTarget, w);
         updateUI();
         draw();
         return;
@@ -280,6 +412,7 @@ function handleMouseDown(e) {
     let clicked = null;
     const components = elements.filter(el => el.type !== 'board');
     clicked = components.reverse().find(el => {
+        if (el.type === 'measure') return measureLineHit(el, w);
         const dx = el.x - w.x;
         const dy = el.y - w.y;
         const r = Math.max(el.width, el.height) / 1.5;
@@ -430,7 +563,9 @@ function handleMouseMove(e) {
     }
 
     if (isAdjustingAxis && axisAdjustTarget) {
-        const changed = updateWaveplateAxisFromPoint(axisAdjustTarget, w);
+        const changed = axisAdjustTarget.type === 'cell'
+            ? updateCellAngleFromPoint(axisAdjustTarget, w)
+            : updateWaveplateAxisFromPoint(axisAdjustTarget, w);
         if (changed) {
             draw();
             updateUI();
@@ -611,8 +746,8 @@ function handleMouseMove(e) {
         return;
     }
 
-    // If pending board, redraw to update preview
-    if (pendingBoard) {
+    // If pending board or measure mode, redraw to update preview
+    if (pendingBoard || isMeasureMode) {
         draw();
         return;
     }
@@ -819,7 +954,7 @@ function handleKeyDown(e) {
     if (e.key === 'Shift') shiftPressed = true;
     if (e.key === 'Control' || e.key === 'Meta') ctrlPressed = true;
 
-    // Escape - cancel fiber connection, pending board, or deselect all
+    // Escape - cancel fiber connection, pending board, measure mode, or deselect all
     if (e.key === 'Escape') {
         if (isFiberConnecting) {
             isFiberConnecting = false;
@@ -829,6 +964,12 @@ function handleKeyDown(e) {
         if (pendingBoard) {
             pendingBoard = null;
             canvas.style.cursor = 'crosshair';
+        }
+        if (isMeasureMode) {
+            isMeasureMode = false;
+            measureP1 = null;
+            canvas.style.cursor = 'crosshair';
+            updateMeasureBtn();
         }
         selection.clear();
         updateUI();

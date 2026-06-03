@@ -100,6 +100,10 @@ const FIBER_COLORS = [
 // Custom component library (user-defined reusable component templates)
 let customComponentLibrary = [];
 
+// Measurement tool state
+let isMeasureMode = false;
+let measureP1 = null;
+
 // Alignment state
 let alignPreference = 0;
 let hasCycleOptions = false;

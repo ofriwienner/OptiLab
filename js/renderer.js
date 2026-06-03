@@ -90,6 +90,8 @@ function drawElement(el) {
         ctx.lineWidth = 1;
         if (el.type === 'board') {
             ctx.strokeRect(-el.width / 2, -el.height / 2, el.width, el.height);
+        } else if (el.type === 'measure') {
+            ctx.strokeRect(-el.width / 2 - 2, -5, el.width + 4, 10);
         } else if (el.type.includes('mirror')) {
             ctx.strokeRect(-el.width / 2 - 2, -2, el.width + 4, el.height + 4);
         } else {
@@ -128,11 +130,13 @@ function drawElement(el) {
     } else if (el.type === 'twinleaf') {
         drawTwinleaf(el);
     } else if (el.type === 'cell') {
-        drawCell(el);
+        drawCell(el, isSelected);
     } else if (el.type === 'filter') {
         drawFilter(el);
     } else if (el.type === 'custom') {
         drawCustom(el);
+    } else if (el.type === 'measure') {
+        drawMeasure(el, sc);
     }
 
     // Draw Title Label (lasers show title inside their body instead)
@@ -650,7 +654,7 @@ function drawTwinleaf(el) {
 /**
  * Draw Cell element - 1x1 glassy box
  */
-function drawCell(el) {
+function drawCell(el, isSelected) {
     const w = el.width;
     const h = el.height;
     const r = 3;
@@ -682,6 +686,38 @@ function drawCell(el) {
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.55)';
     ctx.lineWidth = 1.5;
     ctx.stroke();
+
+    // Cell polarization-rotation knob (above the cell, same style as waveplate axis knob)
+    ctx.save();
+    ctx.translate(0, -h / 2 - WAVEPLATE_KNOB_OFFSET_MM);
+    ctx.rotate(-el.rotation);
+    const knobRadius = WAVEPLATE_KNOB_RADIUS_MM;
+    ctx.beginPath();
+    ctx.arc(0, 0, knobRadius, 0, Math.PI * 2);
+    ctx.fillStyle = isAdjustingAxis && axisAdjustTarget === el ? '#92400e' : '#111827';
+    ctx.strokeStyle = isSelected ? '#fde68a' : '#78716c';
+    ctx.lineWidth = 0.6;
+    ctx.fill();
+    ctx.stroke();
+
+    const phi = el.cellAngle || 0;
+    ctx.save();
+    ctx.rotate(phi);
+    ctx.strokeStyle = '#fbbf24';
+    ctx.lineWidth = 0.6;
+    ctx.beginPath();
+    ctx.moveTo(-knobRadius * 0.8, 0);
+    ctx.lineTo( knobRadius * 0.8, 0);
+    ctx.stroke();
+    ctx.restore();
+
+    const angleDeg = Math.round(phi * 180 / Math.PI);
+    ctx.fillStyle = '#fde68a';
+    ctx.font = '8px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+    ctx.fillText(`${angleDeg}°`, 0, -knobRadius - 2);
+    ctx.restore();
 }
 
 /**
@@ -1264,6 +1300,7 @@ function draw() {
     drawMarquee();
     drawFiberConnectingLine();
     drawPendingBoardPreview();
+    drawMeasureOverlay();
     drawHints();
 }
 
@@ -1320,6 +1357,138 @@ function drawPendingBoardPreview() {
     ctx.fillText(title, -width * PIXELS_PER_MM * view.scale / 2 + 5, -height * PIXELS_PER_MM * view.scale / 2 - 18);
     
     ctx.restore();
+}
+
+/**
+ * Format a distance value for display
+ */
+function formatDistance(mm) {
+    if (mm >= 1000) return `${(mm / 1000).toFixed(3)} m`;
+    if (mm >= 100)  return `${mm.toFixed(1)} mm`;
+    return `${mm.toFixed(2)} mm`;
+}
+
+/**
+ * Draw a measurement annotation element
+ * @param {Object} el - Measure element
+ * @param {number} sc - Current scale factor (pixels per mm * view scale)
+ */
+function drawMeasure(el, sc) {
+    const len = el.width;
+    const capH = 5;
+    const color = '#fbbf24';
+
+    ctx.strokeStyle = color;
+    ctx.fillStyle = color;
+    ctx.lineWidth = 0.7;
+    ctx.lineCap = 'round';
+
+    // Main dimension line
+    ctx.beginPath();
+    ctx.moveTo(-len / 2, 0);
+    ctx.lineTo(len / 2, 0);
+    ctx.stroke();
+
+    // End caps
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(-len / 2, -capH / 2);
+    ctx.lineTo(-len / 2,  capH / 2);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(len / 2, -capH / 2);
+    ctx.lineTo(len / 2,  capH / 2);
+    ctx.stroke();
+
+    // Distance label — rendered in screen-space size (counter-scale font)
+    const label = formatDistance(len);
+    const fontSize = Math.max(5, 11 / sc);
+    ctx.font = `bold ${fontSize}px sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+    ctx.fillStyle = '#fde68a';
+    ctx.fillText(label, 0, -capH / 2 - 1.5 / sc);
+}
+
+/**
+ * Draw a dashed preview line during measure placement
+ */
+function drawMeasurePreview(p1World, p2World) {
+    const p1s = worldToScreen(p1World.x, p1World.y);
+    const p2s = worldToScreen(p2World.x, p2World.y);
+    const sc   = view.scale * PIXELS_PER_MM;
+
+    const dx  = p2World.x - p1World.x;
+    const dy  = p2World.y - p1World.y;
+    const len = Math.sqrt(dx * dx + dy * dy);
+    const label = formatDistance(len);
+
+    ctx.save();
+    // Dashed line
+    ctx.strokeStyle = '#fbbf24';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([6, 4]);
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(p1s.x, p1s.y);
+    ctx.lineTo(p2s.x, p2s.y);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // P1 dot
+    ctx.fillStyle = '#fbbf24';
+    ctx.beginPath();
+    ctx.arc(p1s.x, p1s.y, 4, 0, Math.PI * 2);
+    ctx.fill();
+
+    // P2 dot
+    ctx.beginPath();
+    ctx.arc(p2s.x, p2s.y, 3, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Distance label at midpoint
+    const midX = (p1s.x + p2s.x) / 2;
+    const midY = (p1s.y + p2s.y) / 2;
+    ctx.font = 'bold 11px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = 'rgba(0,0,0,0.6)';
+    ctx.fillText(label, midX + 1, midY - 11);
+    ctx.fillStyle = '#fde68a';
+    ctx.fillText(label, midX, midY - 12);
+
+    ctx.restore();
+}
+
+/**
+ * Draw live measurement preview and first-point indicator during measure mode
+ */
+function drawMeasureOverlay() {
+    if (!isMeasureMode) return;
+
+    const w = screenToWorld(lastMousePos.x, lastMousePos.y);
+    const snapped = applyMeasureSnap(measureP1, snapMeasurePoint(w));
+    const snappedScreen = worldToScreen(snapped.x, snapped.y);
+
+    if (measureP1) {
+        drawMeasurePreview(measureP1, snapped);
+    } else {
+        // Show snapped cursor dot before first point is placed
+        ctx.save();
+        ctx.fillStyle = '#fbbf24';
+        ctx.strokeStyle = '#92400e';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(snappedScreen.x, snappedScreen.y, 5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.font = '11px sans-serif';
+        ctx.fillStyle = '#fde68a';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'bottom';
+        ctx.fillText('Click to set start point', snappedScreen.x + 10, snappedScreen.y - 6);
+        ctx.restore();
+    }
 }
 
 /**

@@ -96,6 +96,9 @@ function copySelected() {
         if (el.type === 'filter' && Array.isArray(el.blockedLasers)) {
             data.blockedLasers = el.blockedLasers;
         }
+        if (el.type === 'cell' && typeof el.cellAngle === 'number') {
+            data.cellAngle = el.cellAngle;
+        }
         if (el.type === 'custom') {
             data.customShape = el.customShape;
             data.customColor = el.customColor;
@@ -164,6 +167,9 @@ function pasteElements() {
         }
         if (el.type === 'filter' && Array.isArray(data.blockedLasers)) {
             el.blockedLasers = data.blockedLasers;
+        }
+        if (el.type === 'cell' && typeof data.cellAngle === 'number') {
+            el.cellAngle = data.cellAngle;
         }
         if (el.type === 'custom') {
             if (data.customShape) el.customShape = data.customShape;
