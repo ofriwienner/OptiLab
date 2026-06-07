@@ -954,6 +954,9 @@ function handleKeyDown(e) {
     if (e.key === 'Shift') shiftPressed = true;
     if (e.key === 'Control' || e.key === 'Meta') ctrlPressed = true;
 
+    const activeTag = document.activeElement?.tagName;
+    if (activeTag === 'INPUT' || activeTag === 'TEXTAREA') return;
+
     // Escape - cancel fiber connection, pending board, measure mode, or deselect all
     if (e.key === 'Escape') {
         if (isFiberConnecting) {
@@ -1181,6 +1184,8 @@ function handleKeyDown(e) {
     }
 
     if (selection.size > 0 && (e.key === 'Delete' || e.key === 'Backspace')) {
+        const tag = document.activeElement?.tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA') return;
         deleteSelected();
     }
 }
