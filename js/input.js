@@ -111,6 +111,20 @@ function initInputHandlers() {
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
 
+    // Reset modifier keys when the window loses focus so the app never gets
+    // stuck in multi-select / shift-rotate mode after an alt-tab.
+    window.addEventListener('blur', () => {
+        shiftPressed = false;
+        ctrlPressed = false;
+    });
+
+    window.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+            shiftPressed = false;
+            ctrlPressed = false;
+        }
+    });
+
     // Double-click handler
     canvas.addEventListener('dblclick', handleDoubleClick);
 
@@ -148,6 +162,11 @@ function initInputHandlers() {
 function handleMouseDown(e) {
     const m = { x: e.clientX - canvas.getBoundingClientRect().left, y: e.clientY - canvas.getBoundingClientRect().top };
     lastMousePos = m;
+
+    // Sync modifier-key state from the event in case a keyup was missed
+    // (e.g. the user alt-tabbed while holding Shift/Ctrl).
+    if (!e.shiftKey) shiftPressed = false;
+    if (!e.ctrlKey && !e.metaKey) ctrlPressed = false;
 
     if (calibrationState > 0) {
         handleCalibrationClick(m);
