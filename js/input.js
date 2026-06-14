@@ -385,6 +385,17 @@ function handleMouseDown(e) {
                     draw();
                 } else {
                     isRotating = true;
+                    if (selection.size > 1) {
+                        let gx = 0, gy = 0;
+                        selection.forEach(el => { gx += el.x; gy += el.y; });
+                        gx /= selection.size; gy /= selection.size;
+                        const initials = new Map();
+                        selection.forEach(el => initials.set(el, { x: el.x, y: el.y, rotation: el.rotation }));
+                        const adx = w.x - gx, ady = w.y - gy;
+                        groupRotateState = { centroid: { x: gx, y: gy }, startAngle: Math.atan2(ady, adx), initials };
+                    } else {
+                        groupRotateState = null;
+                    }
                 }
                 return;
             }
@@ -544,19 +555,39 @@ function handleMouseMove(e) {
     }
 
     if (isRotating) {
-        const p = Array.from(selection).pop();
-        if (p) {
-            const dx = w.x - p.x;
-            const dy = w.y - p.y;
+        if (groupRotateState && selection.size > 1) {
+            const { centroid, startAngle, initials } = groupRotateState;
+            const dx = w.x - centroid.x, dy = w.y - centroid.y;
             let angle = Math.atan2(dy, dx);
+            let delta = angle - startAngle;
             if (!shiftPressed) {
                 const step = toRad(SNAP_ROTATION);
-                angle = Math.round(angle / step) * step;
+                delta = Math.round(delta / step) * step;
             }
-            p.rotation = angle;
-            updateUI();
-            draw();
+            const cos = Math.cos(delta), sin = Math.sin(delta);
+            selection.forEach(el => {
+                const init = initials.get(el);
+                if (!init) return;
+                const rx = init.x - centroid.x, ry = init.y - centroid.y;
+                el.x = centroid.x + rx * cos - ry * sin;
+                el.y = centroid.y + rx * sin + ry * cos;
+                el.rotation = init.rotation + delta;
+            });
+        } else {
+            const p = Array.from(selection).pop();
+            if (p) {
+                const dx = w.x - p.x;
+                const dy = w.y - p.y;
+                let angle = Math.atan2(dy, dx);
+                if (!shiftPressed) {
+                    const step = toRad(SNAP_ROTATION);
+                    angle = Math.round(angle / step) * step;
+                }
+                p.rotation = angle;
+            }
         }
+        updateUI();
+        draw();
         return;
     }
 
@@ -884,6 +915,7 @@ function handleMouseUp() {
 
     isDragging = false;
     isRotating = false;
+    groupRotateState = null;
     isSelecting = false;
     isResizing = false;
     isAdjustingAxis = false;
