@@ -316,7 +316,24 @@ function handleMouseDown(e) {
             const initials = new Map();
             selection.forEach(el => initials.set(el, { x: el.x, y: el.y, rotation: el.rotation }));
             const adx = w.x - gx, ady = w.y - gy;
-            groupRotateState = { centroid: { x: gx, y: gy }, startAngle: Math.atan2(ady, adx), initials };
+            let bMinX = Infinity, bMinY = Infinity, bMaxX = -Infinity, bMaxY = -Infinity;
+            selection.forEach(el => {
+                if (el.type === 'board') return;
+                const init = initials.get(el);
+                const hw = Math.max(el.width, el.height) / 2;
+                bMinX = Math.min(bMinX, init.x - hw);
+                bMinY = Math.min(bMinY, init.y - hw);
+                bMaxX = Math.max(bMaxX, init.x + hw);
+                bMaxY = Math.max(bMaxY, init.y + hw);
+            });
+            const boxPad = 6;
+            const initBoxWorld = [
+                { x: bMinX - boxPad, y: bMinY - boxPad },
+                { x: bMaxX + boxPad, y: bMinY - boxPad },
+                { x: bMaxX + boxPad, y: bMaxY + boxPad },
+                { x: bMinX - boxPad, y: bMaxY + boxPad }
+            ];
+            groupRotateState = { centroid: { x: gx, y: gy }, startAngle: Math.atan2(ady, adx), initials, initBoxWorld, currentDelta: 0 };
             isRotating = true;
             canvas.style.cursor = 'grabbing';
             draw();
@@ -411,7 +428,24 @@ function handleMouseDown(e) {
                         const initials = new Map();
                         selection.forEach(el => initials.set(el, { x: el.x, y: el.y, rotation: el.rotation }));
                         const adx = w.x - gx, ady = w.y - gy;
-                        groupRotateState = { centroid: { x: gx, y: gy }, startAngle: Math.atan2(ady, adx), initials };
+                        let bMinX2 = Infinity, bMinY2 = Infinity, bMaxX2 = -Infinity, bMaxY2 = -Infinity;
+                        selection.forEach(el => {
+                            if (el.type === 'board') return;
+                            const init = initials.get(el);
+                            const hw = Math.max(el.width, el.height) / 2;
+                            bMinX2 = Math.min(bMinX2, init.x - hw);
+                            bMinY2 = Math.min(bMinY2, init.y - hw);
+                            bMaxX2 = Math.max(bMaxX2, init.x + hw);
+                            bMaxY2 = Math.max(bMaxY2, init.y + hw);
+                        });
+                        const boxPad2 = 6;
+                        const initBoxWorld2 = [
+                            { x: bMinX2 - boxPad2, y: bMinY2 - boxPad2 },
+                            { x: bMaxX2 + boxPad2, y: bMinY2 - boxPad2 },
+                            { x: bMaxX2 + boxPad2, y: bMaxY2 + boxPad2 },
+                            { x: bMinX2 - boxPad2, y: bMaxY2 + boxPad2 }
+                        ];
+                        groupRotateState = { centroid: { x: gx, y: gy }, startAngle: Math.atan2(ady, adx), initials, initBoxWorld: initBoxWorld2, currentDelta: 0 };
                     } else {
                         groupRotateState = null;
                     }
@@ -583,6 +617,7 @@ function handleMouseMove(e) {
                 const step = toRad(45);
                 delta = Math.round(delta / step) * step;
             }
+            groupRotateState.currentDelta = delta;
             const cos = Math.cos(delta), sin = Math.sin(delta);
             selection.forEach(el => {
                 const init = initials.get(el);
