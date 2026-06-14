@@ -1499,8 +1499,8 @@ function drawCustom(el) {
     const w = el.width;
     const h = el.height;
     const shape = el.customShape || 'rectangle';
+    const opacity = el.customOpacity ?? 1;
 
-    ctx.fillStyle = el.customColor || '#3b82f6';
     ctx.strokeStyle = el.customBorderColor || '#93c5fd';
     ctx.lineWidth = 0.8;
 
@@ -1521,7 +1521,11 @@ function drawCustom(el) {
     } else {
         ctx.rect(-w / 2, -h / 2, w, h);
     }
+
+    ctx.globalAlpha = opacity;
+    ctx.fillStyle = el.customColor || '#3b82f6';
     ctx.fill();
+    ctx.globalAlpha = 1;
     ctx.stroke();
 
     const text = el.customText || '';

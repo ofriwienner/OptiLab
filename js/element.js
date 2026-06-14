@@ -126,6 +126,7 @@ class Element {
                 this.customTextColor = '#ffffff';
                 this.customFontSize = 10;
                 this.customFontBold = false;
+                this.customOpacity = 1.0;
                 break;
         }
     }
