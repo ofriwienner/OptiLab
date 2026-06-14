@@ -309,6 +309,15 @@ class Element {
                 type: 'cell',
                 normal
             });
+            const start2 = rotatePoint({ x: -this.width / 2, y: 0 }, this.rotation);
+            const end2   = rotatePoint({ x:  this.width / 2, y: 0 }, this.rotation);
+            const normal2 = normalize(rotatePoint({ x: 0, y: 1 }, this.rotation));
+            segments.push({
+                p1: { x: cx + start2.x, y: cy + start2.y },
+                p2: { x: cx + end2.x,   y: cy + end2.y   },
+                type: 'cell',
+                normal: normal2
+            });
         } else if (this.type === 'custom') {
             // Custom components are visual markers - no optical interaction
         } else if (this.type === 'measure') {
