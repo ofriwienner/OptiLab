@@ -468,28 +468,19 @@ function handleMouseDown(e) {
             // Board body click only selects; moving is done via the move handle only
             isDragging = false;
         } else {
+            saveToHistory();
+
             // ctrl+drag on a single non-board element = duplicate in place and drag the copy
-            if (ctrlPressed && selection.size === 1 && clicked.type !== 'board') {
-                saveToHistory();
+            if (e.button === 0 && ctrlPressed && selection.size === 1) {
                 const src = clicked;
                 const clone = JSON.parse(JSON.stringify(src));
                 clone.id = Date.now() + Math.random();
-                clone.x = src.x;
-                clone.y = src.y;
                 elements.push(clone);
                 selection.clear();
                 selection.add(clone);
-                isDragging = true;
-                invalidBoardPlacement = false;
-                dragOffsets.clear();
-                draggedChildren.clear();
-                dragOffsets.set(clone, { dx: clone.x - w.x, dy: clone.y - w.y });
-                updateUI();
-                draw();
-                return;
+                clicked = clone;
             }
 
-            saveToHistory();
             isDragging = true;
             invalidBoardPlacement = false;
             dragOffsets.clear();
@@ -502,8 +493,8 @@ function handleMouseDown(e) {
                     if (child.type !== 'board' && !selection.has(child)) {
                         const parentBoard = getParentBoard(child);
                         if (parentBoard && selectedBoards.includes(parentBoard)) {
-                            draggedChildren.set(child, { 
-                                dx: child.x - parentBoard.x, 
+                            draggedChildren.set(child, {
+                                dx: child.x - parentBoard.x,
                                 dy: child.y - parentBoard.y,
                                 parentBoard: parentBoard
                             });
@@ -511,7 +502,7 @@ function handleMouseDown(e) {
                     }
                 });
             }
-            
+
             selection.forEach(el => dragOffsets.set(el, { dx: el.x - w.x, dy: el.y - w.y }));
         }
         updateUI();
