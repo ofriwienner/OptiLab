@@ -129,6 +129,7 @@ function moveToBack(el) {
     }
     elements.splice(insertIdx, 0, el);
     draw();
+    updateUI();
 }
 
 /**
