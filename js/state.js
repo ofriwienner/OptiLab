@@ -160,7 +160,6 @@ function rehydrateElement(data) {
 function saveState() {
     const data = JSON.stringify(elements);
     localStorage.setItem('opticalBenchState', data);
-    alert('Saved to local storage');
 }
 
 /**

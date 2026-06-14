@@ -995,6 +995,14 @@ function handleKeyDown(e) {
         return;
     }
 
+    // Save (Ctrl/Cmd + S)
+    const isSave = (e.key === 's' || e.key === 'S') && (e.metaKey || e.ctrlKey) && !e.shiftKey;
+    if (isSave) {
+        e.preventDefault();
+        exportState();
+        return;
+    }
+
     // Undo/Redo
     const isUndo = (e.key === 'z' || e.key === 'Z') && (e.metaKey || e.ctrlKey) && !e.shiftKey;
     const isRedo = (e.key === 'z' || e.key === 'Z') && (e.metaKey || e.ctrlKey) && e.shiftKey;
