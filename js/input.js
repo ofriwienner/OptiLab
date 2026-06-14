@@ -191,7 +191,7 @@ function handleMouseDown(e) {
         view.isPanning = true;
         view.startPanX = m.x - view.x;
         view.startPanY = m.y - view.y;
-        canvas.style.cursor = 'grabbing';
+        if (!isDragging) canvas.style.cursor = 'grabbing';
         return;
     }
 
@@ -785,7 +785,12 @@ function completeFiberConnection(target) {
 /**
  * Handle mouse up events
  */
-function handleMouseUp() {
+function handleMouseUp(e) {
+    if (e?.button === 1) {
+        view.isPanning = false;
+        if (!isDragging) canvas.style.cursor = 'crosshair';
+        return;
+    }
     // Fiber connecting mode stays active until user clicks on another pin or elsewhere
     // (handled in mousedown), so we just need to clear the mouse position tracking
     if (isFiberConnecting) {
