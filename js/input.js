@@ -305,6 +305,25 @@ function handleMouseDown(e) {
 
     const primary = Array.from(selection).pop();
 
+    // Group selection rotation handle
+    if (selection.size > 1 && window._groupHandleScreen) {
+        const gh = window._groupHandleScreen;
+        if ((m.x - gh.x) ** 2 + (m.y - gh.y) ** 2 < 144) {
+            saveToHistory();
+            let gx = 0, gy = 0;
+            selection.forEach(el => { gx += el.x; gy += el.y; });
+            gx /= selection.size; gy /= selection.size;
+            const initials = new Map();
+            selection.forEach(el => initials.set(el, { x: el.x, y: el.y, rotation: el.rotation }));
+            const adx = w.x - gx, ady = w.y - gy;
+            groupRotateState = { centroid: { x: gx, y: gy }, startAngle: Math.atan2(ady, adx), initials };
+            isRotating = true;
+            canvas.style.cursor = 'grabbing';
+            draw();
+            return;
+        }
+    }
+
     if (primary) {
         // Component snap button
         if (primary.type !== 'board' && lastHitOnSelected && lastHitOnSelected.el === primary) {
@@ -561,7 +580,7 @@ function handleMouseMove(e) {
             let angle = Math.atan2(dy, dx);
             let delta = angle - startAngle;
             if (!shiftPressed) {
-                const step = toRad(SNAP_ROTATION);
+                const step = toRad(45);
                 delta = Math.round(delta / step) * step;
             }
             const cos = Math.cos(delta), sin = Math.sin(delta);
