@@ -3,12 +3,20 @@
  * Dynamic UI panel, buttons, and sliders
  */
 
+const COLOR_PRESETS = [
+    '#ff3232', '#ff9900', '#fbbf24', '#22c55e', '#06b6d4',
+    '#3b82f6', '#a855f7', '#ec4899', '#ffffff', '#6b7280',
+];
+
 /**
  * Create a labeled color picker row
  */
 function makeColorRow(label, value, onChange) {
+    const container = document.createElement('div');
+    container.className = "mt-1";
+
     const row = document.createElement('div');
-    row.className = "flex items-center justify-between mt-1";
+    row.className = "flex items-center justify-between";
     const lbl = document.createElement('label');
     lbl.className = "text-[9px] text-gray-400";
     lbl.innerText = label;
@@ -21,7 +29,21 @@ function makeColorRow(label, value, onChange) {
     inp.oninput = e => onChange(e.target.value);
     row.appendChild(lbl);
     row.appendChild(inp);
-    return row;
+    container.appendChild(row);
+
+    const swatches = document.createElement('div');
+    swatches.className = "flex flex-wrap gap-0.5 mt-0.5";
+    COLOR_PRESETS.forEach(color => {
+        const swatch = document.createElement('div');
+        swatch.style.cssText = `width:13px;height:13px;background:${color};border-radius:2px;cursor:pointer;border:1px solid rgba(255,255,255,0.15);flex-shrink:0`;
+        swatch.title = color;
+        swatch.onmousedown = e => e.stopPropagation();
+        swatch.onclick = () => { inp.value = color; onChange(color); };
+        swatches.appendChild(swatch);
+    });
+    container.appendChild(swatches);
+
+    return container;
 }
 
 /**
