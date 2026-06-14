@@ -1506,9 +1506,7 @@ function drawCustom(el) {
     const h = el.height;
     const shape = el.customShape || 'rectangle';
     const opacity = el.customOpacity ?? 1;
-
-    ctx.strokeStyle = el.customBorderColor || '#93c5fd';
-    ctx.lineWidth = 0.8;
+    const sc = view.scale * PIXELS_PER_MM;
 
     ctx.beginPath();
     if (shape === 'circle') {
@@ -1532,7 +1530,12 @@ function drawCustom(el) {
     ctx.fillStyle = el.customColor || '#3b82f6';
     ctx.fill();
     ctx.globalAlpha = 1;
-    ctx.stroke();
+
+    if (!el.customNoBorder) {
+        ctx.strokeStyle = el.customBorderColor || '#93c5fd';
+        ctx.lineWidth = 1.5 / sc;
+        ctx.stroke();
+    }
 
     const text = el.customText || '';
     if (text) {

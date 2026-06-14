@@ -8,6 +8,12 @@ const COLOR_PRESETS = [
     '#3b82f6', '#a855f7', '#ec4899', '#ffffff', '#6b7280',
 ];
 
+function darkenHex(hex) {
+    const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+    const d = v => Math.round(v * 0.65).toString(16).padStart(2,'0');
+    return '#' + d(r) + d(g) + d(b);
+}
+
 /**
  * Create a labeled color picker row
  */
@@ -502,8 +508,30 @@ function updateUI() {
             customBox.appendChild(opacityRow);
 
             // Colors
-            customBox.appendChild(makeColorRow('Fill', p.customColor || '#3b82f6', v => { p.customColor = v; draw(); }));
-            customBox.appendChild(makeColorRow('Border', p.customBorderColor || '#93c5fd', v => { p.customBorderColor = v; draw(); }));
+            customBox.appendChild(makeColorRow('Fill', p.customColor || '#3b82f6', v => {
+                p.customColor = v;
+                if (!p.customNoBorder) {
+                    p.customBorderColor = darkenHex(p.customColor);
+                    const borderInput = document.getElementById('customBorderColorInput');
+                    if (borderInput) borderInput.value = p.customBorderColor;
+                }
+                draw();
+            }));
+
+            const borderColorRow = makeColorRow('Border', p.customBorderColor || '#93c5fd', v => { p.customBorderColor = v; draw(); });
+            borderColorRow.querySelector('input[type="color"]').id = 'customBorderColorInput';
+            customBox.appendChild(borderColorRow);
+
+            const noBorderRow = document.createElement('div');
+            noBorderRow.className = 'flex items-center gap-2 text-xs text-gray-300 mt-1';
+            noBorderRow.innerHTML = `<input type="checkbox" id="noBorderCheck" ${p.customNoBorder ? 'checked' : ''}> <label for="noBorderCheck">No border</label>`;
+            noBorderRow.onmousedown = e => e.stopPropagation();
+            noBorderRow.querySelector('input').onchange = e => {
+                p.customNoBorder = e.target.checked;
+                if (!p.customNoBorder) p.customBorderColor = darkenHex(p.customColor);
+                draw(); updateUI();
+            };
+            customBox.appendChild(noBorderRow);
 
             // Text inside shape
             const textRow = document.createElement('div');

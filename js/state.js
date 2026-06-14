@@ -149,6 +149,7 @@ function rehydrateElement(data) {
         if (data.customTextColor) el.customTextColor = data.customTextColor;
         if (typeof data.customFontSize === 'number') el.customFontSize = data.customFontSize;
         if (typeof data.customFontBold === 'boolean') el.customFontBold = data.customFontBold;
+        el.customNoBorder = data.customNoBorder || false;
     }
 
     return el;
@@ -243,7 +244,8 @@ function saveCustomComponentToLibrary(el) {
         customText: el.customText || '',
         customTextColor: el.customTextColor || '#ffffff',
         customFontSize: el.customFontSize || 10,
-        customFontBold: !!el.customFontBold
+        customFontBold: !!el.customFontBold,
+        customNoBorder: !!el.customNoBorder
     };
     customComponentLibrary.push(template);
     saveCustomLibrary();

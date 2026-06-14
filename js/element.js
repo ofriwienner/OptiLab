@@ -121,12 +121,13 @@ class Element {
                 this.height = 30;
                 this.customShape = 'rectangle';
                 this.customColor = '#3b82f6';
-                this.customBorderColor = '#93c5fd';
+                this.customBorderColor = '#265490';
                 this.customText = '';
                 this.customTextColor = '#ffffff';
                 this.customFontSize = 10;
                 this.customFontBold = false;
                 this.customOpacity = 1.0;
+                this.customNoBorder = false;
                 break;
         }
     }
