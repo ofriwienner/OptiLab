@@ -1496,6 +1496,7 @@ function drawMeasureOverlay() {
  * @param {Object} el - Custom element
  */
 function drawCustom(el) {
+    ctx.globalAlpha = el.customOpacity ?? 1;
     const w = el.width;
     const h = el.height;
     const shape = el.customShape || 'rectangle';

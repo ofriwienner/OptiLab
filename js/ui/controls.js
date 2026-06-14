@@ -461,6 +461,24 @@ function updateUI() {
             sizeRow.appendChild(hLabel); sizeRow.appendChild(hInput);
             customBox.appendChild(sizeRow);
 
+            const opacityRow = document.createElement('div');
+            opacityRow.className = "flex items-center justify-between mt-1";
+            const opacityLbl = document.createElement('span');
+            opacityLbl.className = "text-[9px] text-gray-400";
+            opacityLbl.innerText = "Opacity";
+            const opacityInput = document.createElement('input');
+            opacityInput.type = 'range';
+            opacityInput.min = '0';
+            opacityInput.max = '1';
+            opacityInput.step = '0.05';
+            opacityInput.value = p.customOpacity ?? 1;
+            opacityInput.className = "w-20 accent-blue-400 cursor-pointer";
+            opacityInput.onmousedown = e => e.stopPropagation();
+            opacityInput.oninput = e => { p.customOpacity = parseFloat(e.target.value); draw(); };
+            opacityRow.appendChild(opacityLbl);
+            opacityRow.appendChild(opacityInput);
+            customBox.appendChild(opacityRow);
+
             // Colors
             customBox.appendChild(makeColorRow('Fill', p.customColor || '#3b82f6', v => { p.customColor = v; draw(); }));
             customBox.appendChild(makeColorRow('Border', p.customBorderColor || '#93c5fd', v => { p.customBorderColor = v; draw(); }));
