@@ -550,16 +550,25 @@ function updateUI() {
 
         // Future Plan Toggle
         if (p.type !== 'board') {
-            const fpBtn = document.createElement('button');
-            fpBtn.className = `w-full py-1 text-[10px] rounded border transition mb-1 cursor-pointer ${p.isFuturePlan ? 'bg-purple-900/50 border-purple-600 text-purple-200' : 'bg-gray-800/50 border-gray-600 text-gray-400'}`;
-            fpBtn.innerText = p.isFuturePlan ? 'Future Plan ✓' : 'Mark as Future Plan';
-            fpBtn.onclick = () => {
+            const fpRow = document.createElement('div');
+            fpRow.className = 'flex items-center gap-2 mb-1';
+            const fpCb = document.createElement('input');
+            fpCb.type = 'checkbox';
+            fpCb.checked = !!p.isFuturePlan;
+            fpCb.className = 'w-3.5 h-3.5 accent-purple-500 cursor-pointer';
+            fpCb.onchange = () => {
                 saveToHistory();
-                p.isFuturePlan = !p.isFuturePlan;
+                p.isFuturePlan = fpCb.checked;
                 updateUI();
                 draw();
             };
-            btnContainer.appendChild(fpBtn);
+            const fpLabel = document.createElement('label');
+            fpLabel.textContent = 'Future Plan';
+            fpLabel.className = 'text-[10px] text-gray-400 cursor-pointer select-none';
+            fpLabel.onclick = () => { fpCb.checked = !fpCb.checked; fpCb.onchange(); };
+            fpRow.appendChild(fpCb);
+            fpRow.appendChild(fpLabel);
+            btnContainer.appendChild(fpRow);
         }
 
         // Board Controls
