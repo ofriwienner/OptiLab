@@ -548,6 +548,15 @@ function updateUI() {
             btnContainer.appendChild(customBox);
         }
 
+        // Move to Back button (for all non-board, non-measure elements)
+        if (p.type !== 'board' && p.type !== 'measure') {
+            const backBtn = document.createElement('button');
+            backBtn.className = "w-full py-1 text-[10px] rounded border transition mb-1 cursor-pointer bg-gray-800/50 border-gray-600 text-gray-300 hover:bg-gray-700";
+            backBtn.innerText = "Move to Back";
+            backBtn.onclick = () => { window.moveToBack(p); };
+            btnContainer.appendChild(backBtn);
+        }
+
         // Board Controls
         if (p.type === 'board') {
             const lockBtn = document.createElement('button');

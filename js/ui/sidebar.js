@@ -114,6 +114,24 @@ function copySelected() {
 }
 
 /**
+ * Move element to just above the last board (lowest z-order among components)
+ * @param {Object} el - Element to move to back
+ */
+function moveToBack(el) {
+    saveToHistory();
+    const idx = elements.indexOf(el);
+    if (idx === -1) return;
+    elements.splice(idx, 1);
+    // Insert just after the last board
+    let insertIdx = 0;
+    for (let i = 0; i < elements.length; i++) {
+        if (elements[i].type === 'board') insertIdx = i + 1;
+    }
+    elements.splice(insertIdx, 0, el);
+    draw();
+}
+
+/**
  * Paste elements from clipboard
  */
 function pasteElements() {

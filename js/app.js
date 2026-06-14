@@ -112,6 +112,7 @@ function exposeGlobalFunctions() {
     window.updateMeasureBtn = updateMeasureBtn;
     window.tryAutoAlign = tryAutoAlign;
     window.cycleSnapRotation = cycleSnapRotation;
+    window.moveToBack = moveToBack;
 }
 
 // Initialize when DOM is ready
