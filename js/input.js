@@ -923,6 +923,7 @@ function handleKeyDown(e) {
     keys[e.key] = true;
     if (e.key === 'Shift') shiftPressed = true;
     if (e.key === 'Control' || e.key === 'Meta') ctrlPressed = true;
+    const codeKey = e.code?.startsWith('Key') ? e.code.slice(3).toLowerCase() : null;
 
     const activeTag = document.activeElement?.tagName;
     if (activeTag === 'INPUT' || activeTag === 'TEXTAREA') return;
@@ -951,7 +952,7 @@ function handleKeyDown(e) {
     }
 
     // Select All (Ctrl/Cmd + A) - select all components (not boards)
-    const isSelectAll = (e.key === 'a' || e.key === 'A') && (e.metaKey || e.ctrlKey);
+    const isSelectAll = (e.key === 'a' || e.key === 'A' || codeKey === 'a') && (e.metaKey || e.ctrlKey);
     if (isSelectAll) {
         e.preventDefault();
         selection.clear();
@@ -966,7 +967,7 @@ function handleKeyDown(e) {
     }
 
     // Save (Ctrl/Cmd + S)
-    const isSave = (e.key === 's' || e.key === 'S') && (e.metaKey || e.ctrlKey) && !e.shiftKey;
+    const isSave = (e.key === 's' || e.key === 'S' || codeKey === 's') && (e.metaKey || e.ctrlKey) && !e.shiftKey;
     if (isSave) {
         e.preventDefault();
         exportState();
@@ -974,8 +975,8 @@ function handleKeyDown(e) {
     }
 
     // Undo/Redo
-    const isUndo = (e.key === 'z' || e.key === 'Z') && (e.metaKey || e.ctrlKey) && !e.shiftKey;
-    const isRedo = (e.key === 'z' || e.key === 'Z') && (e.metaKey || e.ctrlKey) && e.shiftKey;
+    const isUndo = (e.key === 'z' || e.key === 'Z' || codeKey === 'z') && (e.metaKey || e.ctrlKey) && !e.shiftKey;
+    const isRedo = (e.key === 'z' || e.key === 'Z' || codeKey === 'z') && (e.metaKey || e.ctrlKey) && e.shiftKey;
 
     if (isUndo) {
         e.preventDefault();
@@ -990,8 +991,8 @@ function handleKeyDown(e) {
     }
 
     // Copy/Paste
-    const isCopy = (e.key === 'c' || e.key === 'C') && (e.metaKey || e.ctrlKey);
-    const isPaste = (e.key === 'v' || e.key === 'V') && (e.metaKey || e.ctrlKey);
+    const isCopy = (e.key === 'c' || e.key === 'C' || codeKey === 'c') && (e.metaKey || e.ctrlKey);
+    const isPaste = (e.key === 'v' || e.key === 'V' || codeKey === 'v') && (e.metaKey || e.ctrlKey);
 
     if (isCopy && selection.size > 0) {
         e.preventDefault();
@@ -1006,7 +1007,7 @@ function handleKeyDown(e) {
     }
 
     // Move shortcut (M key)
-    if ((e.key === 'm' || e.key === 'M') && !e.metaKey && !e.ctrlKey && !e.altKey) {
+    if ((e.key === 'm' || e.key === 'M' || codeKey === 'm') && !e.metaKey && !e.ctrlKey && !e.altKey) {
         if (selection.size > 0) {
             e.preventDefault();
             // Get current mouse position in world coordinates
@@ -1052,7 +1053,7 @@ function handleKeyDown(e) {
     }
 
     // Cycle Alignment Target
-    if (e.key === 'q' || e.key === 'Q') {
+    if (e.key === 'q' || e.key === 'Q' || codeKey === 'q') {
         alignPreference++;
         const p = Array.from(selection).pop();
         if (p && ['mirror', 'mirror-d'].includes(p.type)) {
@@ -1065,14 +1066,14 @@ function handleKeyDown(e) {
     if (selection.size > 0) {
         const p = Array.from(selection).pop();
         if (p && p.type === 'laser' && !p.locked) {
-            if (e.key === 'h' || e.key === 'H') {
+            if (e.key === 'h' || e.key === 'H' || codeKey === 'h') {
                 e.preventDefault();
                 saveToHistory();
                 p.polAngle = 0; // Horizontal
                 updateUI();
                 draw();
                 return;
-            } else if (e.key === 'v' || e.key === 'V') {
+            } else if (e.key === 'v' || e.key === 'V' || codeKey === 'v') {
                 e.preventDefault();
                 saveToHistory();
                 p.polAngle = 90; // Vertical
@@ -1087,7 +1088,7 @@ function handleKeyDown(e) {
     if (selection.size > 0) {
         const p = Array.from(selection).pop();
         if (p && p.type === 'aom' && !p.locked) {
-            if (e.key === 'o' || e.key === 'O') {
+            if (e.key === 'o' || e.key === 'O' || codeKey === 'o') {
                 e.preventDefault();
                 saveToHistory();
                 p.aomEnabled = !isAomEnabled(p);
@@ -1105,17 +1106,17 @@ function handleKeyDown(e) {
             const isCCW = shiftPressed;
             const sign = isCCW ? -1 : 1;
 
-            if (e.key === 'r' || e.key === 'R') {
+            if (e.key === 'r' || e.key === 'R' || codeKey === 'r') {
                 saveToHistory();
                 p.rotation += sign * Math.PI / 2;
                 updateUI();
                 draw();
-            } else if (e.key === 't' || e.key === 'T') {
+            } else if (e.key === 't' || e.key === 'T' || codeKey === 't') {
                 saveToHistory();
                 p.rotation += sign * Math.PI / 4;
                 updateUI();
                 draw();
-            } else if (e.key === 's' || e.key === 'S') {
+            } else if (e.key === 's' || e.key === 'S' || codeKey === 's') {
                 saveToHistory();
                 if (lastHitOnSelected && lastHitOnSelected.el === p) {
                     cycleSnapRotation(p, lastHitOnSelected.incoming);
