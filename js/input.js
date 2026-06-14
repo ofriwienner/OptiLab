@@ -465,38 +465,8 @@ function handleMouseDown(e) {
         }
         
         if (clicked.type === 'board') {
-            // If board is selected, allow dragging from anywhere on it
-            if (selection.has(clicked)) {
-                saveToHistory();
-                isDragging = true;
-                invalidBoardPlacement = false;
-                dragOffsets.clear();
-                originalBoardState = { x: clicked.x, y: clicked.y };
-                draggedChildren.clear();
-                
-                // Collect all components on selected boards (even if they're also selected)
-                // This ensures all board children move with the board
-                const selectedBoards = Array.from(selection).filter(el => el.type === 'board');
-                elements.forEach(child => {
-                    if (child.type !== 'board') {
-                        const parentBoard = getParentBoard(child);
-                        if (parentBoard && selectedBoards.includes(parentBoard)) {
-                            // Store relative position to the parent board
-                            draggedChildren.set(child, { 
-                                dx: child.x - parentBoard.x, 
-                                dy: child.y - parentBoard.y,
-                                parentBoard: parentBoard
-                            });
-                        }
-                    }
-                });
-                
-                // Set drag offsets for all selected elements
-                selection.forEach(el => dragOffsets.set(el, { dx: el.x - w.x, dy: el.y - w.y }));
-            } else {
-                // Board not selected yet - just select it, don't drag
-                isDragging = false;
-            }
+            // Board body click only selects; moving is done via the move handle only
+            isDragging = false;
         } else {
             saveToHistory();
             isDragging = true;
