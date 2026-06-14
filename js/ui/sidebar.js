@@ -107,6 +107,7 @@ function copySelected() {
             data.customTextColor = el.customTextColor;
             data.customFontSize = el.customFontSize;
             data.customFontBold = el.customFontBold;
+            if (typeof el.customOpacity === 'number') data.customOpacity = el.customOpacity;
         }
 
         return data;
@@ -179,6 +180,9 @@ function pasteElements() {
             if (data.customTextColor) el.customTextColor = data.customTextColor;
             if (typeof data.customFontSize === 'number') el.customFontSize = data.customFontSize;
             if (typeof data.customFontBold === 'boolean') el.customFontBold = data.customFontBold;
+            if (typeof data.customOpacity === 'number') el.customOpacity = data.customOpacity;
+            el.width = data.width;
+            el.height = data.height;
         }
 
         elements.push(el);
