@@ -445,6 +445,7 @@ function handleMouseDown(e) {
         // If shift/ctrl is pressed on an unselected element, add it to selection
         // If shift/ctrl is pressed on an already-selected element with multiple items selected, deselect it
         // If shift/ctrl is pressed on an already-selected element with single selection, allow drag (for fine/free movement)
+        const boardWasAlreadySelected = clicked.type === 'board' && selection.has(clicked);
         if (shiftPressed || ctrlPressed) {
             if (!selection.has(clicked)) {
                 // Add unselected element to selection
@@ -463,10 +464,32 @@ function handleMouseDown(e) {
                 selection.add(clicked);
             }
         }
-        
+
         if (clicked.type === 'board') {
-            // Board body click only selects; moving is done via the move handle only
-            isDragging = false;
+            if (boardWasAlreadySelected && !clicked.locked) {
+                // Board already selected - start dragging it from body
+                saveToHistory();
+                isDragging = true;
+                originalBoardState = { x: clicked.x, y: clicked.y };
+                dragOffsets.clear();
+                // Include all elements in selection
+                selection.forEach(el => dragOffsets.set(el, { dx: el.x - w.x, dy: el.y - w.y }));
+                // Include unselected children of selected boards
+                draggedChildren.clear();
+                const selectedBoards = Array.from(selection).filter(el => el.type === 'board');
+                elements.forEach(child => {
+                    if (child.type !== 'board' && !selection.has(child)) {
+                        const pb = getParentBoard(child);
+                        if (pb && selectedBoards.includes(pb)) {
+                            draggedChildren.set(child, { dx: child.x - pb.x, dy: child.y - pb.y, parentBoard: pb });
+                        }
+                    }
+                });
+                draw();
+            } else {
+                // Board not selected - keep isDragging false so marquee can work
+                isDragging = false;
+            }
         } else {
             saveToHistory();
             isDragging = true;
