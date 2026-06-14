@@ -977,6 +977,7 @@ function drawRays(rays) {
 
         const stokesAngle = getStokesAngle(seg.stokes);
         const isCircular = Math.abs(seg.stokes[3]) > (seg.stokes[0] * 0.1);
+        const isVertical = !isCircular && seg.stokes[0] > 0 && seg.stokes[1] < -0.1 * seg.stokes[0];
 
         const step = 40 * view.scale;
         for (let d = step; d < dist - step / 2; d += step) {
@@ -1011,6 +1012,11 @@ function drawRays(rays) {
                     ctx.lineTo(ax + arrowSize, ay + arrowSize / 2);
                 }
                 ctx.stroke();
+            } else if (isVertical) {
+                ctx.beginPath();
+                ctx.arc(0, 0, 2.5 * view.scale, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+                ctx.fill();
             } else {
                 ctx.rotate(rayNormalAngle + stokesAngle);
                 ctx.beginPath();
