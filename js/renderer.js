@@ -955,7 +955,7 @@ function drawRays(rays) {
         ctx.beginPath();
         ctx.moveTo(p1.x, p1.y);
         ctx.lineTo(p2.x, p2.y);
-        ctx.strokeStyle = beamColor.replace(')', ', 0.3)').replace('rgb', 'rgba');
+        ctx.strokeStyle = beamColor.replace(/,\s*[\d.]+\s*\)$/, ', 0.3)');
         ctx.lineWidth = 3 * thickness * view.scale;
         ctx.stroke();
 
