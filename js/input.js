@@ -965,11 +965,17 @@ function handleKeyDown(e) {
         return;
     }
 
-    // Save (Ctrl/Cmd + S)
-    const isSave = (e.key === 's' || e.key === 'S') && (e.metaKey || e.ctrlKey) && !e.shiftKey;
-    if (isSave) {
+    // Save (Ctrl/Cmd + S) / Export (Ctrl/Cmd + Shift + S)
+    const isSave = (e.key === 's' || e.key === 'S' || e.code === 'KeyS') && (e.metaKey || e.ctrlKey) && !e.shiftKey;
+    const isExport = (e.key === 's' || e.key === 'S' || e.code === 'KeyS') && (e.metaKey || e.ctrlKey) && e.shiftKey;
+    if (isExport) {
         e.preventDefault();
         exportState();
+        return;
+    }
+    if (isSave) {
+        e.preventDefault();
+        saveState();
         return;
     }
 
