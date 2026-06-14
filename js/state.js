@@ -160,6 +160,12 @@ function rehydrateElement(data) {
 function saveState() {
     const data = JSON.stringify(elements);
     localStorage.setItem('opticalBenchState', data);
+    // Brief toast notification
+    const toast = document.createElement('div');
+    toast.textContent = 'Saved';
+    toast.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#1e293b;color:#94a3b8;border:1px solid #334155;padding:6px 16px;border-radius:6px;font-size:12px;z-index:9999;pointer-events:none;transition:opacity 0.5s';
+    document.body.appendChild(toast);
+    setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 500); }, 1000);
 }
 
 /**
