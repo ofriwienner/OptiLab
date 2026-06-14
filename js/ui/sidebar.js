@@ -65,7 +65,19 @@ function handleDrop(e) {
 function copySelected() {
     if (selection.size === 0) return;
 
-    clipboard = Array.from(selection).map(el => {
+    // Expand: if a board is selected, include all its children
+    const expandedSet = new Set(selection);
+    selection.forEach(el => {
+        if (el.type === 'board') {
+            elements.forEach(child => {
+                if (child.type !== 'board' && getParentBoard(child) === el) {
+                    expandedSet.add(child);
+                }
+            });
+        }
+    });
+
+    clipboard = Array.from(expandedSet).map(el => {
         const data = {
             type: el.type,
             x: el.x,
