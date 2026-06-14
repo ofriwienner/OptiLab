@@ -468,11 +468,32 @@ function handleMouseDown(e) {
             // Board body click only selects; moving is done via the move handle only
             isDragging = false;
         } else {
+            // ctrl+drag on a single non-board element = duplicate in place and drag the copy
+            if (ctrlPressed && selection.size === 1 && clicked.type !== 'board') {
+                saveToHistory();
+                const src = clicked;
+                const clone = JSON.parse(JSON.stringify(src));
+                clone.id = Date.now() + Math.random();
+                clone.x = src.x;
+                clone.y = src.y;
+                elements.push(clone);
+                selection.clear();
+                selection.add(clone);
+                isDragging = true;
+                invalidBoardPlacement = false;
+                dragOffsets.clear();
+                draggedChildren.clear();
+                dragOffsets.set(clone, { dx: clone.x - w.x, dy: clone.y - w.y });
+                updateUI();
+                draw();
+                return;
+            }
+
             saveToHistory();
             isDragging = true;
             invalidBoardPlacement = false;
             dragOffsets.clear();
-            
+
             // Check if any selected boards have children that need to move
             draggedChildren.clear();
             const selectedBoards = Array.from(selection).filter(el => el.type === 'board');
