@@ -71,6 +71,10 @@ function drawElement(el) {
     const isSelected = selection.has(el);
 
     ctx.save();
+    if (el.isFuturePlan) {
+        if (!showFuturePlans) { ctx.restore(); return; }
+        ctx.globalAlpha = 0.3;
+    }
     ctx.translate(pos.x, pos.y);
     ctx.rotate(el.rotation);
     ctx.scale(sc, sc);

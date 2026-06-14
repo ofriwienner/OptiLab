@@ -548,6 +548,20 @@ function updateUI() {
             btnContainer.appendChild(customBox);
         }
 
+        // Future Plan Toggle
+        if (p.type !== 'board') {
+            const fpBtn = document.createElement('button');
+            fpBtn.className = `w-full py-1 text-[10px] rounded border transition mb-1 cursor-pointer ${p.isFuturePlan ? 'bg-purple-900/50 border-purple-600 text-purple-200' : 'bg-gray-800/50 border-gray-600 text-gray-400'}`;
+            fpBtn.innerText = p.isFuturePlan ? 'Future Plan ✓' : 'Mark as Future Plan';
+            fpBtn.onclick = () => {
+                saveToHistory();
+                p.isFuturePlan = !p.isFuturePlan;
+                updateUI();
+                draw();
+            };
+            btnContainer.appendChild(fpBtn);
+        }
+
         // Board Controls
         if (p.type === 'board') {
             const lockBtn = document.createElement('button');

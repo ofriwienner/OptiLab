@@ -19,6 +19,7 @@ class Element {
         this.imgConfig = { visible: true, opacity: 0.5, x: 0, y: 0, w: 0, h: 0 };
         this.axisAngle = null;
         this.optics = null;
+        this.isFuturePlan = false;
         if (type !== 'board') this.setupType(type);
     }
 
