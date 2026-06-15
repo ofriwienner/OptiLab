@@ -1079,6 +1079,86 @@ function drawMarquee() {
 }
 
 /**
+ * Draw a dashed bounding box and rotation handle around a multi-element selection
+ */
+function drawGroupSelectionBox() {
+    const nonBoards = Array.from(selection).filter(el => el.type !== 'board');
+    if (nonBoards.length <= 1) return;
+
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([5, 3]);
+
+    let hx, hy;
+
+    if (groupRotateState && groupRotateState.initBoxWorld && groupRotateState.currentDelta !== undefined) {
+        const { centroid, initBoxWorld, currentDelta } = groupRotateState;
+        const cos = Math.cos(currentDelta), sin = Math.sin(currentDelta);
+        const rotatePoint = (p) => {
+            const dx = p.x - centroid.x, dy = p.y - centroid.y;
+            return { x: centroid.x + dx * cos - dy * sin, y: centroid.y + dx * sin + dy * cos };
+        };
+        const screenCorners = initBoxWorld.map(p => {
+            const rp = rotatePoint(p);
+            return worldToScreen(rp.x, rp.y);
+        });
+
+        ctx.beginPath();
+        ctx.moveTo(screenCorners[0].x, screenCorners[0].y);
+        for (let i = 1; i < screenCorners.length; i++) {
+            ctx.lineTo(screenCorners[i].x, screenCorners[i].y);
+        }
+        ctx.closePath();
+        ctx.stroke();
+
+        // Top-right rotated corner: index 1 (maxX, minY rotated)
+        hx = screenCorners[1].x;
+        hy = screenCorners[1].y;
+    } else {
+        const sc = view.scale * PIXELS_PER_MM;
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        nonBoards.forEach(el => {
+            const s = worldToScreen(el.x, el.y);
+            const hw = Math.max(el.width, el.height) / 2 * sc;
+            minX = Math.min(minX, s.x - hw);
+            minY = Math.min(minY, s.y - hw);
+            maxX = Math.max(maxX, s.x + hw);
+            maxY = Math.max(maxY, s.y + hw);
+        });
+
+        const pad = 12;
+        minX -= pad; minY -= pad; maxX += pad; maxY += pad;
+
+        ctx.strokeRect(minX, minY, maxX - minX, maxY - minY);
+
+        hx = maxX; hy = minY;
+    }
+
+    ctx.setLineDash([]);
+
+    // Rotation handle
+    ctx.beginPath();
+    ctx.arc(hx, hy, 7, 0, Math.PI * 2);
+    ctx.fillStyle = '#1f2937';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.85)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // Rotation arrow indicator
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.85)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.arc(hx, hy, 3.5, -Math.PI * 0.8, Math.PI * 0.2);
+    ctx.stroke();
+
+    ctx.restore();
+
+    window._groupHandleScreen = { x: hx, y: hy };
+}
+
+/**
  * Draw UI hints for selected element
  */
 function drawHints() {
@@ -1302,6 +1382,7 @@ function draw() {
     elements.forEach(el => { if (el.type !== 'board' && selection.has(el)) drawElement(el); });
     const rays = castRays();
     drawRays(rays);
+    drawGroupSelectionBox();
     drawLensFocusDots();
     drawMarquee();
     drawFiberConnectingLine();

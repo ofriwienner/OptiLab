@@ -64,6 +64,7 @@ let ctrlPressed = false;
 let lastHitOnSelected = null;
 let invalidBoardPlacement = false;
 let originalBoardState = null;
+let groupRotateState = null; // { centroid, startAngle, initials: Map<el,{x,y,rotation}> }
 const keys = {};
 
 // Clipboard for copy/paste

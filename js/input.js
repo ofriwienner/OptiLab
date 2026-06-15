@@ -305,6 +305,42 @@ function handleMouseDown(e) {
 
     const primary = Array.from(selection).pop();
 
+    // Group selection rotation handle
+    if (selection.size > 1 && window._groupHandleScreen) {
+        const gh = window._groupHandleScreen;
+        if ((m.x - gh.x) ** 2 + (m.y - gh.y) ** 2 < 144) {
+            saveToHistory();
+            let gx = 0, gy = 0;
+            selection.forEach(el => { gx += el.x; gy += el.y; });
+            gx /= selection.size; gy /= selection.size;
+            const initials = new Map();
+            selection.forEach(el => initials.set(el, { x: el.x, y: el.y, rotation: el.rotation }));
+            const adx = w.x - gx, ady = w.y - gy;
+            let bMinX = Infinity, bMinY = Infinity, bMaxX = -Infinity, bMaxY = -Infinity;
+            selection.forEach(el => {
+                if (el.type === 'board') return;
+                const init = initials.get(el);
+                const hw = Math.max(el.width, el.height) / 2;
+                bMinX = Math.min(bMinX, init.x - hw);
+                bMinY = Math.min(bMinY, init.y - hw);
+                bMaxX = Math.max(bMaxX, init.x + hw);
+                bMaxY = Math.max(bMaxY, init.y + hw);
+            });
+            const boxPad = 6;
+            const initBoxWorld = [
+                { x: bMinX - boxPad, y: bMinY - boxPad },
+                { x: bMaxX + boxPad, y: bMinY - boxPad },
+                { x: bMaxX + boxPad, y: bMaxY + boxPad },
+                { x: bMinX - boxPad, y: bMaxY + boxPad }
+            ];
+            groupRotateState = { centroid: { x: gx, y: gy }, startAngle: Math.atan2(ady, adx), initials, initBoxWorld, currentDelta: 0 };
+            isRotating = true;
+            canvas.style.cursor = 'grabbing';
+            draw();
+            return;
+        }
+    }
+
     if (primary) {
         // Component snap button
         if (primary.type !== 'board' && lastHitOnSelected && lastHitOnSelected.el === primary) {
@@ -385,6 +421,34 @@ function handleMouseDown(e) {
                     draw();
                 } else {
                     isRotating = true;
+                    if (selection.size > 1) {
+                        let gx = 0, gy = 0;
+                        selection.forEach(el => { gx += el.x; gy += el.y; });
+                        gx /= selection.size; gy /= selection.size;
+                        const initials = new Map();
+                        selection.forEach(el => initials.set(el, { x: el.x, y: el.y, rotation: el.rotation }));
+                        const adx = w.x - gx, ady = w.y - gy;
+                        let bMinX2 = Infinity, bMinY2 = Infinity, bMaxX2 = -Infinity, bMaxY2 = -Infinity;
+                        selection.forEach(el => {
+                            if (el.type === 'board') return;
+                            const init = initials.get(el);
+                            const hw = Math.max(el.width, el.height) / 2;
+                            bMinX2 = Math.min(bMinX2, init.x - hw);
+                            bMinY2 = Math.min(bMinY2, init.y - hw);
+                            bMaxX2 = Math.max(bMaxX2, init.x + hw);
+                            bMaxY2 = Math.max(bMaxY2, init.y + hw);
+                        });
+                        const boxPad2 = 6;
+                        const initBoxWorld2 = [
+                            { x: bMinX2 - boxPad2, y: bMinY2 - boxPad2 },
+                            { x: bMaxX2 + boxPad2, y: bMinY2 - boxPad2 },
+                            { x: bMaxX2 + boxPad2, y: bMaxY2 + boxPad2 },
+                            { x: bMinX2 - boxPad2, y: bMaxY2 + boxPad2 }
+                        ];
+                        groupRotateState = { centroid: { x: gx, y: gy }, startAngle: Math.atan2(ady, adx), initials, initBoxWorld: initBoxWorld2, currentDelta: 0 };
+                    } else {
+                        groupRotateState = null;
+                    }
                 }
                 return;
             }
@@ -544,19 +608,40 @@ function handleMouseMove(e) {
     }
 
     if (isRotating) {
-        const p = Array.from(selection).pop();
-        if (p) {
-            const dx = w.x - p.x;
-            const dy = w.y - p.y;
+        if (groupRotateState && selection.size > 1) {
+            const { centroid, startAngle, initials } = groupRotateState;
+            const dx = w.x - centroid.x, dy = w.y - centroid.y;
             let angle = Math.atan2(dy, dx);
+            let delta = angle - startAngle;
             if (!shiftPressed) {
-                const step = toRad(SNAP_ROTATION);
-                angle = Math.round(angle / step) * step;
+                const step = toRad(45);
+                delta = Math.round(delta / step) * step;
             }
-            p.rotation = angle;
-            updateUI();
-            draw();
+            groupRotateState.currentDelta = delta;
+            const cos = Math.cos(delta), sin = Math.sin(delta);
+            selection.forEach(el => {
+                const init = initials.get(el);
+                if (!init) return;
+                const rx = init.x - centroid.x, ry = init.y - centroid.y;
+                el.x = centroid.x + rx * cos - ry * sin;
+                el.y = centroid.y + rx * sin + ry * cos;
+                el.rotation = init.rotation + delta;
+            });
+        } else {
+            const p = Array.from(selection).pop();
+            if (p) {
+                const dx = w.x - p.x;
+                const dy = w.y - p.y;
+                let angle = Math.atan2(dy, dx);
+                if (!shiftPressed) {
+                    const step = toRad(SNAP_ROTATION);
+                    angle = Math.round(angle / step) * step;
+                }
+                p.rotation = angle;
+            }
         }
+        updateUI();
+        draw();
         return;
     }
 
@@ -893,6 +978,7 @@ function handleMouseUp(e) {
 
     isDragging = false;
     isRotating = false;
+    groupRotateState = null;
     isSelecting = false;
     isResizing = false;
     isAdjustingAxis = false;
