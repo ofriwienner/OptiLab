@@ -1105,7 +1105,10 @@ function handleKeyDown(e) {
             if (e.key === 'x' || e.key === 'X') {
                 e.preventDefault();
                 saveToHistory();
-                if (p.type === 'mirror-d') {
+                if (p.type === 'mirror') {
+                    p.rotation = -p.rotation;
+                    p.isFlipped = !p.isFlipped;
+                } else if (p.type === 'mirror-d') {
                     p.isFlipped = !p.isFlipped;
                 } else {
                     p.rotation = Math.PI - p.rotation;
@@ -1117,7 +1120,11 @@ function handleKeyDown(e) {
             if (e.key === 'y' || e.key === 'Y') {
                 e.preventDefault();
                 saveToHistory();
-                p.rotation = -p.rotation;
+                if (p.type === 'mirror') {
+                    p.rotation = Math.PI - p.rotation;
+                } else {
+                    p.rotation = -p.rotation;
+                }
                 updateUI();
                 draw();
                 return;

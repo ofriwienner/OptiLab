@@ -210,11 +210,9 @@ class Element {
             const mw = this.width / 2;
             const r1 = rotatePoint({ x: mw, y: 0 }, this.rotation);
             const r2 = rotatePoint({ x: -mw, y: 0 }, this.rotation);
-            segments.push({
-                p1: { x: cx + r1.x, y: cy + r1.y },
-                p2: { x: cx + r2.x, y: cy + r2.y },
-                type: 'mirror-front'
-            });
+            const sp1 = this.isFlipped ? { x: cx + r2.x, y: cy + r2.y } : { x: cx + r1.x, y: cy + r1.y };
+            const sp2 = this.isFlipped ? { x: cx + r1.x, y: cy + r1.y } : { x: cx + r2.x, y: cy + r2.y };
+            segments.push({ p1: sp1, p2: sp2, type: 'mirror-front' });
             segments.push({
                 p1: worldCorners[2],
                 p2: worldCorners[3],
