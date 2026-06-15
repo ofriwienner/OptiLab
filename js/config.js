@@ -37,6 +37,9 @@ let showPolarization = true;
 
 // Intensity visualization toggle
 let showIntensity = true;
+
+// Future plan visibility toggle
+let showFuturePlans = true;
 const SNAP_ROTATION = 22.5;
 
 // Waveplate constants

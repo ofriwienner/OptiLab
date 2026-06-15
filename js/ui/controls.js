@@ -566,6 +566,29 @@ function updateUI() {
             btnContainer.appendChild(customBox);
         }
 
+        // Future Plan Toggle
+        if (p.type !== 'board') {
+            const fpRow = document.createElement('div');
+            fpRow.className = 'flex items-center gap-2 mb-1';
+            const fpCb = document.createElement('input');
+            fpCb.type = 'checkbox';
+            fpCb.checked = !!p.isFuturePlan;
+            fpCb.className = 'w-3.5 h-3.5 accent-purple-500 cursor-pointer';
+            fpCb.onchange = () => {
+                saveToHistory();
+                p.isFuturePlan = fpCb.checked;
+                updateUI();
+                draw();
+            };
+            const fpLabel = document.createElement('label');
+            fpLabel.textContent = 'Future Plan';
+            fpLabel.className = 'text-[10px] text-gray-400 cursor-pointer select-none';
+            fpLabel.onclick = () => { fpCb.checked = !fpCb.checked; fpCb.onchange(); };
+            fpRow.appendChild(fpCb);
+            fpRow.appendChild(fpLabel);
+            btnContainer.appendChild(fpRow);
+        }
+
         // Board Controls
         if (p.type === 'board') {
             const lockBtn = document.createElement('button');

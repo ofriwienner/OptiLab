@@ -89,6 +89,7 @@ function rehydrateElement(data) {
     el.height = data.height;
     el.isFlipped = data.isFlipped || false;
     el.locked = data.locked || false;
+    if (typeof data.isFuturePlan === 'boolean') el.isFuturePlan = data.isFuturePlan;
 
     if (typeof data.axisAngle === 'number') {
         el.axisAngle = clampWaveplateAngle(data.axisAngle);
