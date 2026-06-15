@@ -1499,7 +1499,16 @@ function drawMeasure(el, sc) {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'bottom';
     ctx.fillStyle = '#fde68a';
-    ctx.fillText(label, 0, -capH / 2 - 1.5 / sc);
+
+    // Determine if we need to flip text to keep it readable
+    const norm = ((el.rotation % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
+    const needsFlip = norm > Math.PI / 2 && norm < Math.PI * 3 / 2;
+
+    ctx.save();
+    if (needsFlip) ctx.rotate(Math.PI);
+    const textY = needsFlip ? (capH / 2 + 1.5 / sc) : (-capH / 2 - 1.5 / sc);
+    ctx.fillText(label, 0, textY);
+    ctx.restore();
 }
 
 /**
