@@ -365,7 +365,7 @@ function handleMouseDown(e) {
                 draggedChildren.clear();
                 elements.forEach(child => {
                     if (child !== primary && child.type !== 'board' && !selection.has(child) && getParentBoard(child) === primary) {
-                        draggedChildren.set(child, { dx: child.x - primary.x, dy: child.y - primary.y });
+                        draggedChildren.set(child, { dx: child.x - primary.x, dy: child.y - primary.y, parentBoard: primary });
                     }
                 });
                 dragOffsets.clear();

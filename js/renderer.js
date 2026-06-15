@@ -1369,9 +1369,9 @@ function drawPendingBoardPreview() {
  * Format a distance value for display
  */
 function formatDistance(mm) {
-    if (mm >= 1000) return `${(mm / 1000).toFixed(3)} m`;
-    if (mm >= 100)  return `${mm.toFixed(1)} mm`;
-    return `${mm.toFixed(2)} mm`;
+    const mmStr = mm >= 100 ? mm.toFixed(1) : mm.toFixed(2);
+    const inStr = Math.round(mm / 25.4);
+    return `${mmStr} mm / ${inStr} in`;
 }
 
 /**
