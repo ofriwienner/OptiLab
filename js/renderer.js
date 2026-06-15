@@ -239,8 +239,9 @@ function drawLaser(el) {
  * Draw mirror element
  */
 function drawMirror(el) {
+    const backingH = el.isFlipped ? -el.height : el.height;
     ctx.fillStyle = '#2a2a2a';
-    ctx.fillRect(-el.width / 2, 0, el.width, el.height);
+    ctx.fillRect(-el.width / 2, 0, el.width, backingH);
     ctx.fillStyle = 'cyan';
     ctx.fillRect(-el.width / 2, -0.5, el.width, 1);
 }

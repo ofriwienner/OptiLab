@@ -1200,6 +1200,40 @@ function handleKeyDown(e) {
         }
     }
 
+    // Flip shortcuts (x = left-right, y = top-bottom)
+    if (selection.size > 0) {
+        const p = Array.from(selection).pop();
+        if (p && p.type !== 'board' && !p.locked) {
+            if (e.key === 'x' || e.key === 'X') {
+                e.preventDefault();
+                saveToHistory();
+                if (p.type === 'mirror') {
+                    p.rotation = -p.rotation;
+                    p.isFlipped = !p.isFlipped;
+                } else if (p.type === 'mirror-d') {
+                    p.isFlipped = !p.isFlipped;
+                } else {
+                    p.rotation = Math.PI - p.rotation;
+                }
+                updateUI();
+                draw();
+                return;
+            }
+            if (e.key === 'y' || e.key === 'Y') {
+                e.preventDefault();
+                saveToHistory();
+                if (p.type === 'mirror') {
+                    p.rotation = Math.PI - p.rotation;
+                } else {
+                    p.rotation = -p.rotation;
+                }
+                updateUI();
+                draw();
+                return;
+            }
+        }
+    }
+
     // Rotation shortcuts
     if (selection.size > 0) {
         const p = Array.from(selection).pop();
