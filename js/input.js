@@ -1360,11 +1360,7 @@ function handleDoubleClick(e) {
     let isTitle = false;
     if (hit) {
         if (hit.type === 'board') {
-            const titleY = hit.y - hit.height / 2;
-            const titleX = hit.x - hit.width / 2;
-            if (w.y < titleY && w.y > titleY - 20 && w.x > titleX && w.x < titleX + 200) {
-                isTitle = true;
-            }
+            isTitle = true;
         } else {
             isTitle = true;
         }
