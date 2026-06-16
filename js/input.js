@@ -999,6 +999,7 @@ function handleMouseUp(e) {
         selectionRect = null;
     }
 
+    const wasDragging = isDragging;
     isDragging = false;
     isRotating = false;
     groupRotateState = null;
@@ -1011,6 +1012,14 @@ function handleMouseUp(e) {
     fiberConnectMousePos = null;
     view.isPanning = false;
     canvas.style.cursor = 'crosshair';
+
+    if (wasDragging && selection.size === 1) {
+        const el = Array.from(selection)[0];
+        if (el && el.type !== 'board' && el.type !== 'measure' && typeof tryAutoAlign === 'function') {
+            tryAutoAlign(el);
+        }
+    }
+
     updateUI();
     draw();
 }
