@@ -318,11 +318,11 @@
       "description": "A 'Move to Back' button in the properties panel sends the selected element just behind other components but always in front of boards. The button works immediately without needing to deselect first - the panel stays open and the element stays selected. Test: place two overlapping components, select the top one, click 'Move to Back' - it should immediately go behind the other, and the properties panel should remain open.",
       "branch": "feat/move-to-back",
       "worktree_path": "C:\\Users\\ofriw\\PycharmProjects\\OptiLab-worktrees\\feat-move-to-back",
-      "status": "approved",
+      "status": "merged",
       "fix_notes": null,
       "reject_reason": null,
       "decided_at": "2026-06-16T21:29:45.926303",
-      "merged_at": null
+      "merged_at": "2026-06-16T21:39:19.524605"
     },
     {
       "id": 30,
@@ -330,10 +330,22 @@
       "description": "The color swatches shown when editing custom component fill/border/text colors now use theme-appropriate colors matching the optical lab UI. New presets include dark navy/slate backgrounds, plus the colors used by built-in components (green=HWP, orange=QWP, purple=PBS, sky blue=fiber, amber=UI highlights). Test: select a custom component and open properties - the 10 swatches should look cohesive with the dark UI, not garish.",
       "branch": "feat/custom-preset-colors",
       "worktree_path": "C:\\Users\\ofriw\\PycharmProjects\\OptiLab-worktrees\\feat-custom-preset-colors",
-      "status": "approved",
+      "status": "merged",
       "fix_notes": null,
       "reject_reason": null,
       "decided_at": "2026-06-16T21:34:44.830774",
+      "merged_at": "2026-06-16T21:39:19.745761"
+    },
+    {
+      "id": 35,
+      "name": "Fix ray propagation drops laserId and thickness",
+      "description": "Fixes two bugs with the same root cause: beam laserId and thickness properties were lost when a ray passed through AOM, lens, fiber-coupler, amplifier, or iris, because those branches constructed new ray objects explicitly without spreading the original ray properties. (1) Filter bug: filters now correctly block beams even when the beam passed through other components first. (2) Beam thickness bug: the beam thickness setting on a laser now visually applies to the full beam path. Test: set a laser beam thickness to 5, pass it through a lens - the beam after the lens should still be thick. Place a filter blocking that laser, pass beam through an AOM first - the filter should correctly block it.",
+      "branch": "feat/ray-propagation-fix",
+      "worktree_path": "C:\\Users\\ofriw\\PycharmProjects\\OptiLab-worktrees\\feat-ray-propagation-fix",
+      "status": "fix-requested",
+      "fix_notes": "make the wider beam 3 times wider",
+      "reject_reason": null,
+      "decided_at": "2026-06-16T21:20:53.935664",
       "merged_at": null
     },
     {
@@ -418,18 +430,6 @@
       "fix_notes": "the fiber coupler should rotate so the arrow will point to the laser beam . mirror works well",
       "reject_reason": null,
       "decided_at": "2026-06-16T21:19:40.116972",
-      "merged_at": null
-    },
-    {
-      "id": 35,
-      "name": "Fix ray propagation drops laserId and thickness",
-      "description": "Fixes two bugs with the same root cause: beam laserId and thickness properties were lost when a ray passed through AOM, lens, fiber-coupler, amplifier, or iris, because those branches constructed new ray objects explicitly without spreading the original ray properties. (1) Filter bug: filters now correctly block beams even when the beam passed through other components first. (2) Beam thickness bug: the beam thickness setting on a laser now visually applies to the full beam path. Test: set a laser beam thickness to 5, pass it through a lens - the beam after the lens should still be thick. Place a filter blocking that laser, pass beam through an AOM first - the filter should correctly block it.",
-      "branch": "feat/ray-propagation-fix",
-      "worktree_path": "C:\\Users\\ofriw\\PycharmProjects\\OptiLab-worktrees\\feat-ray-propagation-fix",
-      "status": "fix-requested",
-      "fix_notes": "make the wider beam 3 times wider",
-      "reject_reason": null,
-      "decided_at": "2026-06-16T21:20:53.935664",
       "merged_at": null
     }
   ]
