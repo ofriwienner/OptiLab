@@ -1533,7 +1533,7 @@ function drawCustom(el) {
 
     if (!el.customNoBorder) {
         ctx.strokeStyle = el.customBorderColor || '#93c5fd';
-        ctx.lineWidth = 1.5 / sc;
+        ctx.lineWidth = 2.5 / sc;
         ctx.stroke();
     }
 
