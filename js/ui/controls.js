@@ -897,6 +897,9 @@ function cycleSnapRotation(el, inc) {
                 validAngles.push(angI - Math.PI / 4);
             }
         });
+    } else if (el.type === 'fiber-coupler') {
+        const angI = Math.atan2(I.y, I.x);
+        validAngles.push(angI + Math.PI);
     } else {
         const angI = Math.atan2(I.y, I.x);
         validAngles.push(angI + Math.PI / 2);
