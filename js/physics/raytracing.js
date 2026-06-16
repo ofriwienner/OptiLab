@@ -57,9 +57,7 @@ function traceRay(ray, depth, results) {
         const dp = dot(inc, { x: nx, y: ny });
 
         // Track first hit on selected element for smart alignment
-        if (selection.has(hitObject) && !lastHitOnSelected &&
-            (hitObject.type.includes('mirror') ||
-             ['splitter', 'pbs', 'aom', 'lens'].includes(hitObject.type))) {
+        if (selection.has(hitObject) && !lastHitOnSelected && hitObject.type !== 'board') {
             lastHitOnSelected = { el: hitObject, incoming: inc };
         }
 
