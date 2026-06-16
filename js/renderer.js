@@ -982,7 +982,7 @@ function drawRays(rays) {
 
         const stokesAngle = getStokesAngle(seg.stokes);
         const isCircular = Math.abs(seg.stokes[3]) > (seg.stokes[0] * 0.1);
-        const isVertical = !isCircular && seg.stokes[0] > 0 && seg.stokes[1] < -0.1 * seg.stokes[0];
+        const isVertical = !isCircular && seg.stokes[0] > 0 && seg.stokes[1] < -0.9 * seg.stokes[0];
 
         const step = 40 * view.scale;
         for (let d = step; d < dist - step / 2; d += step) {
