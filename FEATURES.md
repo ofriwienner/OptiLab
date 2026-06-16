@@ -10,16 +10,17 @@
 ---
 
 ## Inbox
-1. When zooming out the gui is very laggy
-2. in this case, the measurement doesnt need to be a child of the board ![img.png](img.png)
-3. When board is not selected , allow dragging over it for selection box (the situation right now). when the board is selected, dragging it will move it (right now only the small handle allow moving it, after the fix it can be dragged from everywhere). 
-4. When two beams mixed, plot both of them instead of a mix color (blue + red and not single purple)
-5. Bug - when resizing a board, the board jump to some weird size instead of starting from the current size
-6. Allow resizing board from all the corners
-7. bug - opacity value isnt saved to library and sometimes its randomly reset to 100% for custom componentes
-8. Make the preset colors for custom components more appropriate with the theme colors
-9. Custom components - move in half grid
-10. Dont show the keyboard hint box when measurement is selected 
+1. When zooming out the gui is very laggy - ❓ Needs investigation (root cause unclear)
+2. in this case, the measurement doesnt need to be a child of the board ![img.png](img.png) - ❓ Needs clarification (image not parseable)
+3. ✅ Board drag when selected - Done (feat #22)
+4. When two beams mixed, plot both - ⏭️ TBD/complex
+5. ✅ Bug - board resize jump → feat #28 (📋 pending review)
+6. ✅ Resize from all corners → feat #28 (📋 pending review)
+7. ✅ Opacity not saved to library → feat #29 (📋 pending review)
+8. ✅ Preset colors more theme-appropriate → feat #30 (📋 pending review)
+9. ✅ Custom components - half grid → feat #31 (📋 pending review)
+10. ✅ No keyboard hint for measurement → feat #32 (📋 pending review)
+11. ✅ Angled line for mixed V+H polarization → feat #33 (📋 pending review)
 
 ---
 
@@ -72,34 +73,34 @@
 ## Clarification Questions
 
 **Q1 - "Verify physical behavior and write a report" (#7)**
-- What format should the report be? A Markdown file in the repo? Inline comments?
-- What does "verify" mean - trace through the Mueller matrix math and document expected vs actual output? Or just describe each component's behavior?
-- Which components need verification? All of them?
+- What format should the report be? A Markdown file in the repo? Inline comments? **md**
+- What does "verify" mean - trace through the Mueller matrix math and document expected vs actual output? Or just describe each component's behavior? **expected vs actual**
+- Which components need verification? All of them? **yes**
 
 **Q2 - "Input fiber automatically snaps to direction of laser" (#10)**
-- Does this mean: when you place a fiber coupler near a beam, it auto-rotates to align with the beam?
-- Or: when dragging, it snaps its orientation to the nearest beam it's close to?
-- Does it also auto-move to the beam, or just rotate?
+- Does this mean: when you place a fiber coupler near a beam, it auto-rotates to align with the beam? **yes. rotate the arrow in the direction of the beam**
+- Or: when dragging, it snaps its orientation to the nearest beam it's close to? **no**
+- Does it also auto-move to the beam, or just rotate? **just rotate**
 
 **Q3 - "Smart snap mirror always snaps to reflect direction" (#11)**
-- The current S-key snap cycles through all rotation options. The issue is one of those options points the reflective back face toward the beam.
-- Should the fix: (a) remove the back-facing option from the cycle, or (b) always auto-pick the best option without cycling?
+- The current S-key snap cycles through all rotation options. The issue is one of those options points the reflective back face toward the beam. **yes**
+- Should the fix: (a) remove the back-facing option from the cycle, or (b) always auto-pick the best option without cycling? **a**
 
 **Q4 - "Bug - beam thickness doesn't work" (#14)**
 - The slider exists in the laser properties panel and writes to `beamThickness`. The rendering multiplies `lineWidth` by this value.
-- At what zoom level or scenario is the thickness not visible? Is the slider having no effect at all, or is the visual difference just hard to see?
+- At what zoom level or scenario is the thickness not visible? Is the slider having no effect at all, or is the visual difference just hard to see? **i think there wasnt any change, it was in appropriate zoom level**
 
 **Q5 - "Smart move" (#18)**
-- The Hebrew text and attached image couldn't be parsed. Can you rephrase this in English?
-- The image looks like a zoomed-in view of a component with overlapping labels - is the feature about auto-repositioning labels so they don't overlap?
+- The Hebrew text and attached image couldn't be parsed. Can you rephrase this in English? **text of multiple and close components get overlap and it makes it impossible to read** 
+- The image looks like a zoomed-in view of a component with overlapping labels - is the feature about auto-repositioning labels so they don't overlap? **yes**
 
 **Q6 - "How to set laser name?" (#26)**
 - Double-clicking any element (including lasers) already opens a rename prompt.
-- Is the request to: (a) add a dedicated name/title input in the laser properties sidebar panel, or (b) something else?
+- Is the request to: (a) add a dedicated name/title input in the laser properties sidebar panel, or (b) something else? **I want this prompt to rename the laser beam, so when im inside a filter ill see those names instead of laser 1 etc**
 
 **Q7 - "Bug with filter pass/block" (#27)**
 - What specific behavior is wrong? The filter blocks/passes based on `blockedLasers` (array of laser IDs).
-- Does the filter not block when it should, not pass when it should, or does the UI not reflect the current state?
+- Does the filter not block when it should, not pass when it should, or does the UI not reflect the current state? **it doesnt block when it should. i tried blocking all beams and still the laser passed**
 
 ---
 

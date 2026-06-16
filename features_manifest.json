@@ -54,11 +54,11 @@
       "description": "Selecting multiple components shows a dashed bounding box around all selected elements. The rotation handle is at the top-right corner. Dragging it rotates all elements together in 45-degree snaps. The bounding box itself rotates with the group - it keeps its original dimensions and rotates, rather than recomputing as an axis-aligned box. Test: select 2+ components, drag the rotation handle - the dashed box should rotate with the selection, not resize/realign.",
       "branch": "feat/group-rotation",
       "worktree_path": "C:\\Users\\ofriw\\PycharmProjects\\OptiLab-worktrees\\feat-group-rotation",
-      "status": "approved",
+      "status": "merged",
       "fix_notes": null,
       "reject_reason": null,
       "decided_at": "2026-06-14T17:13:45.347075",
-      "merged_at": null
+      "merged_at": "2026-06-15T10:40:11.961493"
     },
     {
       "id": 6,
@@ -78,11 +78,11 @@
       "description": "Press x to flip a component left-right (mirror across Y axis). Press y to flip top-bottom (mirror across X axis). For D-mirrors, x toggles isFlipped. Test: select a laser, press x - it should now point the opposite horizontal direction. Press y - should flip vertically.",
       "branch": "feat/xy-flip",
       "worktree_path": "C:\\Users\\ofriw\\PycharmProjects\\OptiLab-worktrees\\feat-xy-flip",
-      "status": "approved",
+      "status": "merged",
       "fix_notes": null,
       "reject_reason": null,
       "decided_at": "2026-06-15T10:35:47.927017",
-      "merged_at": null
+      "merged_at": "2026-06-15T10:40:12.212268"
     },
     {
       "id": 8,
@@ -210,11 +210,11 @@
       "description": "Each component can be flagged as a 'future plan' via a checkbox in its properties panel. Flagged components appear at 30% opacity. A global 'Show Future Plans' checkbox in the toolbar hides/shows all faded components at once. Test: select a component, check 'Future Plan' - it should fade to 30% opacity. Uncheck the global toggle - it should disappear entirely.",
       "branch": "feat/future-plan-flag",
       "worktree_path": "C:\\Users\\ofriw\\PycharmProjects\\OptiLab-worktrees\\feat-future-plan-flag",
-      "status": "approved",
+      "status": "merged",
       "fix_notes": null,
       "reject_reason": null,
       "decided_at": "2026-06-15T10:36:36.845630",
-      "merged_at": null
+      "merged_at": "2026-06-15T10:40:12.437091"
     },
     {
       "id": 19,
@@ -234,10 +234,10 @@
       "description": "Holding Ctrl while starting to drag a single selected component creates a duplicate in place and drags the duplicate, leaving the original where it was. The clone integrates cleanly into the normal drag flow. Test: select one component, hold Ctrl and drag it - a copy should appear at the original position and move with the mouse. Release to place. Regular drag without Ctrl should be unaffected.",
       "branch": "feat/ctrl-drag-duplicate",
       "worktree_path": "C:\\Users\\ofriw\\PycharmProjects\\OptiLab-worktrees\\feat-ctrl-drag-duplicate",
-      "status": "fix-requested",
-      "fix_notes": "after drag clicking i get stuck on the selected component, and the only way to leave it is to press escape - bug",
+      "status": "pending",
+      "fix_notes": "Fixed: after ctrl+drag completes, ctrlPressed is now cleared in mouseUp via ctrlJustDuplicated flag, so the next click properly deselects.",
       "reject_reason": null,
-      "decided_at": "2026-06-15T10:38:26.013167",
+      "decided_at": null,
       "merged_at": null
     },
     {
@@ -246,11 +246,11 @@
       "description": "Measurement element labels now always face up or to the left - never upside-down. When the element is rotated between 90 and 270 degrees, the label is counter-rotated 180 degrees and positioned above the line from the reader's perspective. Test: place a measurement, rotate it to point downward or to the right - the label should flip to remain readable.",
       "branch": "feat/measure-text-up",
       "worktree_path": "C:\\Users\\ofriw\\PycharmProjects\\OptiLab-worktrees\\feat-measure-text-up",
-      "status": "approved",
+      "status": "merged",
       "fix_notes": null,
       "reject_reason": null,
       "decided_at": "2026-06-15T10:38:47.637434",
-      "merged_at": null
+      "merged_at": "2026-06-15T10:40:12.668709"
     },
     {
       "id": 22,
@@ -258,11 +258,11 @@
       "description": "When a board is already selected, you can drag it from anywhere on its body (not just the move handle). When the board is NOT selected, clicking its body still starts a marquee selection. Also covers group drag: when a board is selected as part of a multi-element group, dragging any element moves the board and its children too. Test: click a board to select it, then drag from its center - it should move. Drag it again without selecting first - it should start a marquee instead.",
       "branch": "feat/board-body-drag",
       "worktree_path": "C:\\Users\\ofriw\\PycharmProjects\\OptiLab-worktrees\\feat-board-body-drag",
-      "status": "approved",
+      "status": "merged",
       "fix_notes": null,
       "reject_reason": null,
       "decided_at": "2026-06-15T10:39:31.885445",
-      "merged_at": null
+      "merged_at": "2026-06-15T10:40:12.883617"
     },
     {
       "id": 23,
@@ -318,6 +318,78 @@
       "description": "Hit testing for element clicks now uses a proper rotated-rectangle test instead of a circular radius. Previously, large elements like twinleaf (245x325mm) had a hit radius of ~216mm, making nearby components impossible to click. Test: place a twinleaf and a small mirror nearby - you should be able to click the mirror without the twinleaf capturing the click.",
       "branch": "feat/hit-radius-fix",
       "worktree_path": "C:\\Users\\ofriw\\PycharmProjects\\OptiLab-worktrees\\feat-hit-radius-fix",
+      "status": "pending",
+      "fix_notes": null,
+      "reject_reason": null,
+      "decided_at": null,
+      "merged_at": null
+    },
+    {
+      "id": 28,
+      "name": "Board resize from all corners + jump fix",
+      "description": "Boards can now be resized by dragging any of the 4 corner handles (not just bottom-right). All 4 corners show small gray squares; the active one turns red. Also fixes a jump bug where the board would snap to a wrong size on the first move because the fixed corner was being re-snapped. Test: select a board, drag the top-left corner - the board should resize from that corner without jumping. Try all 4 corners.",
+      "branch": "feat/board-resize-corners",
+      "worktree_path": "C:\\Users\\ofriw\\PycharmProjects\\OptiLab-worktrees\\feat-board-resize-corners",
+      "status": "pending",
+      "fix_notes": null,
+      "reject_reason": null,
+      "decided_at": null,
+      "merged_at": null
+    },
+    {
+      "id": 29,
+      "name": "Fix custom component opacity not saved",
+      "description": "Two bugs fixed: (1) Saving a custom component to the library now includes its opacity, so loading from library preserves the opacity value. (2) Loading a saved scene (ctrl+s / import) or using undo/redo now correctly restores the opacity of custom components instead of resetting to 100%. Test: create a custom component, set opacity to 40%, save to library. Reload and place from library - opacity should be 40%. Also test ctrl+s then ctrl+z then ctrl+shift+s - opacity should persist across save/load.",
+      "branch": "feat/opacity-library-fix",
+      "worktree_path": "C:\\Users\\ofriw\\PycharmProjects\\OptiLab-worktrees\\feat-opacity-library-fix",
+      "status": "pending",
+      "fix_notes": null,
+      "reject_reason": null,
+      "decided_at": null,
+      "merged_at": null
+    },
+    {
+      "id": 30,
+      "name": "Custom component preset colors update",
+      "description": "The color swatches shown when editing custom component fill/border/text colors now use theme-appropriate colors matching the optical lab UI. New presets include dark navy/slate backgrounds, plus the colors used by built-in components (green=HWP, orange=QWP, purple=PBS, sky blue=fiber, amber=UI highlights). Test: select a custom component and open properties - the 10 swatches should look cohesive with the dark UI, not garish.",
+      "branch": "feat/custom-preset-colors",
+      "worktree_path": "C:\\Users\\ofriw\\PycharmProjects\\OptiLab-worktrees\\feat-custom-preset-colors",
+      "status": "pending",
+      "fix_notes": null,
+      "reject_reason": null,
+      "decided_at": null,
+      "merged_at": null
+    },
+    {
+      "id": 31,
+      "name": "Custom components snap to half-grid",
+      "description": "Custom components (type 'custom') now snap to half-grid (12.5mm) by default when dragging, giving finer placement control than the full 25mm grid. Shift still gives free movement, Ctrl still gives explicit half-grid snap. All other component types are unaffected. Test: drag a custom component - it should snap at 12.5mm intervals. Drag a laser - it should still snap at 25mm (offset) intervals.",
+      "branch": "feat/custom-half-grid",
+      "worktree_path": "C:\\Users\\ofriw\\PycharmProjects\\OptiLab-worktrees\\feat-custom-half-grid",
+      "status": "pending",
+      "fix_notes": null,
+      "reject_reason": null,
+      "decided_at": null,
+      "merged_at": null
+    },
+    {
+      "id": 32,
+      "name": "Hide keyboard hint when measurement selected",
+      "description": "The 'R/T: Rotation | S: Smart' keyboard hint box is no longer shown when a measurement element is selected, since those shortcuts don't apply to measurements. Test: place a measurement and select it - no hint box should appear above it. Select a mirror or laser - hint box should still appear.",
+      "branch": "feat/no-hint-measure",
+      "worktree_path": "C:\\Users\\ofriw\\PycharmProjects\\OptiLab-worktrees\\feat-no-hint-measure",
+      "status": "pending",
+      "fix_notes": null,
+      "reject_reason": null,
+      "decided_at": null,
+      "merged_at": null
+    },
+    {
+      "id": 33,
+      "name": "Mixed polarization shows angled line",
+      "description": "Beams with mixed horizontal+vertical linear polarization (e.g., 45-degree linear, or any beam where S1 is between -90% and +90% of S0) now show an angled line glyph instead of dots. Dots are reserved for near-pure vertical polarization (S1 < -90% of S0). Test: place a laser (horizontal pol), add an HWP at 22.5 degrees - the output beam should show a diagonal line at 45 degrees. Add another HWP to rotate to pure vertical - the beam should then show dots.",
+      "branch": "feat/mixed-pol-angle",
+      "worktree_path": "C:\\Users\\ofriw\\PycharmProjects\\OptiLab-worktrees\\feat-mixed-pol-angle",
       "status": "pending",
       "fix_notes": null,
       "reject_reason": null,
