@@ -178,12 +178,12 @@ function handleMouseDown(e) {
                 elements.push(el);
                 selection.clear();
                 selection.add(el);
-                updateUI();
             }
             isMeasureMode = false;
             measureP1 = null;
             updateMeasureBtn();
             canvas.style.cursor = 'default';
+            updateUI();
             draw();
         }
         return;
