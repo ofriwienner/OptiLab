@@ -13,17 +13,25 @@ This document describes the workflow for implementing multiple features in paral
 
 ## Step-by-Step
 
-### 1. Filter the feature list
+### 1. Filter and collect work items
+
+**New features** (from user request or FEATURES.md):
 - Skip already-implemented items
-- Skip items marked ==TBD== or with missing specs
+- Skip items marked TBD or with missing specs
 - Note skipped items and why
+
+**Pending fixes** (from `features_manifest.json`):
+- Read the manifest and collect all entries with `"status": "fix-requested"`
+- Each has a `fix_notes` field describing what to fix and a `worktree_path` that already exists
+- Include these alongside new features in the parallel work batch
 
 ### 2. Create implementation plan
 - Read relevant source files before planning
-- For each feature: identify exact files and lines to change, describe the diff
+- For each new feature: identify exact files and lines to change, describe the diff
+- For each fix: read the existing worktree's code to understand the bug, describe how to fix it
 - Flag dependencies between features (if feature B needs feature A, sequence them)
 
-### 3. Create branches and worktrees
+### 3. Create branches and worktrees (new features only)
 ```powershell
 cd "C:\Users\ofriw\PycharmProjects\OptiLab"
 
@@ -32,13 +40,16 @@ git worktree add "..\OptiLab-worktrees\feat-<name>" feat/<name>
 ```
 Worktrees live at `C:\Users\ofriw\PycharmProjects\OptiLab-worktrees\`.
 
+**Fix-requested features already have worktrees** - do NOT create new ones, work in the existing `worktree_path` from the manifest.
+
 ### 4. Spawn agents in parallel
-- One Agent tool call per feature, all in the same message (parallel execution)
+- One Agent tool call per item (new feature OR fix), all in the same message
 - Each agent works ONLY in its own worktree directory
 - Each agent commits its changes with a descriptive message
+- For fixes: tell the agent the feature description, the fix_notes, and the worktree path; the agent reads the existing code, applies the fix, and commits
 
 ### 5. Update features_manifest.json
-After agents complete, write an entry per feature into `features_manifest.json`:
+For **new features**, add an entry:
 ```json
 {
   "id": N,
@@ -53,6 +64,8 @@ After agents complete, write an entry per feature into `features_manifest.json`:
   "merged_at": null
 }
 ```
+
+For **fixed features**, update the existing entry: set `"status": "pending"` and `"fix_notes": null`.
 
 ### 6. Launch review script
 ```

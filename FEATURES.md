@@ -37,15 +37,15 @@
 | 7 | Verify physical behavior of all components - write a report | ❓ | See question #1 |
 | 8 | Color picker with preexisting colors | ✅ | Approved, merging |
 | 9 | x / y to flip | ✅ | Approved, merging |
-| 10 | Input fiber automatically snaps to laser direction | ❓ | See question #2 |
-| 11 | Smart snap mirror - only reflect direction | ❓ | See question #3 |
+| 10 | Input fiber automatically snaps to laser direction | 📋 | feat #34 pending review |
+| 11 | Smart snap mirror - only reflect direction | 📋 | feat #34 pending review |
 | 12 | Give different colors to different lasers (preset list) | 📋 | Auto-assign unique color from preset palette on placement |
 | 13 | Bug - colored laser beam is mix of color and red | 📋 | Glow rendering bug in drawRays (rgba string malformed) |
-| 14 | Bug - beam thickness doesn't work | ❓ | See question #4 |
+| 14 | Bug - beam thickness doesn't work | 📋 | feat #35 pending review |
 | 15 | Show vertical polarization as dots (horizontal stays as lines) | 📋 | Stokes S1 < 0 → draw dot glyph instead of line |
 | 16 | Short click on dial = toggle next value (22.5°). Double click = reset. Hold = drag | 📋 | Track click duration on mousedown/mouseup for waveplate/cell knobs |
 | 17 | If two beams with different colors on same location - ... | ⏭️ | TBD |
-| 18 | Smart move (overlap text) | ❓ | See question #5 |
+| 18 | Smart move (overlap text) | ⏭️ | Complex UX - deferred |
 | 19 | Keyboard shortcuts work in Hebrew keyboard mode | 📋 | Use `e.code` (layout-independent) alongside `e.key` |
 | 20 | Add combined λ/2 + λ/4 component | ⏭️ | Deferred - needs physics design |
 | 21 | Change measurement length by dragging from the end | ⏭️ | Deferred - complex interaction, no clear spec |
@@ -53,8 +53,8 @@
 | 23 | Move to back (always in front of board) | 📋 | Reorder element just after last board in elements array |
 | 24 | Copy/paste custom component keeps original size | 📋 | Bug in pasteElements: setupType() overwrites w/h for custom type |
 | 25 | Middle click to pan while dragging a component | 📋 | Fix handleMouseUp to not cancel drag when releasing middle button |
-| 26 | How to set laser name? | ❓ | See question #6 |
-| 27 | Bug with filter pass/block | ❓ | See question #7 |
+| 26 | How to set laser name? | 📋 | feat #36 pending review |
+| 27 | Bug with filter pass/block | 📋 | feat #35 pending review |
 | 28 | Measurement tool - half grid resolution when moving | 📋 | Snap measure elements to HALF_GRID_MM (12.5mm) during drag |
 | 29 | Copy a board copies all components on it | 📋 | copySelected() to include board children |
 | 30 | Flag component as future plan (faded / hidden / per-component toggle) | 📋 | Add isFuturePlan bool + global showFuturePlans toggle |

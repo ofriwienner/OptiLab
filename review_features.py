@@ -12,8 +12,16 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import textwrap
 from pathlib import Path
 from datetime import datetime
+
+
+def wrap(text, indent="  ", width=80):
+    """Print text wrapped at width, with continuation lines indented."""
+    lines = textwrap.wrap(str(text), width=width - len(indent),
+                          initial_indent=indent, subsequent_indent=indent)
+    print("\n".join(lines) if lines else "")
 
 MANIFEST = Path(__file__).parent / "features_manifest.json"
 REPO_ROOT = Path(__file__).parent
@@ -38,7 +46,7 @@ def load():
         print(f"Manifest not found: {MANIFEST}")
         print("It will be created automatically when features are implemented.")
         sys.exit(1)
-    with open(MANIFEST, encoding="utf-8") as f:
+    with open(MANIFEST, encoding="utf-8-sig") as f:
         return json.load(f)
 
 
@@ -161,10 +169,21 @@ def launch(feature):
 
 def run_claude_fix(feature, fix_desc):
     path = feature["worktree_path"]
+    prompt = (
+        f"You are fixing a bug in a git worktree for OptiLab (a static HTML/JS optical bench simulator). "
+        f"OptiLab is plain JS/HTML with no build step - all source is in js/ and styles/. "
+        f"Key files: js/config.js (globals), js/element.js (Element class), js/input.js (mouse/keyboard), "
+        f"js/renderer.js (canvas drawing), js/state.js (save/load/undo), js/ui/controls.js (sidebar UI), "
+        f"js/physics/raytracing.js (ray casting), js/physics/optics.js (Mueller matrices).\n\n"
+        f"Feature being fixed: {feature['name']}\n"
+        f"Feature description: {feature['description']}\n\n"
+        f"Bug to fix: {fix_desc}\n\n"
+        f"Read the relevant source files, locate the bug, fix it, then commit with an appropriate message."
+    )
     print(f"\n  Running Claude in worktree to apply fix...")
     print(f"  Fix: {fix_desc}\n")
     result = subprocess.run(
-        ["claude", "-p", fix_desc, "--dangerously-skip-permissions"],
+        ["claude", "-p", prompt, "--dangerously-skip-permissions"],
         cwd=path,
         stdin=subprocess.DEVNULL,
     )
@@ -214,7 +233,8 @@ def header(text, width=62):
 
 
 def handle_fix_requested(feature, data):
-    print(f"\n  Stored fix: {feature['fix_notes']}")
+    print("\n  Stored fix:")
+    wrap(feature['fix_notes'], "    ")
     print("\n  Options:")
     print("    [R] Run Claude now to apply this fix")
     print("    [E] Edit the fix description first")
@@ -231,7 +251,7 @@ def handle_fix_requested(feature, data):
                 print("  Fix applied. Re-launching browser for re-test...")
                 launch(feature)
                 print("\n  Test the fix, then decide:")
-                print("    [A] Approve      [R] Reject      [F] Still needs fixing      [S] Skip")
+                print("    [A] Approve      [R] Reject      [F] Still needs fixing      [B] Accept + fix note      [S] Skip")
                 return handle_normal_decision(feature, data)
             else:
                 print("  Claude exited with errors. Still marked fix-requested.")
@@ -250,7 +270,7 @@ def handle_fix_requested(feature, data):
                     print("  Fix applied. Re-launching browser for re-test...")
                     launch(feature)
                     print("\n  Test the fix, then decide:")
-                    print("    [A] Approve      [R] Reject      [F] Still needs fixing      [S] Skip")
+                    print("    [A] Approve      [R] Reject      [F] Still needs fixing      [B] Accept + fix note      [S] Skip")
                     return handle_normal_decision(feature, data)
                 else:
                     print("  Claude exited with errors. Still marked fix-requested.")
@@ -258,7 +278,10 @@ def handle_fix_requested(feature, data):
             break
 
         elif choice == "S":
-            print("  Skipped.")
+            print("  Skipped (moved to end of queue).")
+            data["features"].remove(feature)
+            data["features"].append(feature)
+            save(data)
             break
 
         else:
@@ -312,17 +335,55 @@ def handle_normal_decision(feature, data):
                     print("  Claude exited with errors. Marked fix-requested.")
                     save(data)
             else:
-                print(f"\n  To apply manually:")
-                print(f"    cd \"{feature['worktree_path']}\"")
-                print(f"    claude -p \"{fix_desc}\"")
+                print(f"\n  Fix saved. Run review_features.py again and press R when this feature comes up.")
+            break
+
+        elif choice == "B":
+            fix_desc = input("  Describe the fix: ").strip()
+            if not fix_desc:
+                print("  Fix description cannot be empty.")
+                continue
+            ok, err = merge_branch(feature)
+            if not ok:
+                print(f"  Merge failed: {err}")
+                save(data)
+                break
+            print(f"  Merged: {feature['name']}")
+            feature["fix_notes"] = fix_desc
+            feature["status"] = "fix-requested"
+            feature["decided_at"] = datetime.now().isoformat()
+            feature["merged_at"] = datetime.now().isoformat()
+            save(data)
+            print("  Branch kept alive. Will reappear in queue once fix is applied.")
+
+            auto = input("  Run Claude now to apply fix? [Y/n]: ").strip().upper()
+            if auto != "N":
+                ok2 = run_claude_fix(feature, fix_desc)
+                if ok2:
+                    feature["status"] = "pending"
+                    feature["fix_notes"] = None
+                    save(data)
+                    print("  Fix applied. Re-launching browser for re-test...")
+                    launch(feature)
+                    print("\n  Test the fix, then decide:")
+                    print("    [A] Approve      [R] Reject      [F] Still needs fixing      [B] Accept + fix note      [S] Skip")
+                    return handle_normal_decision(feature, data)
+                else:
+                    print("  Claude exited with errors. Still queued as fix-requested.")
+                    save(data)
+            else:
+                print("  Fix saved. Run review_features.py again and press R when this feature comes up.")
             break
 
         elif choice == "S":
-            print("  Skipped.")
+            print("  Skipped (moved to end of queue).")
+            data["features"].remove(feature)
+            data["features"].append(feature)
+            save(data)
             break
 
         else:
-            print("  Enter A, R, F, or S.")
+            print("  Enter A, R, F, B, or S.")
 
 
 def review():
@@ -352,8 +413,9 @@ def review():
             is_fix = feature["status"] == "fix-requested"
             tag = " [FIX]" if is_fix else ""
             print(f"\n[{idx}/{len(queue)}]  {feature['name']}{tag}")
-            print(f"  Branch:      {feature['branch']}")
-            print(f"  Description: {feature['description']}")
+            print(f"  Branch: {feature['branch']}")
+            print("  Description:")
+            wrap(feature['description'], "    ")
 
             if is_fix:
                 handle_fix_requested(feature, data)
@@ -361,7 +423,7 @@ def review():
                 print("\n  Launching browser...")
                 launch(feature)
                 print("\n  Take your time to test. When ready:")
-                print("    [A] Approve      [R] Reject")
+                print("    [A] Approve      [R] Reject      [B] Accept + fix note")
                 print("    [F] Fix needed   [S] Skip (decide later)")
                 handle_normal_decision(feature, data)
 
@@ -379,9 +441,11 @@ def review():
         if group:
             print(f"  {status:<16} {len(group)}")
             for f in group:
-                note = f" - {f.get('reject_reason', '')}" if status == "rejected" and f.get("reject_reason") else ""
-                fix = f" - {f.get('fix_notes', '')}" if status == "fix-requested" and f.get("fix_notes") else ""
-                print(f"    - {f['name']}{note}{fix}")
+                print(f"    - {f['name']}")
+                if status == "rejected" and f.get("reject_reason"):
+                    wrap(f"Reason: {f['reject_reason']}", "        ")
+                if status == "fix-requested" and f.get("fix_notes"):
+                    wrap(f"Fix: {f['fix_notes']}", "        ")
 
     # --- Merge prompt ---
     approved = by_status.get("approved", [])
