@@ -757,6 +757,10 @@ function handleMouseMove(e) {
                         // Measurement always snaps to half grid
                         newX = Math.round(rawX / HALF_GRID_MM) * HALF_GRID_MM;
                         newY = Math.round(rawY / HALF_GRID_MM) * HALF_GRID_MM;
+                    } else if (el.type === 'custom' && !shiftPressed && !ctrlPressed) {
+                        // Custom components snap to half grid by default
+                        newX = Math.round(rawX / HALF_GRID_MM) * HALF_GRID_MM;
+                        newY = Math.round(rawY / HALF_GRID_MM) * HALF_GRID_MM;
                     } else if (shiftPressed) {
                         // Free movement - no snapping
                         newX = rawX;
