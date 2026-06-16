@@ -67,6 +67,7 @@ let ctrlPressed = false;
 let lastHitOnSelected = null;
 let invalidBoardPlacement = false;
 let originalBoardState = null;
+let resizeCorner = 'br';
 let groupRotateState = null; // { centroid, startAngle, initials: Map<el,{x,y,rotation}> }
 const keys = {};
 

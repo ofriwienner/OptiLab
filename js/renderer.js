@@ -938,15 +938,22 @@ function drawBoardHandles(el, sc) {
     ctx.font = '10px sans-serif';
     ctx.fillText('↻', mh.x + 18 + 7.5, mh.y + 7.5);
 
-    // Resize Handle
-    const rh = el.getResizeHandlePosition();
-    ctx.beginPath();
-    ctx.rect(rh.x - 5, rh.y - 5, 10, 10);
-    ctx.fillStyle = isResizing ? '#f87171' : '#9ca3af';
-    ctx.fill();
-    ctx.strokeStyle = 'white';
-    ctx.lineWidth = 1 / sc;
-    ctx.stroke();
+    // Resize handles at all 4 corners
+    const rCorners = [
+        { dx: el.width / 2, dy: el.height / 2, key: 'br' },
+        { dx: -el.width / 2, dy: el.height / 2, key: 'bl' },
+        { dx: el.width / 2, dy: -el.height / 2, key: 'tr' },
+        { dx: -el.width / 2, dy: -el.height / 2, key: 'tl' },
+    ];
+    rCorners.forEach(c => {
+        ctx.beginPath();
+        ctx.rect(c.dx - 5, c.dy - 5, 10, 10);
+        ctx.fillStyle = (isResizing && resizeCorner === c.key) ? '#f87171' : '#9ca3af';
+        ctx.fill();
+        ctx.strokeStyle = 'white';
+        ctx.lineWidth = 1 / sc;
+        ctx.stroke();
+    });
 }
 
 /**
