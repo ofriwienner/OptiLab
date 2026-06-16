@@ -937,6 +937,7 @@ function handleWheel(e) {
  * @param {KeyboardEvent} e - Keyboard event
  */
 function handleKeyDown(e) {
+    if (e.repeat) return;
     keys[e.key] = true;
     if (e.key === 'Shift') shiftPressed = true;
     if (e.key === 'Control' || e.key === 'Meta') ctrlPressed = true;
