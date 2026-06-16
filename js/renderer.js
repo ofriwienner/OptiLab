@@ -654,6 +654,29 @@ function drawTwinleaf(el) {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText('TWINLEAF', 0, 0);
+
+    // Optical opening dots at center of each edge
+    const dotR = 4.5;
+    const dotPositions = [
+        { x: 0,      y: -h / 2 }, // top
+        { x: w / 2,  y: 0      }, // right
+        { x: 0,      y:  h / 2 }, // bottom
+        { x: -w / 2, y: 0      }, // left
+    ];
+    dotPositions.forEach(pos => {
+        ctx.beginPath();
+        ctx.arc(pos.x, pos.y, dotR, 0, Math.PI * 2);
+        ctx.fillStyle = '#1e3050';
+        ctx.fill();
+        ctx.strokeStyle = '#88bbdd';
+        ctx.lineWidth = 1.2;
+        ctx.stroke();
+        // Small highlight dot
+        ctx.beginPath();
+        ctx.arc(pos.x - 1, pos.y - 1, 1.2, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(200, 230, 255, 0.7)';
+        ctx.fill();
+    });
 }
 
 /**
