@@ -356,6 +356,7 @@ function startCustomComponentDrag(e, template) {
     el.customTextColor = template.customTextColor || '#ffffff';
     el.customFontSize = template.customFontSize || 10;
     el.customFontBold = !!template.customFontBold;
+    el.customOpacity = template.customOpacity ?? 1;
 
     elements.push(el);
     selection.clear();
