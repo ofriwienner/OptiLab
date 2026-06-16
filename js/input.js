@@ -358,13 +358,25 @@ function handleMouseDown(e) {
 
         // Board handles
         if (primary.type === 'board' && !primary.locked) {
-            const rh = primary.getResizeHandlePosition();
-            const rhS = worldToScreen(primary.x + rh.x, primary.y + rh.y);
-
-            // Resize handle
-            if ((m.x - rhS.x) ** 2 + (m.y - rhS.y) ** 2 < 100) {
+            // Resize handles - check all 4 corners
+            const resizeCorners = [
+                { key: 'br', dx: primary.width / 2, dy: primary.height / 2 },
+                { key: 'bl', dx: -primary.width / 2, dy: primary.height / 2 },
+                { key: 'tr', dx: primary.width / 2, dy: -primary.height / 2 },
+                { key: 'tl', dx: -primary.width / 2, dy: -primary.height / 2 },
+            ];
+            let hitCornerKey = null;
+            for (const c of resizeCorners) {
+                const cs = worldToScreen(primary.x + c.dx, primary.y + c.dy);
+                if ((m.x - cs.x) ** 2 + (m.y - cs.y) ** 2 < 100) {
+                    hitCornerKey = c.key;
+                    break;
+                }
+            }
+            if (hitCornerKey) {
                 saveToHistory();
                 isResizing = true;
+                resizeCorner = hitCornerKey;
                 originalBoardState = { w: primary.width, h: primary.height, x: primary.x, y: primary.y };
                 let minX = primary.x - primary.width / 2;
                 let minY = primary.y - primary.height / 2;
@@ -671,34 +683,41 @@ function handleMouseMove(e) {
     if (isResizing) {
         const p = Array.from(selection).pop();
         if (p && p.type === 'board') {
-            const oldTLx = originalBoardState.x - originalBoardState.w / 2;
-            const oldTLy = originalBoardState.y - originalBoardState.h / 2;
-            let newW = Math.max(originalBoardState.minW, w.x - oldTLx);
-            let newH = Math.max(originalBoardState.minH, w.y - oldTLy);
+            const ox = originalBoardState.x, oy = originalBoardState.y;
+            const ow = originalBoardState.w, oh = originalBoardState.h;
+            const minW = originalBoardState.minW, minH = originalBoardState.minH;
+            let fixedX, fixedY, newW, newH, newCx, newCy;
+            if (resizeCorner === 'br') {
+                fixedX = ox - ow / 2; fixedY = oy - oh / 2;
+                newW = Math.max(minW, w.x - fixedX);
+                newH = Math.max(minH, w.y - fixedY);
+                newCx = fixedX + newW / 2; newCy = fixedY + newH / 2;
+            } else if (resizeCorner === 'bl') {
+                fixedX = ox + ow / 2; fixedY = oy - oh / 2;
+                newW = Math.max(minW, fixedX - w.x);
+                newH = Math.max(minH, w.y - fixedY);
+                newCx = fixedX - newW / 2; newCy = fixedY + newH / 2;
+            } else if (resizeCorner === 'tr') {
+                fixedX = ox - ow / 2; fixedY = oy + oh / 2;
+                newW = Math.max(minW, w.x - fixedX);
+                newH = Math.max(minH, fixedY - w.y);
+                newCx = fixedX + newW / 2; newCy = fixedY - newH / 2;
+            } else {
+                fixedX = ox + ow / 2; fixedY = oy + oh / 2;
+                newW = Math.max(minW, fixedX - w.x);
+                newH = Math.max(minH, fixedY - w.y);
+                newCx = fixedX - newW / 2; newCy = fixedY - newH / 2;
+            }
             if (!shiftPressed) {
-                // Round width/height to grid, then ensure edges stay between grid points (at multiples of GRID_PITCH_MM)
                 newW = Math.round(newW / GRID_PITCH_MM) * GRID_PITCH_MM;
                 newH = Math.round(newH / GRID_PITCH_MM) * GRID_PITCH_MM;
-                // Snap top-left corner to be between grid points (at multiples of GRID_PITCH_MM)
-                const snappedLeft = Math.round(oldTLx / GRID_PITCH_MM) * GRID_PITCH_MM;
-                const snappedTop = Math.round(oldTLy / GRID_PITCH_MM) * GRID_PITCH_MM;
-                const newCx = snappedLeft + newW / 2;
-                const newCy = snappedTop + newH / 2;
-                invalidBoardPlacement = checkBoardOverlap(p, newCx, newCy, newW, newH);
-                p.width = newW;
-                p.height = newH;
-                p.x = newCx;
-                p.y = newCy;
-            } else {
-                // Free resize - keep current top-left, just update size
-                const newCx = oldTLx + newW / 2;
-                const newCy = oldTLy + newH / 2;
-                invalidBoardPlacement = checkBoardOverlap(p, newCx, newCy, newW, newH);
-                p.width = newW;
-                p.height = newH;
-                p.x = newCx;
-                p.y = newCy;
+                newCx = fixedX + (resizeCorner.includes('l') ? -1 : 1) * newW / 2;
+                newCy = fixedY + (resizeCorner.includes('t') ? -1 : 1) * newH / 2;
             }
+            newW = Math.max(minW, newW);
+            newH = Math.max(minH, newH);
+            invalidBoardPlacement = checkBoardOverlap(p, newCx, newCy, newW, newH);
+            p.width = newW; p.height = newH; p.x = newCx; p.y = newCy;
             draw();
         }
         return;
