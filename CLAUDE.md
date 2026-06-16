@@ -28,6 +28,8 @@ When the user says **"bulk features"**, **"implement these features"**, **"do th
 
 Do NOT merge any feature without explicit user confirmation via the review script.
 
+After every bulk feature batch, fix round, or merge operation: update both `FEATURES.md` and `features_manifest.json` to reflect the current status of all affected features. Keep them in sync - statuses, fix_notes, and merged/pending designations should match between the two files.
+
 ## Coding Conventions
 
 - No comments unless the why is non-obvious

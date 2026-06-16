@@ -12,15 +12,15 @@
 ## Inbox
 1. When zooming out the gui is very laggy - ❓ Needs investigation (root cause unclear)
 2. in this case, the measurement doesnt need to be a child of the board ![img.png](img.png) - ❓ Needs clarification (image not parseable)
-3. ✅ Board drag when selected - Done (feat #22)
+3. ✅ Board drag when selected - Merged (feat #22)
 4. When two beams mixed, plot both - ⏭️ TBD/complex
-5. ✅ Bug - board resize jump → feat #28 (📋 pending review)
-6. ✅ Resize from all corners → feat #28 (📋 pending review)
-7. ✅ Opacity not saved to library → feat #29 (📋 pending review)
-8. ✅ Preset colors more theme-appropriate → feat #30 (📋 pending review)
-9. ✅ Custom components - half grid → feat #31 (📋 pending review)
-10. ✅ No keyboard hint for measurement → feat #32 (📋 pending review)
-11. ✅ Angled line for mixed V+H polarization → feat #33 (📋 pending review)
+5. ✅ Bug - board resize jump - Merged (feat #28)
+6. ✅ Resize from all corners - Merged (feat #28)
+7. ✅ Opacity not saved to library - Fix applied, pending review (feat #29)
+8. ✅ Preset colors more theme-appropriate - Merged (feat #30)
+9. ✅ Custom components - half grid - Merged (feat #31)
+10. ✅ No keyboard hint for measurement - Pending review (feat #32)
+11. ✅ Angled line for mixed V+H polarization - Merged (feat #33)
 
 ---
 
@@ -28,45 +28,45 @@
 
 | # | Feature | Status | Notes |
 |---|---------|--------|-------|
-| 1 | Don't move boards by dragging - only drag symbol | ✅ | Merged |
-| 2 | Cell will rotate beams from all directions | ✅ | Merged |
-| 3 | Allow transparent in custom component | 🔧 | Fix: opacity applies to fill only, not border/text |
+| 1 | Don't move boards by dragging - only drag symbol | ✅ | Merged (feat #1) |
+| 2 | Cell will rotate beams from all directions | ✅ | Merged (feat #3) |
+| 3 | Allow transparent in custom component | ✅ | Merged (feat #4) |
 | 4 | Set text size in custom component | ✅ | Was already implemented |
-| 5 | ctrl+s to save | ✅→📋 | Reworked: ctrl+s = localStorage, ctrl+shift+s = export JSON |
-| 6 | Rotate group when dragging multiple items | 🔧 | Fix: group bounding box border, handle on border, 45° snapping |
+| 5 | ctrl+s to save | ✅ | Merged - ctrl+s = localStorage, ctrl+shift+s = export JSON (feat #19) |
+| 6 | Rotate group when dragging multiple items | ✅ | Merged (feat #5) |
 | 7 | Verify physical behavior of all components - write a report | ❓ | See question #1 |
-| 8 | Color picker with preexisting colors | ✅ | Approved, merging |
-| 9 | x / y to flip | ✅ | Approved, merging |
-| 10 | Input fiber automatically snaps to laser direction | 📋 | feat #34 pending review |
-| 11 | Smart snap mirror - only reflect direction | 📋 | feat #34 pending review |
-| 12 | Give different colors to different lasers (preset list) | 📋 | Auto-assign unique color from preset palette on placement |
-| 13 | Bug - colored laser beam is mix of color and red | 📋 | Glow rendering bug in drawRays (rgba string malformed) |
-| 14 | Bug - beam thickness doesn't work | 📋 | feat #35 pending review |
-| 15 | Show vertical polarization as dots (horizontal stays as lines) | 📋 | Stokes S1 < 0 → draw dot glyph instead of line |
-| 16 | Short click on dial = toggle next value (22.5°). Double click = reset. Hold = drag | 📋 | Track click duration on mousedown/mouseup for waveplate/cell knobs |
+| 8 | Color picker with preexisting colors | ✅ | Merged (feat #6) |
+| 9 | x / y to flip | ✅ | Merged (feat #7) |
+| 10 | Input fiber automatically snaps to laser direction | 📋 | Pending review (feat #34) |
+| 11 | Smart snap mirror - only reflect direction | 📋 | Pending review (feat #34) |
+| 12 | Give different colors to different lasers (preset list) | 📋 | Fix applied, pending review (feat #8) |
+| 13 | Bug - colored laser beam is mix of color and red | ✅ | Merged (feat #9) |
+| 14 | Bug - beam thickness doesn't work | 📋 | Pending review (feat #35) |
+| 15 | Show vertical polarization as dots (horizontal stays as lines) | ✅ | Merged (feat #10) |
+| 16 | Short click on dial = toggle next value (22.5°). Double click = reset. Hold = drag | 📋 | Not yet started |
 | 17 | If two beams with different colors on same location - ... | ⏭️ | TBD |
 | 18 | Smart move (overlap text) | ⏭️ | Complex UX - deferred |
-| 19 | Keyboard shortcuts work in Hebrew keyboard mode | 📋 | Use `e.code` (layout-independent) alongside `e.key` |
+| 19 | Keyboard shortcuts work in Hebrew keyboard mode | ✅ | Merged (feat #11) |
 | 20 | Add combined λ/2 + λ/4 component | ⏭️ | Deferred - needs physics design |
 | 21 | Change measurement length by dragging from the end | ⏭️ | Deferred - complex interaction, no clear spec |
-| 22 | Change the size of the twinleaf | 📋 | Add W/H inputs in properties panel when twinleaf selected |
-| 23 | Move to back (always in front of board) | 📋 | Reorder element just after last board in elements array |
-| 24 | Copy/paste custom component keeps original size | 📋 | Bug in pasteElements: setupType() overwrites w/h for custom type |
-| 25 | Middle click to pan while dragging a component | 📋 | Fix handleMouseUp to not cancel drag when releasing middle button |
-| 26 | How to set laser name? | 📋 | feat #36 pending review |
-| 27 | Bug with filter pass/block | 📋 | feat #35 pending review |
-| 28 | Measurement tool - half grid resolution when moving | 📋 | Snap measure elements to HALF_GRID_MM (12.5mm) during drag |
-| 29 | Copy a board copies all components on it | 📋 | copySelected() to include board children |
-| 30 | Flag component as future plan (faded / hidden / per-component toggle) | 📋 | Add isFuturePlan bool + global showFuturePlans toggle |
-| 31 | ctrl+drag to duplicate and move | 📋 | On drag start: if Ctrl held + single element selected, clone it in place and drag clone |
-| 32 | Measurement text always faces up or left | 📋 | In drawMeasure: if rotation puts text upside-down, counter-rotate 180° |
-| 33 | Drag board from body when already selected | 📋 | If board is selected, clicking body starts drag (like move handle); if not selected, body click starts marquee |
-| 34 | Twinleaf edge dots (optical openings) | 📋 | Draw small filled circles at center of each of the 4 edges in drawTwinleaf |
-| 35 | Move board with group drag | 📋 | When board is in multi-selection, dragging any element moves the board too |
-| 36 | Custom component border auto-darken | 📋 | No-border option; fill change auto-sets border to darkened fill; border change is independent |
-| 37 | Bug - shift/ctrl stuck in multi-select mode | 📋 | Reset shiftPressed/ctrlPressed on window blur and visibilitychange |
-| 38 | Double click board body to rename | 📋 | In handleDoubleClick: any board body click triggers rename, not just the title strip above it |
-| 39 | Bug - bounding box too large for big elements | 📋 | Replace circular hit radius Math.max(w,h)/1.5 with proper rotated-AABB point-in-rect test |
+| 22 | Change the size of the twinleaf | ⏭️ | Rejected - unwanted feature |
+| 23 | Move to back (always in front of board) | ✅ | Merged (feat #13) |
+| 24 | Copy/paste custom component keeps original size | ✅ | Merged (feat #14) |
+| 25 | Middle click to pan while dragging a component | ✅ | Merged (feat #15) |
+| 26 | How to set laser name? | ✅ | Merged (feat #36) |
+| 27 | Bug with filter pass/block | 📋 | Pending review (feat #35) |
+| 28 | Measurement tool - half grid resolution when moving | ✅ | Merged (feat #16) |
+| 29 | Copy a board copies all components on it | ✅ | Merged (feat #17) |
+| 30 | Flag component as future plan (faded / hidden / per-component toggle) | ✅ | Merged (feat #18) |
+| 31 | ctrl+drag to duplicate and move | 📋 | Fix applied, pending review (feat #20) |
+| 32 | Measurement text always faces up or left | ✅ | Merged (feat #21) |
+| 33 | Drag board from body when already selected | ✅ | Merged (feat #22) |
+| 34 | Twinleaf edge dots (optical openings) | ✅ | Merged (feat #23) |
+| 35 | Move board with group drag | ✅ | Merged (feat #22) |
+| 36 | Custom component border auto-darken | 📋 | Pending review (feat #24) |
+| 37 | Bug - shift/ctrl stuck in multi-select mode | 📋 | Pending review (feat #25) |
+| 38 | Double click board body to rename | ✅ | Merged (feat #26) |
+| 39 | Bug - bounding box too large for big elements | ✅ | Merged (feat #27) |
 
 ---
 
