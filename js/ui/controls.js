@@ -76,8 +76,26 @@ function updateUI() {
         if (p.type === 'laser') {
             const div = document.createElement('div');
             div.className = "mt-2 border-t border-gray-600 pt-2";
+
+            // Name row
+            const nameRow = document.createElement('div');
+            nameRow.className = "flex items-center justify-between mt-1";
+            const nameLbl = document.createElement('label');
+            nameLbl.className = "text-[9px] text-gray-400";
+            nameLbl.innerText = "Name";
+            const nameInp = document.createElement('input');
+            nameInp.type = 'text';
+            nameInp.value = p.title || '';
+            nameInp.placeholder = 'Laser 1';
+            nameInp.className = "w-28 bg-gray-700 border border-gray-600 rounded px-1 py-0.5 text-[10px] text-white placeholder-gray-500";
+            nameInp.onmousedown = e => e.stopPropagation();
+            nameInp.oninput = e => { p.title = e.target.value; draw(); };
+            nameRow.appendChild(nameLbl);
+            nameRow.appendChild(nameInp);
+            div.appendChild(nameRow);
+
             const label = document.createElement('label');
-            label.className = "text-[9px] text-gray-400 block mb-1";
+            label.className = "text-[9px] text-gray-400 block mb-1 mt-2";
             label.innerText = "Source Polarization";
             div.appendChild(label);
 
