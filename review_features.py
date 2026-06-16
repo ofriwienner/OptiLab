@@ -411,9 +411,13 @@ def review():
 
         for idx, feature in enumerate(queue, 1):
             is_fix = feature["status"] == "fix-requested"
-            tag = " [FIX]" if is_fix else ""
+            has_fix_note = bool(feature.get("fix_notes"))
+            tag = " [FIX]" if is_fix else (" [FIX APPLIED]" if has_fix_note else "")
             print(f"\n[{idx}/{len(queue)}]  {feature['name']}{tag}")
             print(f"  Branch: {feature['branch']}")
+            if not is_fix and has_fix_note:
+                print("  Fix that was applied:")
+                wrap(feature["fix_notes"], "    ")
             print("  Description:")
             wrap(feature['description'], "    ")
 
