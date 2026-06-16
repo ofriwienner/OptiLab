@@ -354,8 +354,8 @@
       "description": "The 'R/T: Rotation | S: Smart' keyboard hint box is no longer shown when a measurement element is selected, since those shortcuts don't apply to measurements. Test: place a measurement and select it - no hint box should appear above it. Select a mirror or laser - hint box should still appear.",
       "branch": "feat/no-hint-measure",
       "worktree_path": "C:\\Users\\ofriw\\PycharmProjects\\OptiLab-worktrees\\feat-no-hint-measure",
-      "status": "fix-requested",
-      "fix_notes": "a mirror will not be auto selected after placing it. no bounding box around it",
+      "status": "pending",
+      "fix_notes": "a measurement wont be selected after placing it. no bounding box around it",
       "reject_reason": null,
       "decided_at": "2026-06-16T22:28:48.999980",
       "merged_at": null
@@ -366,8 +366,8 @@
       "description": "Two S-key auto-align improvements: (1) Fiber couplers now auto-rotate when pressing S to align their arrow with the incoming beam direction. (2) Mirror S-key cycling no longer offers the back-facing orientation - only angles that face the beam toward the reflective surface are shown. Test: place a fiber coupler near a beam at 45 degrees, press S - it should rotate to 45 degrees. Place a mirror, press S - cycling should never point the mirror backward.",
       "branch": "feat/fiber-auto-rotate",
       "worktree_path": "C:\\Users\\ofriw\\PycharmProjects\\OptiLab-worktrees\\feat-fiber-auto-rotate",
-      "status": "fix-requested",
-      "fix_notes": "s",
+      "status": "pending",
+      "fix_notes": null,
       "reject_reason": null,
       "decided_at": "2026-06-16T22:30:09.197540",
       "merged_at": "2026-06-16T22:20:05.036080"
