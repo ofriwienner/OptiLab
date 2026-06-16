@@ -252,7 +252,9 @@ function drawCustomPreview(pctx, template) {
     } else {
         pctx.rect(-w / 2, -h / 2, w, h);
     }
+    pctx.globalAlpha = template.customOpacity ?? 1;
     pctx.fill();
+    pctx.globalAlpha = 1;
     pctx.stroke();
 
     const text = template.customText || '';
