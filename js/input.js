@@ -477,10 +477,13 @@ function handleMouseDown(e) {
     const components = elements.filter(el => el.type !== 'board');
     clicked = components.reverse().find(el => {
         if (el.type === 'measure') return measureLineHit(el, w);
-        const dx = el.x - w.x;
-        const dy = el.y - w.y;
-        const r = Math.max(el.width, el.height) / 1.5;
-        return (dx * dx + dy * dy) < r * r;
+        const cosR = Math.cos(-el.rotation);
+        const sinR = Math.sin(-el.rotation);
+        const dx = w.x - el.x;
+        const dy = w.y - el.y;
+        const localX = dx * cosR - dy * sinR;
+        const localY = dx * sinR + dy * cosR;
+        return Math.abs(localX) <= Math.max(el.width / 2, 10) && Math.abs(localY) <= Math.max(el.height / 2, 10);
     });
 
     // Check boards if no component was clicked
@@ -1350,10 +1353,13 @@ function handleDoubleClick(e) {
             return w.x > el.x - el.width / 2 && w.x < el.x + el.width / 2 &&
                    w.y > el.y - el.height / 2 && w.y < el.y + el.height / 2;
         } else {
-            const dx = el.x - w.x;
-            const dy = el.y - w.y;
-            const r = Math.max(el.width, el.height) / 1.5;
-            return (dx * dx + dy * dy) < r * r;
+            const cosR = Math.cos(-el.rotation);
+            const sinR = Math.sin(-el.rotation);
+            const dx = w.x - el.x;
+            const dy = w.y - el.y;
+            const localX = dx * cosR - dy * sinR;
+            const localY = dx * sinR + dy * cosR;
+            return Math.abs(localX) <= Math.max(el.width / 2, 10) && Math.abs(localY) <= Math.max(el.height / 2, 10);
         }
     });
 
