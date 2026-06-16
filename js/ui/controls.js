@@ -854,6 +854,8 @@ function tryAutoAlign(element) {
             }
         } else if (['splitter', 'pbs', 'aom', 'hwp', 'qwp', 'detector', 'blocker'].includes(element.type)) {
             element.rotation = Math.round(element.rotation / (Math.PI / 2)) * (Math.PI / 2);
+        } else if (element.type === 'fiber-coupler') {
+            element.rotation = Math.atan2(inc.y, inc.x);
         }
     } else {
         hasCycleOptions = false;
@@ -883,7 +885,9 @@ function cycleSnapRotation(el, inc) {
                 ny /= nlen;
                 const angle = Math.atan2(nx, -ny);
                 validAngles.push(angle);
-                validAngles.push(angle + Math.PI);
+                if (!el.type.includes('mirror')) {
+                    validAngles.push(angle + Math.PI);
+                }
             }
             if (!el.type.includes('mirror')) {
                 const angI = Math.atan2(I.y, I.x);
