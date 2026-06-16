@@ -128,6 +128,7 @@ function moveToBack(el) {
         if (elements[i].type === 'board') insertIdx = i + 1;
     }
     elements.splice(insertIdx, 0, el);
+    selection.clear();
     draw();
     updateUI();
 }
