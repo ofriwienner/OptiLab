@@ -198,13 +198,13 @@ function traceRay(ray, depth, results) {
                 // AOM off - beam passes through
                 const passStokes = ray.stokes.map(v => v * 0.95);
                 traceRay({
+                    ...ray,
                     x: closestHit.x + incDir.x * 0.1,
                     y: closestHit.y + incDir.y * 0.1,
                     dx: incDir.x,
                     dy: incDir.y,
                     intensity: passStokes[0],
-                    stokes: passStokes,
-                    color: ray.color
+                    stokes: passStokes
                 }, depth + 1, results);
                 return;
             }
@@ -223,35 +223,35 @@ function traceRay(ray, depth, results) {
                 const deflectedDir = rotatePoint(straightDir, signedTheta);
 
                 traceRay({
+                    ...ray,
                     x: closestHit.x + straightDir.x * 0.1,
                     y: closestHit.y + straightDir.y * 0.1,
                     dx: straightDir.x,
                     dy: straightDir.y,
                     intensity: straightStokes[0],
-                    stokes: straightStokes,
-                    color: ray.color
+                    stokes: straightStokes
                 }, depth + 1, results);
 
                 traceRay({
+                    ...ray,
                     x: closestHit.x + deflectedDir.x * 0.1,
                     y: closestHit.y + deflectedDir.y * 0.1,
                     dx: deflectedDir.x,
                     dy: deflectedDir.y,
                     intensity: diffractedStokes[0],
-                    stokes: diffractedStokes,
-                    color: ray.color
+                    stokes: diffractedStokes
                 }, depth + 1, results);
             } else {
                 // Beam enters at angle → exits straight
                 const correctedStokes = ray.stokes.map(v => v * 0.7);
                 traceRay({
+                    ...ray,
                     x: closestHit.x + straightDir.x * 0.1,
                     y: closestHit.y + straightDir.y * 0.1,
                     dx: straightDir.x,
                     dy: straightDir.y,
                     intensity: correctedStokes[0],
-                    stokes: correctedStokes,
-                    color: ray.color
+                    stokes: correctedStokes
                 }, depth + 1, results);
             }
             return;
@@ -261,13 +261,13 @@ function traceRay(ray, depth, results) {
             const outDir = computeLensRefraction(ray, hitObject, closestHit);
             const modStokes = ray.stokes.map(v => v * 0.98);
             traceRay({
+                ...ray,
                 x: closestHit.x + outDir.x * 0.1,
                 y: closestHit.y + outDir.y * 0.1,
                 dx: outDir.x,
                 dy: outDir.y,
                 intensity: modStokes[0],
-                stokes: modStokes,
-                color: ray.color
+                stokes: modStokes
             }, depth + 1, results);
 
         } else if (hitObject.type === 'fiber-coupler' && hitSegment.type === 'fiber-input') {
@@ -284,13 +284,13 @@ function traceRay(ray, depth, results) {
                         // Output from amplifier's right side (direct beam output)
                         const outDir = rotatePoint({ x: 1, y: 0 }, pairedElement.rotation);
                         traceRay({
+                            ...ray,
                             x: outX + outDir.x * (pairedElement.width / 2 + 0.1),
                             y: outY + outDir.y * (pairedElement.width / 2 + 0.1),
                             dx: outDir.x,
                             dy: outDir.y,
                             intensity: ampStokes[0],
-                            stokes: ampStokes,
-                            color: ray.color
+                            stokes: ampStokes
                         }, depth + 1, results);
                     } else {
                         // Paired with another fiber coupler: teleport to it
@@ -299,13 +299,13 @@ function traceRay(ray, depth, results) {
                         const outY = pairedElement.y;
                         const outDir = rotatePoint({ x: 1, y: 0 }, pairedElement.rotation);
                         traceRay({
+                            ...ray,
                             x: outX + outDir.x * (pairedElement.width / 2 + 0.1),
                             y: outY + outDir.y * (pairedElement.width / 2 + 0.1),
                             dx: outDir.x,
                             dy: outDir.y,
                             intensity: fiberStokes[0],
-                            stokes: fiberStokes,
-                            color: ray.color
+                            stokes: fiberStokes
                         }, depth + 1, results);
                     }
                 }
@@ -327,26 +327,24 @@ function traceRay(ray, depth, results) {
         } else if (hitObject.type === 'iris') {
             // Iris pass-through (visual only for now)
             traceRay({
+                ...ray,
                 x: closestHit.x + inc.x * 0.1,
                 y: closestHit.y + inc.y * 0.1,
                 dx: inc.x,
-                dy: inc.y,
-                intensity: ray.intensity,
-                stokes: ray.stokes,
-                color: ray.color
+                dy: inc.y
             }, depth + 1, results);
 
         } else if (hitObject.type === 'mirror-d' && hitSegment.type === 'blocker') {
             // D-mirror non-reflective part - transmit through
             const modStokes = ray.stokes.map(v => v * 0.95);
             traceRay({
+                ...ray,
                 x: closestHit.x + inc.x * 0.1,
                 y: closestHit.y + inc.y * 0.1,
                 dx: inc.x,
                 dy: inc.y,
                 intensity: modStokes[0],
-                stokes: modStokes,
-                color: ray.color
+                stokes: modStokes
             }, depth + 1, results);
         }
     } else {
