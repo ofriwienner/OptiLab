@@ -473,7 +473,7 @@ function handleMouseDown(e) {
             // ctrl+drag on a single non-board element = duplicate in place and drag the copy
             if (e.button === 0 && ctrlPressed && selection.size === 1) {
                 const src = clicked;
-                const clone = JSON.parse(JSON.stringify(src));
+                const clone = rehydrateElement(JSON.parse(JSON.stringify(src)));
                 clone.id = Date.now() + Math.random();
                 elements.push(clone);
                 selection.clear();
