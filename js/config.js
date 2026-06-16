@@ -61,6 +61,7 @@ let draggedChildren = new Map();
 let lastMousePos = { x: 0, y: 0 };
 let shiftPressed = false;
 let ctrlPressed = false;
+let ctrlJustDuplicated = false;
 let lastHitOnSelected = null;
 let invalidBoardPlacement = false;
 let originalBoardState = null;

@@ -479,6 +479,7 @@ function handleMouseDown(e) {
                 selection.clear();
                 selection.add(clone);
                 clicked = clone;
+                ctrlJustDuplicated = true;
             }
 
             isDragging = true;
@@ -895,6 +896,10 @@ function handleMouseUp() {
     }
 
     isDragging = false;
+    if (ctrlJustDuplicated) {
+        ctrlPressed = false;
+        ctrlJustDuplicated = false;
+    }
     isRotating = false;
     isSelecting = false;
     isResizing = false;
