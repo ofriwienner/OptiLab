@@ -571,10 +571,23 @@ function handleMouseDown(e) {
             }
         } else {
             saveToHistory();
+
+            // ctrl+drag on a single non-board element = duplicate in place and drag the copy
+            if (e.button === 0 && ctrlPressed && selection.size === 1) {
+                const src = clicked;
+                const clone = rehydrateElement(JSON.parse(JSON.stringify(src)));
+                clone.id = Date.now() + Math.random();
+                elements.push(clone);
+                selection.clear();
+                selection.add(clone);
+                clicked = clone;
+                ctrlJustDuplicated = true;
+            }
+
             isDragging = true;
             invalidBoardPlacement = false;
             dragOffsets.clear();
-            
+
             // Check if any selected boards have children that need to move
             draggedChildren.clear();
             const selectedBoards = Array.from(selection).filter(el => el.type === 'board');
@@ -583,8 +596,8 @@ function handleMouseDown(e) {
                     if (child.type !== 'board' && !selection.has(child)) {
                         const parentBoard = getParentBoard(child);
                         if (parentBoard && selectedBoards.includes(parentBoard)) {
-                            draggedChildren.set(child, { 
-                                dx: child.x - parentBoard.x, 
+                            draggedChildren.set(child, {
+                                dx: child.x - parentBoard.x,
                                 dy: child.y - parentBoard.y,
                                 parentBoard: parentBoard
                             });
@@ -592,7 +605,7 @@ function handleMouseDown(e) {
                     }
                 });
             }
-            
+
             selection.forEach(el => dragOffsets.set(el, { dx: el.x - w.x, dy: el.y - w.y }));
         }
         updateUI();
@@ -1026,6 +1039,10 @@ function handleMouseUp(e) {
     }
 
     isDragging = false;
+    if (ctrlJustDuplicated) {
+        ctrlPressed = false;
+        ctrlJustDuplicated = false;
+    }
     isRotating = false;
     groupRotateState = null;
     isSelecting = false;
@@ -1064,6 +1081,7 @@ function handleWheel(e) {
  * @param {KeyboardEvent} e - Keyboard event
  */
 function handleKeyDown(e) {
+    if (e.repeat) return;
     keys[e.key] = true;
     if (e.key === 'Shift') shiftPressed = true;
     if (e.key === 'Control' || e.key === 'Meta') ctrlPressed = true;
