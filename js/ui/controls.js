@@ -849,7 +849,7 @@ function tryAutoAlign(element) {
                 }
             });
 
-            if (bestDiff < Math.PI / 4) {
+            if (bestDiff < Infinity) {
                 element.rotation = bestRot;
             }
         } else if (['splitter', 'pbs', 'aom', 'hwp', 'qwp', 'detector', 'blocker'].includes(element.type)) {
