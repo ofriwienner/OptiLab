@@ -103,6 +103,30 @@ const FIBER_COLORS = [
     '#f97316', // Orange-red
 ];
 
+const LASER_BEAM_COLORS = [
+    '#ff4444',
+    '#44ff44',
+    '#4488ff',
+    '#ffdd00',
+    '#ff44ff',
+    '#44ffff',
+    '#ff8800',
+    '#ff44aa',
+    '#aa44ff',
+    '#00ddaa',
+];
+
+function getNextLaserBeamColor() {
+    const usedColors = new Set(
+        elements.filter(el => el.type === 'laser' && el.beamColor)
+                .map(el => el.beamColor.toLowerCase())
+    );
+    for (const color of LASER_BEAM_COLORS) {
+        if (!usedColors.has(color.toLowerCase())) return color;
+    }
+    return LASER_BEAM_COLORS[0];
+}
+
 // Custom component library (user-defined reusable component templates)
 let customComponentLibrary = [];
 
