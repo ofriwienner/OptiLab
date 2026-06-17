@@ -1200,7 +1200,7 @@ function drawHints() {
     if (selection.size !== 1) return;
 
     const el = Array.from(selection)[0];
-    if (el.type === 'board' || el.locked) return;
+    if (el.type === 'board' || el.type === 'measure' || el.locked) return;
 
     const hints = [];
     hints.push("R/T: Rotation | S: Smart");

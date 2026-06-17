@@ -196,10 +196,12 @@ function handleMouseDown(e) {
                 el.rotation = rot;
                 elements.push(el);
                 selection.clear();
-                selection.add(el);
-                updateUI();
             }
-            measureP1 = null;   // ready for next measurement; mode stays active
+            isMeasureMode = false;
+            measureP1 = null;
+            updateMeasureBtn();
+            canvas.style.cursor = 'default';
+            updateUI();
             draw();
         }
         return;
