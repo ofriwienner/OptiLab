@@ -355,7 +355,7 @@
       "branch": "feat/no-hint-measure",
       "worktree_path": "C:\\Users\\ofriw\\PycharmProjects\\OptiLab-worktrees\\feat-no-hint-measure",
       "status": "pending",
-      "fix_notes": "a measurement wont be selected after placing it. no bounding box around it",
+      "fix_notes": null,
       "reject_reason": null,
       "decided_at": "2026-06-16T22:28:48.999980",
       "merged_at": null
@@ -427,7 +427,7 @@
       "branch": "feat/ray-propagation-fix",
       "worktree_path": "C:\\Users\\ofriw\\PycharmProjects\\OptiLab-worktrees\\feat-ray-propagation-fix",
       "status": "pending",
-      "fix_notes": "the beam width should be 3 times wider",
+      "fix_notes": null,
       "reject_reason": null,
       "decided_at": "2026-06-16T22:06:44.534967",
       "merged_at": null
