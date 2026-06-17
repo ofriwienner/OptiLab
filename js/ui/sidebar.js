@@ -272,7 +272,9 @@ function drawCustomPreview(pctx, template) {
     } else {
         pctx.rect(-w / 2, -h / 2, w, h);
     }
+    pctx.globalAlpha = template.customOpacity ?? 1;
     pctx.fill();
+    pctx.globalAlpha = 1;
     pctx.stroke();
 
     const text = template.customText || '';
@@ -376,6 +378,7 @@ function startCustomComponentDrag(e, template) {
     el.customTextColor = template.customTextColor || '#ffffff';
     el.customFontSize = template.customFontSize || 10;
     el.customFontBold = !!template.customFontBold;
+    el.customOpacity = template.customOpacity ?? 1;
 
     elements.push(el);
     selection.clear();

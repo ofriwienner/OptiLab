@@ -151,6 +151,7 @@ function rehydrateElement(data) {
         if (typeof data.customFontSize === 'number') el.customFontSize = data.customFontSize;
         if (typeof data.customFontBold === 'boolean') el.customFontBold = data.customFontBold;
         el.customNoBorder = data.customNoBorder || false;
+        if (typeof data.customOpacity === 'number') el.customOpacity = data.customOpacity;
     }
 
     return el;
@@ -246,7 +247,8 @@ function saveCustomComponentToLibrary(el) {
         customTextColor: el.customTextColor || '#ffffff',
         customFontSize: el.customFontSize || 10,
         customFontBold: !!el.customFontBold,
-        customNoBorder: !!el.customNoBorder
+        customNoBorder: !!el.customNoBorder,
+        customOpacity: el.customOpacity ?? 1
     };
     customComponentLibrary.push(template);
     saveCustomLibrary();
