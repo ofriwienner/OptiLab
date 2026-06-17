@@ -991,14 +991,14 @@ function drawRays(rays) {
         ctx.moveTo(p1.x, p1.y);
         ctx.lineTo(p2.x, p2.y);
         ctx.strokeStyle = beamColor.replace(/,\s*[\d.]+\s*\)$/, ', 0.25)');
-        ctx.lineWidth = (5 * thickness + 2) * view.scale;
+        ctx.lineWidth = (15 * thickness + 2) * view.scale;
         ctx.stroke();
 
         ctx.beginPath();
         ctx.moveTo(p1.x, p1.y);
         ctx.lineTo(p2.x, p2.y);
         ctx.strokeStyle = beamColor;
-        ctx.lineWidth = 5 * thickness * view.scale;
+        ctx.lineWidth = 15 * thickness * view.scale;
         ctx.stroke();
 
         // Draw Polarization Glyphs
