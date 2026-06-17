@@ -5,10 +5,12 @@ Opens each feature's worktree, lets you test manually, then collect approve / re
 Nothing merges without your explicit confirmation.
 """
 
+import atexit
 import json
 import os
 import re
 import shutil
+import signal
 import subprocess
 import sys
 import tempfile
@@ -109,6 +111,17 @@ def close_browser():
         if tmpdir and Path(tmpdir).exists():
             shutil.rmtree(tmpdir, ignore_errors=True)
     _feature_proc = _feature_tmpdir = _ref_proc = _ref_tmpdir = None
+
+
+atexit.register(close_browser)
+
+
+def _handle_sigint(sig, frame):
+    print("\n\nInterrupted - closing browser windows...")
+    sys.exit(0)
+
+
+signal.signal(signal.SIGINT, _handle_sigint)
 
 
 def launch(feature):

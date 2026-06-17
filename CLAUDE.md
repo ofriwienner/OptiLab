@@ -30,6 +30,15 @@ Do NOT merge any feature without explicit user confirmation via the review scrip
 
 After every bulk feature batch, fix round, or merge operation: update both `FEATURES.md` and `features_manifest.json` to reflect the current status of all affected features. Keep them in sync - statuses, fix_notes, and merged/pending designations should match between the two files.
 
+### Common Pitfalls
+
+- **Re-read `features_manifest.json` before every edit.** The review script modifies it between sessions. Use `Read` then `Edit` - never edit from memory.
+- **PowerShell 5.1 heredocs**: Use `@'...'@` (single-quoted, `'@` at column 0) for multi-line git commit messages. The bash `$(cat <<'EOF'...)` syntax does not work in PowerShell.
+- **Resolving merge conflicts**: After editing conflicted files, run `git add <file>` before `git commit`. Git won't auto-stage manually resolved files.
+- **Cloning elements**: Always use `rehydrateElement(JSON.parse(JSON.stringify(el)))` to deep-copy an Element - never use a plain JSON clone, which loses prototype methods and breaks the app.
+- **`features_manifest.json` status field**: Valid values are `pending`, `approved`, `rejected`, `fix-requested`, `merged`. The review script only shows `pending` and `fix-requested` in the queue.
+- **Agent prompts for worktree fixes**: Agents spawned to fix bugs in worktrees need the `--dangerously-skip-permissions` flag and the `cwd` set to the worktree path.
+
 ## Coding Conventions
 
 - No comments unless the why is non-obvious
