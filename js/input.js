@@ -177,7 +177,6 @@ function handleMouseDown(e) {
                 el.rotation = rot;
                 elements.push(el);
                 selection.clear();
-                selection.add(el);
             }
             isMeasureMode = false;
             measureP1 = null;
