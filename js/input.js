@@ -197,10 +197,9 @@ function handleMouseDown(e) {
                 elements.push(el);
                 selection.clear();
             }
-            isMeasureMode = false;
             measureP1 = null;
             updateMeasureBtn();
-            canvas.style.cursor = 'default';
+            canvas.style.cursor = 'crosshair';
             updateUI();
             draw();
         }
