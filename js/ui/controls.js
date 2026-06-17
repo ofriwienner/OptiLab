@@ -622,7 +622,11 @@ function updateUI() {
             fpCb.className = 'w-3.5 h-3.5 accent-purple-500 cursor-pointer';
             fpCb.onchange = () => {
                 saveToHistory();
-                p.isFuturePlan = fpCb.checked;
+                selection.forEach(el => {
+                    if (el.type !== 'board') {
+                        el.isFuturePlan = fpCb.checked;
+                    }
+                });
                 updateUI();
                 draw();
             };
