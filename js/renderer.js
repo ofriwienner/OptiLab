@@ -95,7 +95,7 @@ function drawElement(el) {
         if (el.type === 'board') {
             ctx.strokeRect(-el.width / 2, -el.height / 2, el.width, el.height);
         } else if (el.type === 'measure') {
-            ctx.strokeRect(-el.width / 2 - 2, -5, el.width + 4, 10);
+            // no selection bounding box for measurements
         } else if (el.type.includes('mirror')) {
             ctx.strokeRect(-el.width / 2 - 2, -2, el.width + 4, el.height + 4);
         } else {
