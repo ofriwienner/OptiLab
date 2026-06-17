@@ -32,6 +32,7 @@ class Element {
             case 'laser':
                 this.width = 50;
                 this.height = 25;
+                this.beamColor = getNextLaserBeamColor();
                 break;
             case 'mirror':
                 this.width = 40;
