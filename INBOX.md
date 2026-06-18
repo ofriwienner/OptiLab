@@ -5,3 +5,4 @@ Add feature requests below as bullet points. Claude reads this during bulk featu
 ---
 
 - when creating a new board, allow the user type its size in mm or in inches
+- 
