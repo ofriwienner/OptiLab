@@ -115,15 +115,16 @@ function traceRay(ray, depth, results) {
                     stokes: stokesRefl
                 }, depth + 1, results);
             } else {
-                const splitStokes = ray.stokes.map(val => val * 0.5);
+                const reflStokes = MuellerMath.interact(ray.stokes, MuellerMath.MATRICES.MIRROR).map(v => v * 0.5);
+                const tranStokes = ray.stokes.map(val => val * 0.5);
                 traceRay({
                     ...ray,
                     x: closestHit.x,
                     y: closestHit.y,
                     dx: rx,
                     dy: ry,
-                    intensity: splitStokes[0],
-                    stokes: splitStokes
+                    intensity: reflStokes[0],
+                    stokes: reflStokes
                 }, depth + 1, results);
 
                 traceRay({
@@ -132,8 +133,8 @@ function traceRay(ray, depth, results) {
                     y: closestHit.y + inc.y * 0.1,
                     dx: inc.x,
                     dy: inc.y,
-                    intensity: splitStokes[0],
-                    stokes: splitStokes
+                    intensity: tranStokes[0],
+                    stokes: tranStokes
                 }, depth + 1, results);
             }
 
@@ -374,10 +375,7 @@ function castRays() {
 
         // Calculate source Stokes from polarization angle (default 90° = vertical)
         const theta = toRad(laser.polAngle ?? 90);
-        const sourceStokes = MuellerMath.interact(
-            [1, 0, 0, 0],
-            MuellerMath.rotateComponent(MuellerMath.MATRICES.POLARIZER_H, theta)
-        );
+        const sourceStokes = [1, Math.cos(2 * theta), Math.sin(2 * theta), 0];
 
         const hexColor = laser.beamColor || '#ff3232';
         const r = parseInt(hexColor.slice(1, 3), 16);
