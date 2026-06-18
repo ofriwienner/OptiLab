@@ -269,7 +269,7 @@ function traceRay(ray, depth, results) {
             }, depth + 1, results);
 
         } else if (hitObject.type === 'fiber-coupler' && hitSegment.type === 'fiber-input') {
-            if (dp <= 0) return;
+            if (dp >= 0) return;
             // Fiber coupler - check what it's paired with
             if (hitObject.pairedWith) {
                 const pairedElement = elements.find(el => el.id === hitObject.pairedWith);
