@@ -13,36 +13,42 @@ jobs:
     permissions:
       contents: write
       issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
 
-      - uses: anthropics/claude-code-action@v1
-        with:
-          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          prompt: |
-            Read INBOX.md. For each bullet point under the `---` line:
-            1. Create a GitHub issue with `gh issue create --title "<item>" --body "<item>" --label pending`
-            2. Skip any item that is blank or says TBD
+      - name: Create issues from INBOX.md
+        run: |
+          in_items=false
+          created=0
 
-            After creating all issues, clear INBOX.md so it contains only this exact content:
-            ```
-            # Feature Inbox
+          while IFS= read -r line; do
+            if [[ "$line" == "---" ]]; then
+              in_items=true
+              continue
+            fi
+            if $in_items && [[ "$line" =~ ^[-*]\  ]]; then
+              item="${line#[-*] }"
+              item="${item#- }"
+              [[ -z "$item" || "$item" == TBD* ]] && continue
+              gh issue create --title "$item" --body "$item" --label pending
+              created=$((created + 1))
+            fi
+          done < INBOX.md
 
-            Add feature requests below as bullet points. Claude reads this during bulk features runs, converts each item to a GitHub Issue, and clears the list.
+          if [[ $created -gt 0 ]]; then
+            cat > INBOX.md << 'EOF'
+          # Feature Inbox
 
-            ---
+          Add feature requests below as bullet points. Claude reads this during bulk features runs, converts each item to a GitHub Issue, and clears the list.
 
-            ```
+          ---
 
-            Then commit and push:
-            ```
+          EOF
             git config user.email "actions@github.com"
             git config user.name "GitHub Actions"
             git add INBOX.md
-            git commit -m "Clear INBOX.md after creating issues [skip ci]"
+            git commit -m "Clear INBOX.md after creating $created issue(s) [skip ci]"
             git push origin main
-            ```
-
-            If INBOX.md has no bullet points, do nothing.
-          claude_args: |
-            --max-turns 20
+          fi
