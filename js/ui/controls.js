@@ -911,6 +911,9 @@ function tryAutoAlign(element) {
             if (bestDiff < Infinity) {
                 element.rotation = bestRot;
             }
+        } else if (element.type === 'filter') {
+            const beamAngle = Math.atan2(inc.y, inc.x);
+            element.rotation = Math.round(beamAngle / (Math.PI / 2)) * (Math.PI / 2);
         } else if (['splitter', 'pbs', 'aom', 'hwp', 'qwp', 'detector', 'blocker'].includes(element.type)) {
             element.rotation = Math.round(element.rotation / (Math.PI / 2)) * (Math.PI / 2);
         } else if (element.type === 'fiber-coupler' && !element.pairedWith) {
