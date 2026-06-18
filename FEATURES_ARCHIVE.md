@@ -14,6 +14,9 @@ Features that have been merged to main.
 | Inbox 8 | Preset colors more theme-appropriate | feat #30 |
 | Inbox 9 | Custom components - half grid snap | feat #31 |
 | Inbox 11 | Angled line for mixed V+H polarization | feat #33 |
+| Inbox 12 | Bulk set future plan - apply to all selected | feat #41 |
+| Inbox 13 | Do not auto-rotate already-paired fiber coupler | feat #42 |
+| Inbox 14 | Smart snap filter - 90° to beam | feat #43 |
 
 ---
 
@@ -45,3 +48,12 @@ Features that have been merged to main.
 | 35 | Move board with group drag | feat #22 |
 | 38 | Double click board body to rename | feat #26 |
 | 39 | Bug - bounding box too large for big elements | feat #27 |
+| 10 | Input fiber automatically snaps to laser direction | feat #34 |
+| 11 | Smart snap mirror - only reflect direction (no back-face) | feat #34 |
+| 14 | Bug - beam thickness lost through AOM/lens/fiber | feat #35 |
+| 27 | Bug - filter pass/block (laserId lost in ray propagation) | feat #35 |
+| 31 | ctrl+drag to duplicate and move | feat #20 |
+| 36 | Custom component border auto-darken | feat #24 |
+| 37 | Bug - shift/ctrl stuck in multi-select mode | feat #25 |
+| 40 | Opacity not saved to library | feat #29 |
+| 41 | No keyboard hint for measurement tool | feat #32 |
