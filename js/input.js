@@ -1348,6 +1348,7 @@ function handleKeyDown(e) {
                 updateUI();
                 draw();
             } else if (e.key === 's' || e.key === 'S' || codeKey === 's') {
+                if (p.type === 'fiber-coupler' && p.pairedWith) return;
                 saveToHistory();
                 if (lastHitOnSelected && lastHitOnSelected.el === p) {
                     cycleSnapRotation(p, lastHitOnSelected.incoming);
