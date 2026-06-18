@@ -4,4 +4,3 @@ Add feature requests below as bullet points. Claude reads this during bulk featu
 
 ---
 
-- change the name on the toolbar from photonlab to OptiLab
