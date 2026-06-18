@@ -446,41 +446,13 @@ function handleMouseDown(e) {
             const hl = primary.getHandlePosition();
             const hs = worldToScreen(primary.x + hl.x, primary.y + hl.y);
             if ((m.x - hs.x) ** 2 + (m.y - hs.y) ** 2 < 100) {
-                saveToHistory();
                 if (shiftPressed) {
+                    saveToHistory();
                     primary.rotation -= Math.PI / 2;
                     updateUI();
                     draw();
                 } else {
-                    isRotating = true;
-                    if (selection.size > 1) {
-                        let gx = 0, gy = 0;
-                        selection.forEach(el => { gx += el.x; gy += el.y; });
-                        gx /= selection.size; gy /= selection.size;
-                        const initials = new Map();
-                        selection.forEach(el => initials.set(el, { x: el.x, y: el.y, rotation: el.rotation }));
-                        const adx = w.x - gx, ady = w.y - gy;
-                        let bMinX2 = Infinity, bMinY2 = Infinity, bMaxX2 = -Infinity, bMaxY2 = -Infinity;
-                        selection.forEach(el => {
-                            if (el.type === 'board') return;
-                            const init = initials.get(el);
-                            const hw = Math.max(el.width, el.height) / 2;
-                            bMinX2 = Math.min(bMinX2, init.x - hw);
-                            bMinY2 = Math.min(bMinY2, init.y - hw);
-                            bMaxX2 = Math.max(bMaxX2, init.x + hw);
-                            bMaxY2 = Math.max(bMaxY2, init.y + hw);
-                        });
-                        const boxPad2 = 6;
-                        const initBoxWorld2 = [
-                            { x: bMinX2 - boxPad2, y: bMinY2 - boxPad2 },
-                            { x: bMaxX2 + boxPad2, y: bMinY2 - boxPad2 },
-                            { x: bMaxX2 + boxPad2, y: bMaxY2 + boxPad2 },
-                            { x: bMinX2 - boxPad2, y: bMaxY2 + boxPad2 }
-                        ];
-                        groupRotateState = { centroid: { x: gx, y: gy }, startAngle: Math.atan2(ady, adx), initials, initBoxWorld: initBoxWorld2, currentDelta: 0 };
-                    } else {
-                        groupRotateState = null;
-                    }
+                    rotHandleClickPending = { el: primary, startX: m.x, startY: m.y };
                 }
                 return;
             }
@@ -663,6 +635,46 @@ function handleMouseMove(e) {
     if (view.isPanning) {
         view.x = m.x - view.startPanX;
         view.y = m.y - view.startPanY;
+        draw();
+        return;
+    }
+
+    if (rotHandleClickPending) {
+        const dmx = m.x - rotHandleClickPending.startX;
+        const dmy = m.y - rotHandleClickPending.startY;
+        if (dmx * dmx + dmy * dmy > 25) {
+            saveToHistory();
+            isRotating = true;
+            if (selection.size > 1) {
+                let gx = 0, gy = 0;
+                selection.forEach(el => { gx += el.x; gy += el.y; });
+                gx /= selection.size; gy /= selection.size;
+                const initials = new Map();
+                selection.forEach(el => initials.set(el, { x: el.x, y: el.y, rotation: el.rotation }));
+                const adx = w.x - gx, ady = w.y - gy;
+                let bMinX2 = Infinity, bMinY2 = Infinity, bMaxX2 = -Infinity, bMaxY2 = -Infinity;
+                selection.forEach(el => {
+                    if (el.type === 'board') return;
+                    const init = initials.get(el);
+                    const hw = Math.max(el.width, el.height) / 2;
+                    bMinX2 = Math.min(bMinX2, init.x - hw);
+                    bMinY2 = Math.min(bMinY2, init.y - hw);
+                    bMaxX2 = Math.max(bMaxX2, init.x + hw);
+                    bMaxY2 = Math.max(bMaxY2, init.y + hw);
+                });
+                const boxPad2 = 6;
+                const initBoxWorld2 = [
+                    { x: bMinX2 - boxPad2, y: bMinY2 - boxPad2 },
+                    { x: bMaxX2 + boxPad2, y: bMinY2 - boxPad2 },
+                    { x: bMaxX2 + boxPad2, y: bMaxY2 + boxPad2 },
+                    { x: bMinX2 - boxPad2, y: bMaxY2 + boxPad2 }
+                ];
+                groupRotateState = { centroid: { x: gx, y: gy }, startAngle: Math.atan2(ady, adx), initials, initBoxWorld: initBoxWorld2, currentDelta: 0 };
+            } else {
+                groupRotateState = null;
+            }
+            rotHandleClickPending = null;
+        }
         draw();
         return;
     }
@@ -962,6 +974,15 @@ function handleMouseUp(e) {
         if (!isDragging) canvas.style.cursor = 'crosshair';
         return;
     }
+    if (rotHandleClickPending) {
+        saveToHistory();
+        rotHandleClickPending.el.rotation += Math.PI / 8;
+        rotHandleClickPending = null;
+        updateUI();
+        draw();
+        return;
+    }
+
     // Fiber connecting mode stays active until user clicks on another pin or elsewhere
     // (handled in mousedown), so we just need to clear the mouse position tracking
     if (isFiberConnecting) {
@@ -1417,6 +1438,23 @@ function handleKeyUp(e) {
 function handleDoubleClick(e) {
     const m = getMousePos(e);
     const w = screenToWorld(m.x, m.y);
+
+    const primary = Array.from(selection).pop();
+    if (primary && primary.type !== 'board') {
+        const hl = primary.getHandlePosition();
+        const hs = worldToScreen(primary.x + hl.x, primary.y + hl.y);
+        if ((m.x - hs.x) ** 2 + (m.y - hs.y) ** 2 < 100) {
+            saveToHistory();
+            selection.forEach(el => {
+                el.rotation = 0;
+                if (el.type === 'mirror' || el.type === 'mirror-d') el.rotation = toRad(-45);
+                if (['splitter', 'pbs'].includes(el.type)) el.rotation = 0;
+            });
+            updateUI();
+            draw();
+            return;
+        }
+    }
 
     let hit = elements.slice().reverse().find(el => {
         if (el.type === 'board') {

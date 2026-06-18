@@ -70,6 +70,7 @@ let invalidBoardPlacement = false;
 let originalBoardState = null;
 let resizeCorner = 'br';
 let groupRotateState = null; // { centroid, startAngle, initials: Map<el,{x,y,rotation}> }
+let rotHandleClickPending = null; // { el, startX, startY } - set on handle mousedown, cleared on move or mouseup
 const keys = {};
 
 // Clipboard for copy/paste
