@@ -65,3 +65,5 @@ jobs:
             6. After creating the PR, mark issue #${{ github.event.issue.number }} as `claimed` (remove `pending` label, add `claimed` label)
           claude_args: |
             --max-turns 30
+            --dangerously-skip-permissions
+          show_full_output: "true"
