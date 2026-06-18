@@ -671,7 +671,13 @@ function handleMouseMove(e) {
                 ];
                 groupRotateState = { centroid: { x: gx, y: gy }, startAngle: Math.atan2(ady, adx), initials, initBoxWorld: initBoxWorld2, currentDelta: 0 };
             } else {
-                groupRotateState = null;
+                const el = rotHandleClickPending.el;
+                const startW = screenToWorld(rotHandleClickPending.startX, rotHandleClickPending.startY);
+                groupRotateState = {
+                    single: true,
+                    startAngle: Math.atan2(startW.y - el.y, startW.x - el.x),
+                    initialRotation: el.rotation
+                };
             }
             rotHandleClickPending = null;
         }
@@ -691,7 +697,19 @@ function handleMouseMove(e) {
     }
 
     if (isRotating) {
-        if (groupRotateState && selection.size > 1) {
+        if (groupRotateState && groupRotateState.single) {
+            const p = Array.from(selection).pop();
+            if (p) {
+                const dx = w.x - p.x, dy = w.y - p.y;
+                let angle = Math.atan2(dy, dx);
+                let delta = angle - groupRotateState.startAngle;
+                if (!shiftPressed) {
+                    const step = toRad(SNAP_ROTATION);
+                    delta = Math.round(delta / step) * step;
+                }
+                p.rotation = groupRotateState.initialRotation + delta;
+            }
+        } else if (groupRotateState && selection.size > 1) {
             const { centroid, startAngle, initials } = groupRotateState;
             const dx = w.x - centroid.x, dy = w.y - centroid.y;
             let angle = Math.atan2(dy, dx);
