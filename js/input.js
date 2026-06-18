@@ -642,7 +642,7 @@ function handleMouseMove(e) {
     if (rotHandleClickPending) {
         const dmx = m.x - rotHandleClickPending.startX;
         const dmy = m.y - rotHandleClickPending.startY;
-        if (dmx * dmx + dmy * dmy > 25) {
+        if (dmx * dmx + dmy * dmy > 144) {
             saveToHistory();
             isRotating = true;
             if (selection.size > 1) {
