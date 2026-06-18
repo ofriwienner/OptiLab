@@ -3,6 +3,8 @@
  * Contains constants and global variables used throughout the application
  */
 
+let boardUnitIsInches = false;
+
 // Canvas and context references (initialized in app.js)
 let canvas, ctx, container;
 let rotationSlider, rotationValueDisplay, debugInfo, mouseCoordsDisplay;
