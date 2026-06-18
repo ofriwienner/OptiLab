@@ -1,0 +1,59 @@
+name: Fix PR
+
+on:
+  pull_request:
+    types: [labeled]
+
+jobs:
+  fix:
+    if: github.event.label.name == 'fix-requested'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            You are fixing a pull request for OptiLab, a static HTML/JS optical bench simulator.
+            No build step - open `index.html` directly in a browser. All source is in `js/` and `styles/`.
+
+            Key files:
+            - `js/config.js` - all global state variables and constants
+            - `js/element.js` - Element class, component types, ray-tracing segments
+            - `js/input.js` - all mouse/keyboard event handlers
+            - `js/renderer.js` - all canvas drawing functions
+            - `js/state.js` - save/load/undo/redo
+            - `js/ui/controls.js` - dynamic sidebar UI panel
+            - `js/physics/raytracing.js` - ray casting and beam physics
+            - `js/physics/optics.js` - Mueller matrix optics
+
+            Coding conventions:
+            - No comments unless the why is non-obvious
+            - No build tools - plain JS, no imports, everything is global
+            - Tailwind CSS classes for UI (loaded via CDN)
+            - All state lives in `config.js` as `let` globals
+            - Canvas coordinate system: world coords in mm, `worldToScreen`/`screenToWorld` for conversion
+            - `saveToHistory()` before any mutation that should be undoable
+            - `draw()` after any state change that affects visuals
+            - `updateUI()` after selection changes
+            - Always use `rehydrateElement(JSON.parse(JSON.stringify(el)))` to deep-copy an Element - never a plain JSON clone
+
+            PR #${{ github.event.pull_request.number }}: ${{ github.event.pull_request.title }}
+            Branch: ${{ github.event.pull_request.head.ref }}
+
+            You are on the PR branch already. Your task:
+            1. Read the PR reviews to find the latest fix request (look for CHANGES_REQUESTED reviews)
+            2. Read the relevant source files
+            3. Apply the fix described in the review
+            4. Commit the changes with a descriptive message
+            5. Push to the current branch: `git push origin HEAD:${{ github.event.pull_request.head.ref }}`
+            6. After pushing, remove the `fix-requested` label from PR #${{ github.event.pull_request.number }} so it re-enters the review queue
+          claude_args: |
+            --max-turns 30

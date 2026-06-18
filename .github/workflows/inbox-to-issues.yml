@@ -1,0 +1,48 @@
+name: Inbox to Issues
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - INBOX.md
+
+jobs:
+  process:
+    if: "!contains(github.event.head_commit.message, '[skip ci]')"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            Read INBOX.md. For each bullet point under the `---` line:
+            1. Create a GitHub issue with `gh issue create --title "<item>" --body "<item>" --label pending`
+            2. Skip any item that is blank or says TBD
+
+            After creating all issues, clear INBOX.md so it contains only this exact content:
+            ```
+            # Feature Inbox
+
+            Add feature requests below as bullet points. Claude reads this during bulk features runs, converts each item to a GitHub Issue, and clears the list.
+
+            ---
+
+            ```
+
+            Then commit and push:
+            ```
+            git config user.email "actions@github.com"
+            git config user.name "GitHub Actions"
+            git add INBOX.md
+            git commit -m "Clear INBOX.md after creating issues [skip ci]"
+            git push origin main
+            ```
+
+            If INBOX.md has no bullet points, do nothing.
+          claude_args: |
+            --max-turns 20

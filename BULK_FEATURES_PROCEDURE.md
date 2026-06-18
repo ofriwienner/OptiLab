@@ -1,107 +1,156 @@
 # Bulk Features Procedure
 
-This document describes the workflow for implementing multiple features in parallel with isolated worktrees and manual testing via the review script.
+This document describes the workflow for implementing multiple features in parallel using GitHub Issues + PRs, with isolated worktrees and manual testing via the review script.
 
 ## Overview
 
-1. User provides a feature list
-2. Claude reads the codebase, filters unclear items, writes an implementation plan
-3. Claude creates one git branch + worktree per feature
-4. Claude spawns one agent per feature in parallel - all implement simultaneously
-5. Claude updates `features_manifest.json` with all worktree paths and test descriptions
-6. User runs `python review_features.py` to test each feature and approve/reject/fix
+1. Read `INBOX.md` + check GitHub for pending/fix-requested work
+2. Create GitHub Issues from inbox items
+3. Claim issues atomically to prevent double-implementation
+4. Read codebase, plan implementations
+5. Create one branch + worktree per feature, spawn agents in parallel
+6. Push branches, create PRs labeled `ready-for-review`
+7. Tell the user to run `python review_features.py`
 
 ## Step-by-Step
 
-### 1. Filter and collect work items
+### 1. Collect work items
 
-**New features** (from user request or FEATURES.md):
-- Skip already-implemented items
-- Skip items marked TBD or with missing specs
-- Note skipped items and why
+**New features from `INBOX.md`**:
+- Read all bullet points
+- Skip unclear/TBD items (note why)
+- Skip items that appear already implemented in the codebase
 
-**Pending fixes** (from `features_manifest.json`):
-- Read the manifest and collect all entries with `"status": "fix-requested"`
-- Each has a `fix_notes` field describing what to fix and a `worktree_path` that already exists
-- Include these alongside new features in the parallel work batch
+**Unassigned pending issues on GitHub**:
+```
+gh issue list --label pending --no-assignee --json number,title,body
+```
 
-### 2. Create implementation plan
+**Fix-requested PRs**:
+```
+gh pr list --label fix-requested --state open --json number,title,headRefName,body,reviews
+```
+Get the fix description from the latest `CHANGES_REQUESTED` review comment.
+
+### 2. Create GitHub Issues from inbox items
+
+For each inbox item, create an issue:
+```
+gh issue create --title "<feature name>" --body "<description and test instructions>" --label pending
+```
+
+Then clear the processed items from `INBOX.md`, leaving just the header.
+
+### 3. Claim issues atomically
+
+Before starting implementation, assign each issue to yourself:
+```
+gh issue edit <number> --add-assignee @me
+```
+
+GitHub assignment is atomic - if two workers race, the second sees the issue already assigned and skips it. Always pull and re-check before claiming.
+
+### 4. Create implementation plan
+
 - Read relevant source files before planning
-- For each new feature: identify exact files and lines to change, describe the diff
-- For each fix: read the existing worktree's code to understand the bug, describe how to fix it
-- Flag dependencies between features (if feature B needs feature A, sequence them)
+- For each new feature: identify exact files and lines, describe the diff
+- For each fix: read the existing branch's code, describe how to fix it
 
-### 3. Create branches and worktrees (new features only)
+### 5. Create branches and worktrees
+
+**New features only** - fix-requested PRs already have a branch.
+
 ```powershell
-cd "C:\Users\ofriw\PycharmProjects\OptiLab"
-
 git branch feat/<name>
 git worktree add "..\OptiLab-worktrees\feat-<name>" feat/<name>
 ```
-Worktrees live at `C:\Users\ofriw\PycharmProjects\OptiLab-worktrees\`.
 
-**Fix-requested features already have worktrees** - do NOT create new ones, work in the existing `worktree_path` from the manifest.
+Worktrees live at `C:\Users\ofriw\PycharmProjects\OptiLab-worktrees\` locally.
+On a remote server, use a suitable temp path.
 
-### 4. Spawn agents in parallel
-- One Agent tool call per item (new feature OR fix), all in the same message
-- Each agent works ONLY in its own worktree directory
-- Each agent commits its changes with a descriptive message
-- For fixes: tell the agent the feature description, the fix_notes, and the worktree path; the agent reads the existing code, applies the fix, and commits
-
-### 5. Update features_manifest.json
-For **new features**, add an entry:
-```json
-{
-  "id": N,
-  "name": "Human-readable name",
-  "description": "What to test and what correct behavior looks like",
-  "branch": "feat/<name>",
-  "worktree_path": "C:\\Users\\ofriw\\PycharmProjects\\OptiLab-worktrees\\feat-<name>",
-  "status": "pending",
-  "fix_notes": null,
-  "reject_reason": null,
-  "decided_at": null,
-  "merged_at": null
-}
+**For fix-requested PRs**, fetch the existing branch into a worktree:
+```powershell
+git fetch origin <branch>
+git worktree add "..\OptiLab-worktrees\<branch-slug>" origin/<branch>
 ```
 
-For **fixed features**, update the existing entry: set `"status": "pending"` and `"fix_notes": null`.
+### 6. Spawn agents in parallel
 
-### 6. Launch review script
+One Agent tool call per item (new feature OR fix), all in the same message.
+
+- Each agent works ONLY in its assigned worktree
+- Each agent commits with a descriptive message
+- **Fix agents must also push**: `git push origin HEAD:<branch>`
+
+### 7. Push branches and create PRs (new features only)
+
+```
+git push origin feat/<name>
+```
+
+Create a PR using this exact body format (the review script parses it):
+```
+gh pr create `
+  --title "<feature name>" `
+  --body "## Description`n`n<test instructions>`n`nCloses #<issue_number>" `
+  --label "ready-for-review" `
+  --head feat/<name>
+```
+
+**For fix-requested PRs**: after the agent pushes, remove the `fix-requested` label so the PR re-enters the review queue:
+```
+gh pr edit <pr_number> --remove-label fix-requested
+```
+
+### 8. Clear INBOX.md
+
+Remove all processed bullet points from `INBOX.md`, leaving just the header and `---`.
+
+### 9. Tell the user to review
+
 ```
 python review_features.py
 ```
-Run from a real terminal (PowerShell, CMD, Windows Terminal) - NOT via the `!` shortcut inside Claude Code, as that doesn't provide interactive stdin.
 
-The script:
-- Opens each worktree's `index.html` in your browser + VS Code
-- Asks: [A]pprove / [R]eject / [F]ix needed / [S]kip
-- Fix: describe the issue, optionally runs Claude automatically in that worktree
-- Nothing merges until you explicitly confirm
-- After merge: offers to archive (remove worktree + delete branch)
+Run from a real terminal (PowerShell, CMD, Windows Terminal) - NOT via `!` inside Claude Code, as that needs interactive stdin.
 
 ## Files
 
 | File | Purpose |
 |------|---------|
-| `features_manifest.json` | Tracks all features, their branches, worktree paths, and review status |
-| `review_features.py` | Interactive review/test/merge/archive script |
+| `INBOX.md` | Quick-capture for new feature requests |
+| `review_features.py` | Interactive review/test/merge script |
 | `BULK_FEATURES_PROCEDURE.md` | This file |
+| `features_manifest.json` | Historical record only - not used for new features |
 
-## Status values in manifest
+## GitHub Labels
 
-| Status | Meaning |
-|--------|---------|
-| `pending` | Not yet reviewed |
-| `approved` | Tested and approved, queued for merge |
-| `rejected` | Rejected (reason stored in `reject_reason`) |
-| `fix-requested` | Needs a fix before re-review (description in `fix_notes`) |
-| `merged` | Merged into main |
+| Label | Applies to | Meaning |
+|-------|-----------|---------|
+| `pending` | Issue | Ready to be implemented, unassigned |
+| `claimed` | Issue | Being implemented by a worker |
+| `ready-for-review` | PR | Implementation done, awaiting user review |
+| `fix-requested` | PR | User requested changes; also has `ready-for-review` |
+| `approved` | PR | Approved during review, queued for merge |
 
-## Tips
+## PR Body Format
 
-- Worktrees are full independent checkouts - agents can't interfere with each other
-- Each feature's `description` field in the manifest is the test instruction shown during review
-- Approved features are NOT merged automatically - the script asks per-feature
-- Fix round: features reappear at the top of the review queue on the next run
-- After merging, always archive (remove worktree + delete branch) to keep the repo clean
+The review script parses the PR body. Always use this format:
+
+```
+## Description
+
+<what to test and what correct behavior looks like>
+
+Closes #<issue_number>
+```
+
+## Common Pitfalls
+
+- **Claim before implementing**: Always assign the issue before creating the worktree. Pull first so you don't miss claims made by the other worker.
+- **PR body format**: Must include `## Description` and `Closes #<number>` - the review script parses both.
+- **Fix agents must push**: Unlike new-feature agents that only commit locally, fix agents must run `git push origin HEAD:<branch>` after committing.
+- **PowerShell 5.1 heredocs**: Use `@'...'@` (single-quoted, `'@` at column 0) for multi-line git messages. The bash `$(cat <<'EOF'...)` syntax does not work.
+- **Resolving merge conflicts**: Run `git add <file>` before `git commit` after manual resolution.
+- **Cloning elements**: Always use `rehydrateElement(JSON.parse(JSON.stringify(el)))` - never plain JSON clone.
+- **Agent prompts for worktree fixes**: Agents need `--dangerously-skip-permissions` and `cwd` set to the worktree path.
