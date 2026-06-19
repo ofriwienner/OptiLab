@@ -1019,8 +1019,8 @@ function toggleBoardUnit() {
     const hMm = boardUnitIsInches ? parseFloat(hInput.value) * 25.4 : parseFloat(hInput.value);
     boardUnitIsInches = !boardUnitIsInches;
     if (boardUnitIsInches) {
-        wInput.value = (wMm / 25.4).toFixed(2);
-        hInput.value = (hMm / 25.4).toFixed(2);
+        wInput.value = (Math.round(wMm / 25.4 * 2) / 2).toFixed(1);
+        hInput.value = (Math.round(hMm / 25.4 * 2) / 2).toFixed(1);
         wInput.step = '0.25';
         hInput.step = '0.25';
         btn.textContent = 'in';
@@ -1041,8 +1041,8 @@ function updateBoardInputs() {
     if (s.value !== 'custom') {
         const [w, h] = s.value.split('x');
         if (boardUnitIsInches) {
-            document.getElementById('boardW').value = (parseInt(w) / 25.4).toFixed(2);
-            document.getElementById('boardH').value = (parseInt(h) / 25.4).toFixed(2);
+            document.getElementById('boardW').value = (Math.round(parseInt(w) / 25.4 * 2) / 2).toFixed(1);
+            document.getElementById('boardH').value = (Math.round(parseInt(h) / 25.4 * 2) / 2).toFixed(1);
         } else {
             document.getElementById('boardW').value = w;
             document.getElementById('boardH').value = h;
