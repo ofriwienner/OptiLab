@@ -40,14 +40,14 @@
                 <div class="space-y-1.5">
                     <input type="text" id="boardTitle" placeholder="Title" class="w-full bg-gray-800/50 border border-gray-700 rounded-lg px-2 py-1.5 text-[10px] text-white placeholder-gray-500 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 transition">
                     <select id="boardSizeSelect" class="w-full bg-gray-800/50 border border-gray-700 rounded-lg px-2 py-1.5 text-[10px] text-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 transition" onchange="updateBoardInputs()">
-                        <option value="325x250">S - 12×9 (325x250)</option>
-                        <option value="325x475" selected>M - 12×18 (325x475)</option>
-                        <option value="475x475">L - 18×18 (475x475)</option>
+                        <option value="300x225">S - 12×9 (300x225)</option>
+                        <option value="300x450" selected>M - 12×18 (300x450)</option>
+                        <option value="450x450">L - 18×18 (450x450)</option>
                         <option value="custom">Custom</option>
                     </select>
                     <div class="flex gap-1.5 items-center">
-                        <input type="number" id="boardW" value="325" step="25" class="w-5/12 bg-gray-800/50 border border-gray-700 rounded-lg px-2 py-1.5 text-[10px] text-white placeholder-gray-500 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 transition" placeholder="W">
-                        <input type="number" id="boardH" value="475" step="25" class="w-5/12 bg-gray-800/50 border border-gray-700 rounded-lg px-2 py-1.5 text-[10px] text-white placeholder-gray-500 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 transition" placeholder="H">
+                        <input type="number" id="boardW" value="300" step="25" class="w-5/12 bg-gray-800/50 border border-gray-700 rounded-lg px-2 py-1.5 text-[10px] text-white placeholder-gray-500 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 transition" placeholder="W">
+                        <input type="number" id="boardH" value="450" step="25" class="w-5/12 bg-gray-800/50 border border-gray-700 rounded-lg px-2 py-1.5 text-[10px] text-white placeholder-gray-500 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 transition" placeholder="H">
                         <button id="boardUnitToggle" onclick="toggleBoardUnit()" class="w-2/12 py-1.5 bg-gray-700 hover:bg-gray-600 border border-gray-600 rounded-lg text-[10px] text-gray-300 hover:text-white transition font-medium">mm</button>
                     </div>
                     <button onclick="addBoard()" class="w-full py-1.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white text-[10px] font-medium rounded-lg border border-indigo-500/50 transition-all shadow-md hover:shadow-lg hover:scale-[1.02]">Add Board</button>

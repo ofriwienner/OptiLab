@@ -1094,8 +1094,8 @@ function newBench() {
         
         // Create default board
         const center = screenToWorld(canvas.width / 2, canvas.height / 2);
-        const boardW = 325;
-        const boardH = 475;
+        const boardW = 300;
+        const boardH = 450;
         // Snap board center so edges are between grid points (at multiples of GRID_PITCH_MM)
         const leftEdge = center.x - boardW / 2;
         const snappedLeft = Math.round(leftEdge / GRID_PITCH_MM) * GRID_PITCH_MM;
