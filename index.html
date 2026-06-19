@@ -45,9 +45,10 @@
                         <option value="475x475">L - 18×18 (475x475)</option>
                         <option value="custom">Custom</option>
                     </select>
-                    <div class="flex gap-1.5">
-                        <input type="number" id="boardW" value="325" step="25" class="w-1/2 bg-gray-800/50 border border-gray-700 rounded-lg px-2 py-1.5 text-[10px] text-white placeholder-gray-500 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 transition" placeholder="W">
-                        <input type="number" id="boardH" value="475" step="25" class="w-1/2 bg-gray-800/50 border border-gray-700 rounded-lg px-2 py-1.5 text-[10px] text-white placeholder-gray-500 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 transition" placeholder="H">
+                    <div class="flex gap-1.5 items-center">
+                        <input type="number" id="boardW" value="325" step="25" class="w-5/12 bg-gray-800/50 border border-gray-700 rounded-lg px-2 py-1.5 text-[10px] text-white placeholder-gray-500 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 transition" placeholder="W">
+                        <input type="number" id="boardH" value="475" step="25" class="w-5/12 bg-gray-800/50 border border-gray-700 rounded-lg px-2 py-1.5 text-[10px] text-white placeholder-gray-500 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 transition" placeholder="H">
+                        <button id="boardUnitToggle" onclick="toggleBoardUnit()" class="w-2/12 py-1.5 bg-gray-700 hover:bg-gray-600 border border-gray-600 rounded-lg text-[10px] text-gray-300 hover:text-white transition font-medium">mm</button>
                     </div>
                     <button onclick="addBoard()" class="w-full py-1.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white text-[10px] font-medium rounded-lg border border-indigo-500/50 transition-all shadow-md hover:shadow-lg hover:scale-[1.02]">Add Board</button>
                 </div>

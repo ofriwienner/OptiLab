@@ -992,20 +992,45 @@ function cycleSnapRotation(el, inc) {
  * Sets up pending board creation - board will be placed on next mouse click
  */
 function addBoard() {
-    let w = parseInt(document.getElementById('boardW').value) || 600;
-    let h = parseInt(document.getElementById('boardH').value) || 450;
+    let wVal = parseFloat(document.getElementById('boardW').value) || 600;
+    let hVal = parseFloat(document.getElementById('boardH').value) || 450;
     const t = document.getElementById('boardTitle').value || 'Board';
-    
+
+    let w = boardUnitIsInches ? wVal * 25.4 : wVal;
+    let h = boardUnitIsInches ? hVal * 25.4 : hVal;
+
     // Round width and height to nearest multiple of grid size
     w = Math.round(w / GRID_PITCH_MM) * GRID_PITCH_MM;
     h = Math.round(h / GRID_PITCH_MM) * GRID_PITCH_MM;
-    
+
     // Store pending board parameters - will be created on next mouse click
     pendingBoard = { width: w, height: h, title: t };
-    
+
     // Change cursor to indicate board placement mode
     canvas.style.cursor = 'crosshair';
     draw();
+}
+
+function toggleBoardUnit() {
+    const wInput = document.getElementById('boardW');
+    const hInput = document.getElementById('boardH');
+    const btn = document.getElementById('boardUnitToggle');
+    const wMm = boardUnitIsInches ? parseFloat(wInput.value) * 25.4 : parseFloat(wInput.value);
+    const hMm = boardUnitIsInches ? parseFloat(hInput.value) * 25.4 : parseFloat(hInput.value);
+    boardUnitIsInches = !boardUnitIsInches;
+    if (boardUnitIsInches) {
+        wInput.value = (wMm / 25.4).toFixed(2);
+        hInput.value = (hMm / 25.4).toFixed(2);
+        wInput.step = '0.25';
+        hInput.step = '0.25';
+        btn.textContent = 'in';
+    } else {
+        wInput.value = Math.round(wMm);
+        hInput.value = Math.round(hMm);
+        wInput.step = '25';
+        hInput.step = '25';
+        btn.textContent = 'mm';
+    }
 }
 
 /**
@@ -1015,8 +1040,13 @@ function updateBoardInputs() {
     const s = document.getElementById('boardSizeSelect');
     if (s.value !== 'custom') {
         const [w, h] = s.value.split('x');
-        document.getElementById('boardW').value = w;
-        document.getElementById('boardH').value = h;
+        if (boardUnitIsInches) {
+            document.getElementById('boardW').value = (parseInt(w) / 25.4).toFixed(2);
+            document.getElementById('boardH').value = (parseInt(h) / 25.4).toFixed(2);
+        } else {
+            document.getElementById('boardW').value = w;
+            document.getElementById('boardH').value = h;
+        }
     }
 }
 
