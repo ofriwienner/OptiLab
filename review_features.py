@@ -34,6 +34,9 @@ _BROWSER_CANDIDATES = [
     r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
     r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
     r"C:\Program Files\Microsoft\Edge\Application\msedge.exe",
+    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+    "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge",
+    "/Applications/Chromium.app/Contents/MacOS/Chromium",
 ]
 
 _feature_proc = None
@@ -162,11 +165,23 @@ def _open_chrome(url, profile_dir, position=None):
     return None
 
 
+def _kill_proc(proc):
+    if proc is None or proc.poll() is not None:
+        return
+    if sys.platform == "win32":
+        subprocess.run(["taskkill", "/F", "/T", "/PID", str(proc.pid)], capture_output=True)
+    else:
+        proc.terminate()
+        try:
+            proc.wait(timeout=3)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+
+
 def close_browser():
     global _feature_proc, _feature_tmpdir, _feature_worktree, _ref_proc, _ref_tmpdir
     for proc, tmpdir in ((_feature_proc, _feature_tmpdir), (_ref_proc, _ref_tmpdir)):
-        if proc is not None and proc.poll() is None:
-            subprocess.run(["taskkill", "/F", "/T", "/PID", str(proc.pid)], capture_output=True)
+        _kill_proc(proc)
         if tmpdir and Path(tmpdir).exists():
             shutil.rmtree(tmpdir, ignore_errors=True)
     if _feature_worktree and Path(_feature_worktree).exists():
@@ -236,7 +251,12 @@ def launch(feature):
         _feature_proc, _feature_tmpdir = proc, feat_dir
     else:
         shutil.rmtree(feat_dir, ignore_errors=True)
-        os.startfile(str(feat_index))
+        if sys.platform == "win32":
+            os.startfile(str(feat_index))
+        elif sys.platform == "darwin":
+            subprocess.Popen(["open", str(feat_index)])
+        else:
+            subprocess.Popen(["xdg-open", str(feat_index)])
 
     return wt_path
 
