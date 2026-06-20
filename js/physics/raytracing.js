@@ -270,6 +270,9 @@ function traceRay(ray, depth, results) {
             }, depth + 1, results);
 
         } else if (hitObject.type === 'fiber-coupler' && hitSegment.type === 'fiber-input') {
+            // Only accept beams traveling in the arrow direction (local +x).
+            // The segment's computed normal points local -x, so dp < 0 means beam goes local +x.
+            if (dp >= 0) return;
             // Fiber coupler - check what it's paired with
             if (hitObject.pairedWith) {
                 const pairedElement = elements.find(el => el.id === hitObject.pairedWith);
