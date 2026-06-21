@@ -51,6 +51,7 @@ jobs:
             Closes #${{ github.event.issue.number }}"
             ```
             Always include a summary of changes AND "Closes #${{ github.event.issue.number }}" in the body.
+            For the branch name, use descriptive name including the issue number and also a very short description of the implemented feature or fix (2-3 words).
                        
             **WHEN WORKING ON PR FEEDBACK:**
             Make the requested changes and commit. The PR will automatically update - do NOT create a new PR.
