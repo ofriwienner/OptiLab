@@ -16,7 +16,7 @@ Key files:
 
 ## Bulk Features Workflow
 
-When the user says **"bulk features"**, **"implement these features"**, **"do them in parallel"**, or provides a list of features to implement, follow the procedure in `BULK_FEATURES_PROCEDURE.md`. Summary:
+When the user says **"bulk features"**, **"implement these features"**, **"do them in parallel"**, or provides a list of features to implement, follow the procedure in `docs/BULK_FEATURES_PROCEDURE.md`. Summary:
 
 1. **Collect** - read `INBOX.md` for new requests + `gh issue list --label pending --no-assignee` + `gh pr list --label fix-requested`
 2. **Create issues** - `gh issue create` for each inbox item, then clear `INBOX.md`
