@@ -286,15 +286,16 @@ class Element {
                 normal
             });
         } else if (this.type === 'fiber-coupler') {
-            const start = rotatePoint({ x: 0, y: -this.height / 2 }, this.rotation);
-            const end = rotatePoint({ x: 0, y: this.height / 2 }, this.rotation);
-            const normal = normalize(rotatePoint({ x: 1, y: 0 }, this.rotation));
-            segments.push({
-                p1: { x: cx + start.x, y: cy + start.y },
-                p2: { x: cx + end.x, y: cy + end.y },
-                type: 'fiber-input',
-                normal
-            });
+            // Cross of two perpendicular segments guarantees any beam hits at least one,
+            // regardless of beam angle. Both carry the same arrow normal for the dp check.
+            const arrowNormal = normalize(rotatePoint({ x: 1, y: 0 }, this.rotation));
+            const r = this.height / 2;
+            const a1 = rotatePoint({ x: 0, y: -r }, this.rotation);
+            const a2 = rotatePoint({ x: 0, y:  r }, this.rotation);
+            segments.push({ p1: { x: cx + a1.x, y: cy + a1.y }, p2: { x: cx + a2.x, y: cy + a2.y }, type: 'fiber-input', normal: arrowNormal });
+            const b1 = rotatePoint({ x: -r, y: 0 }, this.rotation);
+            const b2 = rotatePoint({ x:  r, y: 0 }, this.rotation);
+            segments.push({ p1: { x: cx + b1.x, y: cy + b1.y }, p2: { x: cx + b2.x, y: cy + b2.y }, type: 'fiber-input', normal: arrowNormal });
         } else if (this.type === 'amplifier') {
             // Amplifier has fiber input (left) and direct laser output (right)
             // No ray interaction segments needed - light comes in via fiber connection

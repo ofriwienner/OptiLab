@@ -270,9 +270,11 @@ function traceRay(ray, depth, results) {
             }, depth + 1, results);
 
         } else if (hitObject.type === 'fiber-coupler' && hitSegment.type === 'fiber-input') {
-            // Only accept beams traveling in the arrow direction (local +x).
-            // The segment's computed normal points local -x, so dp < 0 means beam goes local +x.
-            if (dp >= 0) return;
+            // Only accept beams coming FROM the arrow direction (arrow faces the beam source).
+            // hitSegment.normal always points in the arrow direction regardless of which
+            // cross segment was hit, so this check is stable for any beam angle.
+            const dpArrow = dot(inc, hitSegment.normal);
+            if (dpArrow >= -Math.cos(3 * Math.PI / 180)) return;
             // Fiber coupler - check what it's paired with
             if (hitObject.pairedWith) {
                 const pairedElement = elements.find(el => el.id === hitObject.pairedWith);
