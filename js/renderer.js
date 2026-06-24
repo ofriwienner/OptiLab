@@ -1702,7 +1702,37 @@ function drawBorder(el, sc) {
         ctx.strokeStyle = borderColor;
         ctx.lineWidth = lineWidth;
         applyLineStyle();
-        ctx.strokeRect(-el.width / 2, -el.height / 2, el.width, el.height);
+        if (Math.abs(el.rotation % (Math.PI / 2)) < 0.01) {
+            const borders = elements.filter(b => b.type === 'border' && b !== el && b.borderShape !== 'line');
+            const tolerance = 1;
+            const ax1 = el.x - el.width / 2, ax2 = el.x + el.width / 2;
+            const ay1 = el.y - el.height / 2, ay2 = el.y + el.height / 2;
+            const skipRight = borders.some(b => {
+                const bx1 = b.x - b.width / 2, by1 = b.y - b.height / 2, by2 = b.y + b.height / 2;
+                return Math.abs(ax2 - bx1) < tolerance && ay1 < by2 - tolerance && ay2 > by1 + tolerance;
+            });
+            const skipLeft = borders.some(b => {
+                const bx2 = b.x + b.width / 2, by1 = b.y - b.height / 2, by2 = b.y + b.height / 2;
+                return Math.abs(ax1 - bx2) < tolerance && ay1 < by2 - tolerance && ay2 > by1 + tolerance;
+            });
+            const skipBottom = borders.some(b => {
+                const by1 = b.y - b.height / 2, bx1 = b.x - b.width / 2, bx2 = b.x + b.width / 2;
+                return Math.abs(ay2 - by1) < tolerance && ax1 < bx2 - tolerance && ax2 > bx1 + tolerance;
+            });
+            const skipTop = borders.some(b => {
+                const by2 = b.y + b.height / 2, bx1 = b.x - b.width / 2, bx2 = b.x + b.width / 2;
+                return Math.abs(ay1 - by2) < tolerance && ax1 < bx2 - tolerance && ax2 > bx1 + tolerance;
+            });
+            const x1 = -el.width / 2, y1 = -el.height / 2, x2 = el.width / 2, y2 = el.height / 2;
+            ctx.beginPath();
+            if (!skipTop) { ctx.moveTo(x1, y1); ctx.lineTo(x2, y1); }
+            if (!skipRight) { ctx.moveTo(x2, y1); ctx.lineTo(x2, y2); }
+            if (!skipBottom) { ctx.moveTo(x2, y2); ctx.lineTo(x1, y2); }
+            if (!skipLeft) { ctx.moveTo(x1, y2); ctx.lineTo(x1, y1); }
+            ctx.stroke();
+        } else {
+            ctx.strokeRect(-el.width / 2, -el.height / 2, el.width, el.height);
+        }
         ctx.setLineDash([]);
     }
 }
