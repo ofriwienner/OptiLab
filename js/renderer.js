@@ -92,7 +92,7 @@ function drawElement(el) {
         ctx.shadowBlur = 10;
         ctx.strokeStyle = 'rgba(255,255,255,0.8)';
         ctx.lineWidth = 1;
-        if (el.type === 'board') {
+        if (el.type === 'board' || el.type === 'border') {
             ctx.strokeRect(-el.width / 2, -el.height / 2, el.width, el.height);
         } else if (el.type === 'measure') {
             ctx.strokeRect(-el.width / 2 - 2, -5, el.width + 4, 10);
@@ -141,6 +141,8 @@ function drawElement(el) {
         drawCustom(el);
     } else if (el.type === 'measure') {
         drawMeasure(el, sc);
+    } else if (el.type === 'border') {
+        drawBorder(el, sc);
     }
 
     // Draw Title Label (lasers show title inside their body instead)
@@ -149,18 +151,20 @@ function drawElement(el) {
         ctx.font = '10px sans-serif';
         ctx.textAlign = 'left';
         ctx.textBaseline = 'alphabetic';
-        const textY = el.type === 'board' ? (-el.height / 2 - 5) : (-el.height / 2 - 8);
-        const textX = el.type === 'board' ? (-el.width / 2 + 5) : (-el.width / 2);
+        const textY = (el.type === 'board' || el.type === 'border') ? (-el.height / 2 - 5) : (-el.height / 2 - 8);
+        const textX = (el.type === 'board' || el.type === 'border') ? (-el.width / 2 + 5) : (-el.width / 2);
         ctx.fillText(el.title, textX, textY);
     }
 
     const isPrimary = Array.from(selection).pop() === el;
 
     // Draw Handles
-    if (isSelected && isPrimary && el.type !== 'board') {
+    if (isSelected && isPrimary && el.type !== 'board' && el.type !== 'border') {
         drawComponentHandles(el, sc);
     } else if (isSelected && el.type === 'board' && !el.locked) {
         drawBoardHandles(el, sc);
+    } else if (isSelected && el.type === 'border' && !el.locked) {
+        drawBorderHandles(el, sc);
     }
 
     ctx.restore();
@@ -957,6 +961,41 @@ function drawBoardHandles(el, sc) {
 }
 
 /**
+ * Draw border element interaction handles (resize corners + rotate)
+ */
+function drawBorderHandles(el, sc) {
+    const rCorners = [
+        { dx:  el.width / 2, dy:  el.height / 2, key: 'br' },
+        { dx: -el.width / 2, dy:  el.height / 2, key: 'bl' },
+        { dx:  el.width / 2, dy: -el.height / 2, key: 'tr' },
+        { dx: -el.width / 2, dy: -el.height / 2, key: 'tl' },
+    ];
+    rCorners.forEach(c => {
+        ctx.beginPath();
+        ctx.rect(c.dx - 5, c.dy - 5, 10, 10);
+        ctx.fillStyle = (isResizing && resizeCorner === c.key) ? '#f87171' : '#6ee7b7';
+        ctx.fill();
+        ctx.strokeStyle = 'white';
+        ctx.lineWidth = 1 / sc;
+        ctx.stroke();
+    });
+
+    // Rotate handle (same style as component rotate handle)
+    const handleDist = el.width / 2 + 15;
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(handleDist, 0);
+    ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+    ctx.lineWidth = 1 / sc;
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(handleDist, 0, 4 / sc, 0, Math.PI * 2);
+    ctx.fillStyle = isRotating ? '#3b82f6' : 'white';
+    ctx.fill();
+    ctx.stroke();
+}
+
+/**
  * Calculate polarization ellipse orientation angle
  * @param {Array} stokes - Stokes vector
  * @returns {number} Angle in radians
@@ -1117,7 +1156,7 @@ function drawMarquee() {
  * Draw a dashed bounding box and rotation handle around a multi-element selection
  */
 function drawGroupSelectionBox() {
-    const nonBoards = Array.from(selection).filter(el => el.type !== 'board');
+    const nonBoards = Array.from(selection).filter(el => el.type !== 'board' && el.type !== 'border');
     if (nonBoards.length <= 1) return;
 
     ctx.save();
@@ -1200,7 +1239,7 @@ function drawHints() {
     if (selection.size !== 1) return;
 
     const el = Array.from(selection)[0];
-    if (el.type === 'board' || el.type === 'measure' || el.locked) return;
+    if (el.type === 'board' || el.type === 'border' || el.type === 'measure' || el.locked) return;
 
     const hints = [];
     hints.push("R/T: Rotation | S: Smart");
@@ -1411,10 +1450,13 @@ function drawFiberConnectingLine() {
  */
 function draw() {
     drawGrid();
+    // Borders are rendered first so they appear behind everything
+    elements.forEach(el => { if (el.type === 'border' && !selection.has(el)) drawElement(el); });
+    elements.forEach(el => { if (el.type === 'border' && selection.has(el)) drawElement(el); });
     drawFiberCables();
     elements.forEach(el => { if (el.type === 'board') drawElement(el); });
-    elements.forEach(el => { if (el.type !== 'board' && !selection.has(el)) drawElement(el); });
-    elements.forEach(el => { if (el.type !== 'board' && selection.has(el)) drawElement(el); });
+    elements.forEach(el => { if (el.type !== 'board' && el.type !== 'border' && !selection.has(el)) drawElement(el); });
+    elements.forEach(el => { if (el.type !== 'board' && el.type !== 'border' && selection.has(el)) drawElement(el); });
     const rays = castRays();
     drawRays(rays);
     drawGroupSelectionBox();
@@ -1619,6 +1661,49 @@ function drawMeasureOverlay() {
         ctx.textBaseline = 'bottom';
         ctx.fillText('Click to set start point', snappedScreen.x + 10, snappedScreen.y - 6);
         ctx.restore();
+    }
+}
+
+/**
+ * Draw border/area annotation element
+ * @param {Object} el - Border element
+ * @param {number} sc - Scale (pixels per mm * view scale)
+ */
+function drawBorder(el, sc) {
+    const shape = el.borderShape || 'rect';
+    const borderColor = el.borderColor || '#4a5568';
+    const lineWidth = (el.borderLineWidth || 2) / sc;
+    const lineStyle = el.borderLineStyle || 'dashed';
+    const fillColor = el.borderFillColor || '#1e3a5f';
+    const fillOpacity = el.borderFillOpacity !== undefined ? el.borderFillOpacity : 0.2;
+
+    const applyLineStyle = () => {
+        if (lineStyle === 'dashed') ctx.setLineDash([8 / sc, 4 / sc]);
+        else if (lineStyle === 'dotted') ctx.setLineDash([2 / sc, 4 / sc]);
+        else ctx.setLineDash([]);
+    };
+
+    if (shape === 'line') {
+        ctx.strokeStyle = borderColor;
+        ctx.lineWidth = lineWidth;
+        applyLineStyle();
+        ctx.beginPath();
+        ctx.moveTo(-el.width / 2, 0);
+        ctx.lineTo(el.width / 2, 0);
+        ctx.stroke();
+        ctx.setLineDash([]);
+    } else {
+        const r = parseInt(fillColor.slice(1, 3), 16);
+        const g = parseInt(fillColor.slice(3, 5), 16);
+        const b = parseInt(fillColor.slice(5, 7), 16);
+        ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${fillOpacity})`;
+        ctx.fillRect(-el.width / 2, -el.height / 2, el.width, el.height);
+
+        ctx.strokeStyle = borderColor;
+        ctx.lineWidth = lineWidth;
+        applyLineStyle();
+        ctx.strokeRect(-el.width / 2, -el.height / 2, el.width, el.height);
+        ctx.setLineDash([]);
     }
 }
 

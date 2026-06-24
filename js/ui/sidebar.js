@@ -121,6 +121,14 @@ function copySelected() {
             data.customFontBold = el.customFontBold;
             if (typeof el.customOpacity === 'number') data.customOpacity = el.customOpacity;
         }
+        if (el.type === 'border') {
+            data.borderShape = el.borderShape;
+            data.borderColor = el.borderColor;
+            data.borderFillColor = el.borderFillColor;
+            if (typeof el.borderFillOpacity === 'number') data.borderFillOpacity = el.borderFillOpacity;
+            data.borderLineStyle = el.borderLineStyle;
+            if (typeof el.borderLineWidth === 'number') data.borderLineWidth = el.borderLineWidth;
+        }
 
         return data;
     });
@@ -213,6 +221,16 @@ function pasteElements() {
             if (typeof data.customFontSize === 'number') el.customFontSize = data.customFontSize;
             if (typeof data.customFontBold === 'boolean') el.customFontBold = data.customFontBold;
             if (typeof data.customOpacity === 'number') el.customOpacity = data.customOpacity;
+            el.width = data.width;
+            el.height = data.height;
+        }
+        if (el.type === 'border') {
+            if (data.borderShape) el.borderShape = data.borderShape;
+            if (data.borderColor) el.borderColor = data.borderColor;
+            if (data.borderFillColor) el.borderFillColor = data.borderFillColor;
+            if (typeof data.borderFillOpacity === 'number') el.borderFillOpacity = data.borderFillOpacity;
+            if (data.borderLineStyle) el.borderLineStyle = data.borderLineStyle;
+            if (typeof data.borderLineWidth === 'number') el.borderLineWidth = data.borderLineWidth;
             el.width = data.width;
             el.height = data.height;
         }

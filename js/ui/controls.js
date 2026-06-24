@@ -612,8 +612,130 @@ function updateUI() {
             btnContainer.appendChild(customBox);
         }
 
+        // Border/Area Controls
+        if (p.type === 'border') {
+            const borderBox = document.createElement('div');
+            borderBox.className = "mt-2 border-t border-gray-600 pt-2 space-y-1";
+
+            const sectionTitle = document.createElement('div');
+            sectionTitle.className = "text-[10px] uppercase text-gray-400 mb-1";
+            sectionTitle.innerText = "Border / Area";
+            borderBox.appendChild(sectionTitle);
+
+            // Shape selector
+            const shapeRow = document.createElement('div');
+            shapeRow.className = "flex items-center justify-between";
+            const shapeLabel = document.createElement('label');
+            shapeLabel.className = "text-[9px] text-gray-400";
+            shapeLabel.innerText = "Shape";
+            const shapeSelect = document.createElement('select');
+            shapeSelect.className = "bg-gray-700 border border-gray-600 rounded px-1 py-0.5 text-[10px] text-white cursor-pointer";
+            shapeSelect.onmousedown = e => e.stopPropagation();
+            ['rect', 'line'].forEach(s => {
+                const opt = document.createElement('option');
+                opt.value = s;
+                opt.innerText = s === 'rect' ? 'Rectangle' : 'Line';
+                if ((p.borderShape || 'rect') === s) opt.selected = true;
+                shapeSelect.appendChild(opt);
+            });
+            shapeSelect.onchange = e => { saveToHistory(); p.borderShape = e.target.value; draw(); };
+            shapeRow.appendChild(shapeLabel);
+            shapeRow.appendChild(shapeSelect);
+            borderBox.appendChild(shapeRow);
+
+            // Size inputs
+            const sizeRow = document.createElement('div');
+            sizeRow.className = "flex items-center gap-1 mt-1";
+            const wLabel = document.createElement('span');
+            wLabel.className = "text-[9px] text-gray-400";
+            wLabel.innerText = "W";
+            const wInput = document.createElement('input');
+            wInput.type = 'number';
+            wInput.min = '10';
+            wInput.value = Math.round(p.width);
+            wInput.className = "w-14 bg-gray-700 border border-gray-600 rounded px-1 py-0.5 text-[10px] text-white";
+            wInput.onmousedown = e => e.stopPropagation();
+            wInput.oninput = e => { const v = parseInt(e.target.value); if (v >= 10) { saveToHistory(); p.width = v; draw(); } };
+            const hLabel = document.createElement('span');
+            hLabel.className = "text-[9px] text-gray-400";
+            hLabel.innerText = "H";
+            const hInput = document.createElement('input');
+            hInput.type = 'number';
+            hInput.min = '10';
+            hInput.value = Math.round(p.height);
+            hInput.className = "w-14 bg-gray-700 border border-gray-600 rounded px-1 py-0.5 text-[10px] text-white";
+            hInput.onmousedown = e => e.stopPropagation();
+            hInput.oninput = e => { const v = parseInt(e.target.value); if (v >= 10) { saveToHistory(); p.height = v; draw(); } };
+            sizeRow.appendChild(wLabel); sizeRow.appendChild(wInput);
+            sizeRow.appendChild(hLabel); sizeRow.appendChild(hInput);
+            borderBox.appendChild(sizeRow);
+
+            // Fill opacity (only for rect)
+            if ((p.borderShape || 'rect') === 'rect') {
+                const opacityRow = document.createElement('div');
+                opacityRow.className = "flex items-center justify-between mt-1";
+                const opacityLbl = document.createElement('span');
+                opacityLbl.className = "text-[9px] text-gray-400";
+                opacityLbl.innerText = "Fill Opacity";
+                const opacityInput = document.createElement('input');
+                opacityInput.type = 'range';
+                opacityInput.min = '0'; opacityInput.max = '1'; opacityInput.step = '0.05';
+                opacityInput.value = typeof p.borderFillOpacity === 'number' ? p.borderFillOpacity : 0.2;
+                opacityInput.className = "w-20 accent-blue-400 cursor-pointer";
+                opacityInput.onmousedown = e => e.stopPropagation();
+                opacityInput.oninput = e => { p.borderFillOpacity = parseFloat(e.target.value); draw(); };
+                opacityRow.appendChild(opacityLbl);
+                opacityRow.appendChild(opacityInput);
+                borderBox.appendChild(opacityRow);
+
+                borderBox.appendChild(makeColorRow('Fill Color', p.borderFillColor || '#1e3a5f', v => { p.borderFillColor = v; draw(); }));
+            }
+
+            borderBox.appendChild(makeColorRow('Border Color', p.borderColor || '#4a5568', v => { p.borderColor = v; draw(); }));
+
+            // Line style
+            const lineStyleRow = document.createElement('div');
+            lineStyleRow.className = "flex items-center justify-between mt-1";
+            const lineStyleLbl = document.createElement('span');
+            lineStyleLbl.className = "text-[9px] text-gray-400";
+            lineStyleLbl.innerText = "Line Style";
+            const lineStyleSel = document.createElement('select');
+            lineStyleSel.className = "bg-gray-700 border border-gray-600 rounded px-1 py-0.5 text-[10px] text-white cursor-pointer";
+            lineStyleSel.onmousedown = e => e.stopPropagation();
+            ['solid', 'dashed', 'dotted'].forEach(s => {
+                const opt = document.createElement('option');
+                opt.value = s;
+                opt.innerText = s.charAt(0).toUpperCase() + s.slice(1);
+                if ((p.borderLineStyle || 'dashed') === s) opt.selected = true;
+                lineStyleSel.appendChild(opt);
+            });
+            lineStyleSel.onchange = e => { p.borderLineStyle = e.target.value; draw(); };
+            lineStyleRow.appendChild(lineStyleLbl);
+            lineStyleRow.appendChild(lineStyleSel);
+            borderBox.appendChild(lineStyleRow);
+
+            // Line width
+            const lineWidthRow = document.createElement('div');
+            lineWidthRow.className = "flex items-center justify-between mt-1";
+            const lineWidthLbl = document.createElement('span');
+            lineWidthLbl.className = "text-[9px] text-gray-400";
+            lineWidthLbl.innerText = "Line Width";
+            const lineWidthInput = document.createElement('input');
+            lineWidthInput.type = 'range';
+            lineWidthInput.min = '1'; lineWidthInput.max = '8'; lineWidthInput.step = '0.5';
+            lineWidthInput.value = typeof p.borderLineWidth === 'number' ? p.borderLineWidth : 2;
+            lineWidthInput.className = "w-20 accent-blue-400 cursor-pointer";
+            lineWidthInput.onmousedown = e => e.stopPropagation();
+            lineWidthInput.oninput = e => { p.borderLineWidth = parseFloat(e.target.value); draw(); };
+            lineWidthRow.appendChild(lineWidthLbl);
+            lineWidthRow.appendChild(lineWidthInput);
+            borderBox.appendChild(lineWidthRow);
+
+            btnContainer.appendChild(borderBox);
+        }
+
         // Future Plan Toggle
-        if (p.type !== 'board') {
+        if (p.type !== 'board' && p.type !== 'border') {
             const fpRow = document.createElement('div');
             fpRow.className = 'flex items-center gap-2 mb-1';
             const fpCb = document.createElement('input');
@@ -623,7 +745,7 @@ function updateUI() {
             fpCb.onchange = () => {
                 saveToHistory();
                 selection.forEach(el => {
-                    if (el.type !== 'board') {
+                    if (el.type !== 'board' && el.type !== 'border') {
                         el.isFuturePlan = fpCb.checked;
                     }
                 });
@@ -1008,6 +1130,17 @@ function addBoard() {
 
     // Change cursor to indicate board placement mode
     canvas.style.cursor = 'crosshair';
+    draw();
+}
+
+function addBorder() {
+    saveToHistory();
+    const cx = screenToWorld(canvas.width / 2, canvas.height / 2);
+    const el = new Element('border', cx.x, cx.y);
+    elements.push(el);
+    selection.clear();
+    selection.add(el);
+    updateUI();
     draw();
 }
 
