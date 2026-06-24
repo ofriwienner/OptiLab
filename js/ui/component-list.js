@@ -32,6 +32,26 @@ function closeComponentListModal() {
     document.getElementById('component-list-modal').classList.add('hidden');
 }
 
+const COMPONENT_TYPE_BADGE_CLASSES = {
+    'laser':        'bg-red-900/50 border border-red-700/50 text-red-300',
+    'mirror':       'bg-cyan-900/50 border border-cyan-700/50 text-cyan-300',
+    'mirror-d':     'bg-cyan-900/50 border border-cyan-700/50 text-cyan-300',
+    'splitter':     'bg-yellow-900/50 border border-yellow-700/50 text-yellow-300',
+    'pbs':          'bg-purple-900/50 border border-purple-700/50 text-purple-300',
+    'hwp':          'bg-green-900/50 border border-green-700/50 text-green-300',
+    'qwp':          'bg-orange-900/50 border border-orange-700/50 text-orange-300',
+    'lens':         'bg-blue-900/50 border border-blue-700/50 text-blue-300',
+    'aom':          'bg-red-900/50 border border-red-700/50 text-red-300',
+    'detector':     'bg-pink-900/50 border border-pink-700/50 text-pink-300',
+    'fiber-coupler':'bg-orange-900/50 border border-orange-700/50 text-orange-300',
+    'amplifier':    'bg-red-900/50 border border-red-700/50 text-red-300',
+    'iris':         'bg-purple-900/50 border border-purple-700/50 text-purple-300',
+};
+
+function getTypeBadgeClasses(type) {
+    return COMPONENT_TYPE_BADGE_CLASSES[type] || 'bg-gray-700/50 border border-gray-600/50 text-gray-300';
+}
+
 function renderComponentList() {
     const lasers = elements.filter(e => e.type === 'laser');
     const body = document.getElementById('component-list-body');
@@ -56,30 +76,40 @@ function renderComponentList() {
             .map(l => getLaserName(l));
 
         const row = document.createElement('div');
-        row.className = 'flex items-center justify-between py-1.5 border-b border-gray-800/60 gap-2';
+        row.className = 'flex items-center justify-between py-2.5 border-b border-gray-800/60 gap-3';
+
+        const left = document.createElement('div');
+        left.className = 'flex items-center gap-2 min-w-0';
+
+        const badge = document.createElement('span');
+        badge.className = 'text-[10px] font-semibold px-2 py-0.5 rounded shrink-0 ' + getTypeBadgeClasses(el.type);
+        badge.textContent = getComponentTypeLabel(el.type);
 
         const name = document.createElement('span');
-        name.className = 'text-[11px] text-gray-200 shrink-0';
+        name.className = 'text-sm text-gray-100 font-medium truncate';
         name.textContent = el.title || getComponentTypeLabel(el.type);
 
+        left.appendChild(badge);
+        left.appendChild(name);
+
         const tags = document.createElement('div');
-        tags.className = 'flex gap-1 flex-wrap justify-end';
+        tags.className = 'flex gap-1 flex-wrap justify-end shrink-0';
 
         if (hitLaserNames.length === 0) {
             const tag = document.createElement('span');
-            tag.className = 'text-[9px] text-gray-500 px-1.5 py-0.5 rounded bg-gray-800';
+            tag.className = 'text-[10px] text-gray-500 px-2 py-0.5 rounded bg-gray-800';
             tag.textContent = 'no beam';
             tags.appendChild(tag);
         } else {
             hitLaserNames.forEach(laserName => {
                 const tag = document.createElement('span');
-                tag.className = 'text-[9px] text-blue-300 px-1.5 py-0.5 rounded bg-blue-900/40 border border-blue-800/50';
+                tag.className = 'text-[10px] text-blue-300 px-2 py-0.5 rounded bg-blue-900/40 border border-blue-800/50';
                 tag.textContent = laserName;
                 tags.appendChild(tag);
             });
         }
 
-        row.appendChild(name);
+        row.appendChild(left);
         row.appendChild(tags);
         body.appendChild(row);
     });
