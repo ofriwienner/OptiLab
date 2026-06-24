@@ -50,11 +50,13 @@ jobs:
             Branch: ${{ github.event.pull_request.head.ref }}
 
             You are on the PR branch already. Your task:
-            1. Read the PR reviews to find the latest fix request (look for CHANGES_REQUESTED reviews)
+            1. Read the PR comments and reviews to find the latest fix request (look for CHANGES_REQUESTED reviews or comments starting with "**Fix requested:**")
             2. Read the relevant source files
-            3. Apply the fix described in the review
-            4. Commit the changes with a descriptive message
+            3. Apply the fix described in the review/comment
+            4. Create a NEW commit with a descriptive message - NEVER amend an existing commit, NEVER force-push
             5. Push to the current branch: `git push origin HEAD:${{ github.event.pull_request.head.ref }}`
-            6. After pushing, remove the `fix-requested` label from PR #${{ github.event.pull_request.number }} so it re-enters the review queue
+            6. Post a PR comment documenting what you fixed: `gh pr comment ${{ github.event.pull_request.number }} --body "**Fix applied:** <one-sentence summary of what you changed>"`
+            7. Remove the `fix-requested` label: `gh pr edit ${{ github.event.pull_request.number }} --remove-label fix-requested`
           claude_args: |
             --max-turns 30
+            --dangerously-skip-permissions

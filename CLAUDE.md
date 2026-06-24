@@ -33,7 +33,8 @@ Do NOT merge any feature without explicit user confirmation via the review scrip
 ### Common Pitfalls
 
 - **PR body format**: Must include `## Description` section and `Closes #<number>` - the review script parses both.
-- **Fix agents must push**: Unlike new-feature agents, fix agents must run `git push origin HEAD:<branch>` after committing.
+- **Fix agents must push (never force)**: Fix agents must run `git push origin HEAD:<branch>` after committing. NEVER amend commits or force-push — always create a new commit on top of the existing history so the PR comment trail is preserved.
+- **Fix agents must comment**: After pushing a fix, post a PR comment: `gh pr comment <pr_number> --body "**Fix applied:** <summary>"` so every fix is tracked in the PR history.
 - **PowerShell 5.1 heredocs**: Use `@'...'@` (single-quoted, `'@` at column 0) for multi-line git commit messages. The bash `$(cat <<'EOF'...)` syntax does not work in PowerShell.
 - **Resolving merge conflicts**: After editing conflicted files, run `git add <file>` before `git commit`. Git won't auto-stage manually resolved files.
 - **Cloning elements**: Always use `rehydrateElement(JSON.parse(JSON.stringify(el)))` to deep-copy an Element - never use a plain JSON clone, which loses prototype methods and breaks the app.
