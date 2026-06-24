@@ -4,3 +4,4 @@ Add feature requests below as bullet points. Claude reads this during bulk featu
 
 ---
 
+- when double clicking on component to change a name, change the name inline instead of a popup 
