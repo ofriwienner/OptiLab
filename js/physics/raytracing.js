@@ -3,6 +3,9 @@
  * Core ray tracing and physics simulation
  */
 
+// When set to a Map, records which lasers hit each element: elementId -> Set<laserId>
+let laserHitTracker = null;
+
 /**
  * Trace a single ray through the optical system
  * @param {Object} ray - Ray object with x, y, dx, dy, intensity, stokes, color
@@ -46,6 +49,11 @@ function traceRay(ray, depth, results) {
             thickness: ray.thickness ?? 1,
             stokes: ray.stokes
         });
+
+        if (laserHitTracker && hitObject) {
+            if (!laserHitTracker.has(hitObject.id)) laserHitTracker.set(hitObject.id, new Set());
+            laserHitTracker.get(hitObject.id).add(ray.laserId);
+        }
 
         const segVec = closestHit.segVector;
         let nx = -segVec.y;
