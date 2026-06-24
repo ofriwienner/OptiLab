@@ -71,6 +71,24 @@ function updateUI() {
     const btnContainer = document.getElementById('dynamic-buttons');
     btnContainer.innerHTML = '';
 
+    // Show/hide the Properties panel based on whether something is selected
+    const hasSelection = !!p;
+    const noHint = document.getElementById('no-selection-hint');
+    const controlsPanel = document.getElementById('controls-panel');
+    const deleteSection = document.getElementById('delete-section');
+    const badge = document.getElementById('selected-type-badge');
+    if (noHint) noHint.classList.toggle('hidden', hasSelection);
+    if (controlsPanel) controlsPanel.classList.toggle('hidden', !hasSelection);
+    if (deleteSection) deleteSection.classList.toggle('hidden', !hasSelection);
+    if (badge) {
+        if (hasSelection) {
+            badge.textContent = p.type.replace(/-/g, ' ');
+            badge.classList.remove('hidden');
+        } else {
+            badge.classList.add('hidden');
+        }
+    }
+
     if (p) {
         // Rotation Slider
         let deg = Math.round(toDeg(p.rotation) % 360);
