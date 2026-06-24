@@ -61,6 +61,12 @@ function traceRay(ray, depth, results) {
             lastHitOnSelected = { el: hitObject, incoming: inc };
         }
 
+        // Track laser hits for component list modal
+        if (hitObject.type !== 'measure' && ray.laserId !== undefined) {
+            if (!laserHitMap.has(hitObject.id)) laserHitMap.set(hitObject.id, new Set());
+            laserHitMap.get(hitObject.id).add(ray.laserId);
+        }
+
         // Handle different element types
         if (hitSegment.type === 'mirror-front' && dp < 0) {
             // Mirror reflection
@@ -371,6 +377,7 @@ function traceRay(ray, depth, results) {
  */
 function castRays() {
     lastHitOnSelected = null;
+    laserHitMap = new Map();
     let raysToDraw = [];
     const lasers = elements.filter(e => e.type === 'laser');
 

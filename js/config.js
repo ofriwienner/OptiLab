@@ -53,6 +53,9 @@ const WAVEPLATE_FINE_STEP_DEG = 5;
 let elements = [];
 let selection = new Set();
 
+// Laser hit tracking: element.id -> Set of laser IDs that hit it (populated by castRays)
+let laserHitMap = new Map();
+
 // Interaction state
 let isDragging = false;
 let isRotating = false;

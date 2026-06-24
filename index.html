@@ -10,6 +10,23 @@
 <body class="bg-[#0a0e1a] text-gray-100 flex h-screen w-screen font-sans text-sm">
 
     <div id="calibration-msg" class="calibration-modal">Calibration: Click Point 1 on Image</div>
+
+    <!-- Component List Modal -->
+    <div id="component-list-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+        <div class="bg-gray-900 border border-gray-700 rounded-xl shadow-2xl w-96 max-h-[80vh] flex flex-col">
+            <div class="flex items-center justify-between px-4 py-3 border-b border-gray-800">
+                <h2 class="text-sm font-bold text-gray-100">Component List</h2>
+                <button onclick="closeComponentListModal()" class="text-gray-400 hover:text-white text-lg leading-none transition">✕</button>
+            </div>
+            <div id="component-list-body" class="flex-1 overflow-y-auto px-4 py-2"></div>
+            <div class="px-4 py-3 border-t border-gray-800">
+                <button id="export-component-list-btn" onclick="exportComponentList()"
+                    class="w-full py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-medium rounded-lg transition">
+                    Export to Text
+                </button>
+            </div>
+        </div>
+    </div>
     <input type="file" id="imgUpload" accept="image/*" style="display: none;">
     <input type="file" id="fileInput" class="hidden" onchange="importState(this)">
 
@@ -129,6 +146,16 @@
                 </button>
             </div>
 
+            <!-- Component List Tool -->
+            <div class="mt-2">
+                <button onclick="openComponentListModal()" class="w-full py-1.5 bg-gray-800/50 rounded-lg border border-gray-700/50 text-[9px] text-gray-300 hover:border-blue-500/50 hover:text-blue-300 transition flex items-center justify-center gap-1.5">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/>
+                    </svg>
+                    Component List
+                </button>
+            </div>
+
             <!-- My Components Library -->
             <div class="mt-4 bg-gradient-to-br from-gray-800/80 to-gray-900/80 p-2 rounded-lg border border-gray-800 shadow-md">
                 <div class="flex items-center justify-between mb-1.5">
@@ -218,6 +245,7 @@
     <script src="js/ui/calibration.js"></script>
     <script src="js/ui/controls.js"></script>
     <script src="js/ui/sidebar.js"></script>
+    <script src="js/ui/component-list.js"></script>
     <script src="js/state.js"></script>
     <script src="js/input.js"></script>
     <script src="js/app.js"></script>
