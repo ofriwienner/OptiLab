@@ -154,6 +154,16 @@ function rehydrateElement(data) {
         if (typeof data.customOpacity === 'number') el.customOpacity = data.customOpacity;
     }
 
+    // Border/area annotation properties
+    if (el.type === 'border') {
+        if (data.borderShape) el.borderShape = data.borderShape;
+        if (data.borderColor) el.borderColor = data.borderColor;
+        if (data.borderFillColor) el.borderFillColor = data.borderFillColor;
+        if (typeof data.borderFillOpacity === 'number') el.borderFillOpacity = data.borderFillOpacity;
+        if (data.borderLineStyle) el.borderLineStyle = data.borderLineStyle;
+        if (typeof data.borderLineWidth === 'number') el.borderLineWidth = data.borderLineWidth;
+    }
+
     return el;
 }
 

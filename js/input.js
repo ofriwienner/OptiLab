@@ -376,8 +376,8 @@ function handleMouseDown(e) {
             }
         }
 
-        // Board handles
-        if (primary.type === 'board' && !primary.locked) {
+        // Board and Border shared: resize corner handles
+        if ((primary.type === 'board' || primary.type === 'border') && !primary.locked) {
             // Resize handles - check all 4 corners
             const resizeCorners = [
                 { key: 'br', dx: primary.width / 2, dy: primary.height / 2 },
@@ -385,9 +385,19 @@ function handleMouseDown(e) {
                 { key: 'tr', dx: primary.width / 2, dy: -primary.height / 2 },
                 { key: 'tl', dx: -primary.width / 2, dy: -primary.height / 2 },
             ];
+            // For borders, corners are rotated with the element
             let hitCornerKey = null;
             for (const c of resizeCorners) {
-                const cs = worldToScreen(primary.x + c.dx, primary.y + c.dy);
+                let wx, wy;
+                if (primary.type === 'border' && primary.rotation !== 0) {
+                    const cos = Math.cos(primary.rotation), sin = Math.sin(primary.rotation);
+                    wx = primary.x + c.dx * cos - c.dy * sin;
+                    wy = primary.y + c.dx * sin + c.dy * cos;
+                } else {
+                    wx = primary.x + c.dx;
+                    wy = primary.y + c.dy;
+                }
+                const cs = worldToScreen(wx, wy);
                 if ((m.x - cs.x) ** 2 + (m.y - cs.y) ** 2 < 100) {
                     hitCornerKey = c.key;
                     break;
@@ -398,50 +408,69 @@ function handleMouseDown(e) {
                 isResizing = true;
                 resizeCorner = hitCornerKey;
                 originalBoardState = { w: primary.width, h: primary.height, x: primary.x, y: primary.y };
-                let minX = primary.x - primary.width / 2;
-                let minY = primary.y - primary.height / 2;
-                let maxX = minX;
-                let maxY = minY;
-                elements.forEach(child => {
-                    if (child !== primary && child.type !== 'board' && getParentBoard(child) === primary) {
-                        const hw = child.width / 2 + 10;
-                        const hh = child.height / 2 + 10;
-                        if (child.x + hw > maxX) maxX = child.x + hw;
-                        if (child.y + hh > maxY) maxY = child.y + hh;
-                    }
-                });
-                originalBoardState.minW = Math.max(50, maxX - minX);
-                originalBoardState.minH = Math.max(50, maxY - minY);
+                if (primary.type === 'board') {
+                    let minX = primary.x - primary.width / 2;
+                    let minY = primary.y - primary.height / 2;
+                    let maxX = minX;
+                    let maxY = minY;
+                    elements.forEach(child => {
+                        if (child !== primary && child.type !== 'board' && getParentBoard(child) === primary) {
+                            const hw = child.width / 2 + 10;
+                            const hh = child.height / 2 + 10;
+                            if (child.x + hw > maxX) maxX = child.x + hw;
+                            if (child.y + hh > maxY) maxY = child.y + hh;
+                        }
+                    });
+                    originalBoardState.minW = Math.max(50, maxX - minX);
+                    originalBoardState.minH = Math.max(50, maxY - minY);
+                } else {
+                    // Border minimum size
+                    originalBoardState.minW = 20;
+                    originalBoardState.minH = 20;
+                }
                 return;
             }
 
-            const mh = primary.getMoveHandlePosition();
+            // Board-only: move and rotate-90 handles
+            if (primary.type === 'board') {
+                const mh = primary.getMoveHandlePosition();
 
-            // Rotate handle
-            const rotH_Screen = worldToScreen(primary.x + mh.x + 18 + 7.5, primary.y + mh.y + 7.5);
-            if ((m.x - rotH_Screen.x) ** 2 + (m.y - rotH_Screen.y) ** 2 < 100) {
-                rotateBoard(primary);
-                return;
-            }
+                // Rotate handle
+                const rotH_Screen = worldToScreen(primary.x + mh.x + 18 + 7.5, primary.y + mh.y + 7.5);
+                if ((m.x - rotH_Screen.x) ** 2 + (m.y - rotH_Screen.y) ** 2 < 100) {
+                    rotateBoard(primary);
+                    return;
+                }
 
-            // Move handle
-            const mhS = worldToScreen(primary.x + mh.x + 7.5, primary.y + mh.y + 7.5);
-            if ((m.x - mhS.x) ** 2 + (m.y - mhS.y) ** 2 < 100) {
-                saveToHistory();
-                isDragging = true;
-                originalBoardState = { x: primary.x, y: primary.y };
-                draggedChildren.clear();
-                elements.forEach(child => {
-                    if (child !== primary && child.type !== 'board' && !selection.has(child) && getParentBoard(child) === primary) {
-                        draggedChildren.set(child, { dx: child.x - primary.x, dy: child.y - primary.y, parentBoard: primary });
-                    }
-                });
-                dragOffsets.clear();
-                dragOffsets.set(primary, { dx: primary.x - w.x, dy: primary.y - w.y });
-                draw();
-                return;
+                // Move handle
+                const mhS = worldToScreen(primary.x + mh.x + 7.5, primary.y + mh.y + 7.5);
+                if ((m.x - mhS.x) ** 2 + (m.y - mhS.y) ** 2 < 100) {
+                    saveToHistory();
+                    isDragging = true;
+                    originalBoardState = { x: primary.x, y: primary.y };
+                    draggedChildren.clear();
+                    elements.forEach(child => {
+                        if (child !== primary && child.type !== 'board' && !selection.has(child) && getParentBoard(child) === primary) {
+                            draggedChildren.set(child, { dx: child.x - primary.x, dy: child.y - primary.y, parentBoard: primary });
+                        }
+                    });
+                    dragOffsets.clear();
+                    dragOffsets.set(primary, { dx: primary.x - w.x, dy: primary.y - w.y });
+                    draw();
+                    return;
+                }
+            } else if (primary.type === 'border') {
+                // Border rotate handle — getHandlePosition() already returns rotated offset
+                const hl = primary.getHandlePosition();
+                const hs = worldToScreen(primary.x + hl.x, primary.y + hl.y);
+                if ((m.x - hs.x) ** 2 + (m.y - hs.y) ** 2 < 100) {
+                    saveToHistory();
+                    isRotating = true;
+                    groupRotateState = null;
+                    return;
+                }
             }
-        } else if (primary.type !== 'board') {
+        } else if (primary.type !== 'board' && primary.type !== 'border') {
             // Component rotate handle
             const hl = primary.getHandlePosition();
             const hs = worldToScreen(primary.x + hl.x, primary.y + hl.y);
@@ -506,7 +535,8 @@ function handleMouseDown(e) {
 
     // Selection Logic
     let clicked = null;
-    const components = elements.filter(el => el.type !== 'board');
+    // Check non-board, non-border components first (highest click priority)
+    const components = elements.filter(el => el.type !== 'board' && el.type !== 'border');
     clicked = components.reverse().find(el => {
         if (el.type === 'measure') return measureLineHit(el, w);
         const cosR = Math.cos(-el.rotation);
@@ -518,7 +548,21 @@ function handleMouseDown(e) {
         return Math.abs(localX) <= Math.max(el.width / 2, 10) && Math.abs(localY) <= Math.max(el.height / 2, 10);
     });
 
-    // Check boards if no component was clicked
+    // Check borders if no component was clicked (borders are behind components)
+    if (!clicked) {
+        const borders = elements.filter(el => el.type === 'border');
+        clicked = borders.reverse().find(el => {
+            const cosR = Math.cos(-el.rotation);
+            const sinR = Math.sin(-el.rotation);
+            const dx = w.x - el.x;
+            const dy = w.y - el.y;
+            const localX = dx * cosR - dy * sinR;
+            const localY = dx * sinR + dy * cosR;
+            return Math.abs(localX) <= el.width / 2 && Math.abs(localY) <= Math.max(el.height / 2, 8);
+        });
+    }
+
+    // Check boards if no component or border was clicked
     if (!clicked) {
         const boards = elements.filter(el => el.type === 'board');
         const clickedBoard = boards.reverse().find(el => {
@@ -755,6 +799,43 @@ function handleMouseMove(e) {
             invalidBoardPlacement = checkBoardOverlap(p, newCx, newCy, newW, newH);
             p.width = newW; p.height = newH; p.x = newCx; p.y = newCy;
             draw();
+        } else if (p && p.type === 'border') {
+            // Resize in local (rotated) space
+            const ox = originalBoardState.x, oy = originalBoardState.y;
+            const ow = originalBoardState.w, oh = originalBoardState.h;
+            const minW = originalBoardState.minW, minH = originalBoardState.minH;
+            const cos = Math.cos(-p.rotation), sin = Math.sin(-p.rotation);
+            const dx = w.x - ox, dy = w.y - oy;
+            const localX = dx * cos - dy * sin;
+            const localY = dx * sin + dy * cos;
+            let newW, newH, newLocalCx, newLocalCy;
+            if (resizeCorner === 'br') {
+                newW = Math.max(minW, localX + ow / 2);
+                newH = Math.max(minH, localY + oh / 2);
+                newLocalCx = -ow / 2 + newW / 2;
+                newLocalCy = -oh / 2 + newH / 2;
+            } else if (resizeCorner === 'bl') {
+                newW = Math.max(minW, ow / 2 - localX);
+                newH = Math.max(minH, localY + oh / 2);
+                newLocalCx = ow / 2 - newW / 2;
+                newLocalCy = -oh / 2 + newH / 2;
+            } else if (resizeCorner === 'tr') {
+                newW = Math.max(minW, localX + ow / 2);
+                newH = Math.max(minH, oh / 2 - localY);
+                newLocalCx = -ow / 2 + newW / 2;
+                newLocalCy = oh / 2 - newH / 2;
+            } else {
+                newW = Math.max(minW, ow / 2 - localX);
+                newH = Math.max(minH, oh / 2 - localY);
+                newLocalCx = ow / 2 - newW / 2;
+                newLocalCy = oh / 2 - newH / 2;
+            }
+            const cosFwd = Math.cos(p.rotation), sinFwd = Math.sin(p.rotation);
+            p.x = ox + newLocalCx * cosFwd - newLocalCy * sinFwd;
+            p.y = oy + newLocalCx * sinFwd + newLocalCy * cosFwd;
+            p.width = newW;
+            p.height = newH;
+            draw();
         }
         return;
     }
@@ -791,7 +872,7 @@ function handleMouseMove(e) {
                         // Calculate left and top edges
                         const leftEdge = rawX - el.width / 2;
                         const topEdge = rawY - el.height / 2;
-                        
+
                         if (ctrlPressed) {
                             // Half grid snap - snap edges to half-grid positions
                             const snappedLeft = Math.round(leftEdge / HALF_GRID_MM) * HALF_GRID_MM;
@@ -805,6 +886,18 @@ function handleMouseMove(e) {
                             newX = snappedLeft + el.width / 2;
                             newY = snappedTop + el.height / 2;
                         }
+                    }
+                } else if (el.type === 'border') {
+                    // Borders snap center to world grid
+                    if (shiftPressed) {
+                        newX = rawX;
+                        newY = rawY;
+                    } else if (ctrlPressed) {
+                        newX = Math.round(rawX / HALF_GRID_MM) * HALF_GRID_MM;
+                        newY = Math.round(rawY / HALF_GRID_MM) * HALF_GRID_MM;
+                    } else {
+                        newX = Math.round(rawX / GRID_PITCH_MM) * GRID_PITCH_MM;
+                        newY = Math.round(rawY / GRID_PITCH_MM) * GRID_PITCH_MM;
                     }
                 } else {
                     // For components, use existing snapping logic
