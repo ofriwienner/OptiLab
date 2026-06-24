@@ -104,8 +104,14 @@ function initInputHandlers() {
     // Wheel handler
     canvas.addEventListener('wheel', handleWheel);
 
-    // Context menu prevention
-    canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+    // Right-click context menu
+    canvas.addEventListener('contextmenu', handleContextMenu);
+    document.addEventListener('click', hideContextMenu);
+    document.getElementById('ctx-duplicate').addEventListener('click', () => { contextMenuAction('duplicate'); });
+    document.getElementById('ctx-copy').addEventListener('click', () => { contextMenuAction('copy'); });
+    document.getElementById('ctx-paste').addEventListener('click', () => { contextMenuAction('paste'); });
+    document.getElementById('ctx-rotate').addEventListener('click', () => { contextMenuAction('rotate'); });
+    document.getElementById('ctx-delete').addEventListener('click', () => { contextMenuAction('delete'); });
 
     // Keyboard handlers
     window.addEventListener('keydown', handleKeyDown);
@@ -893,6 +899,15 @@ function handleMouseMove(e) {
         return;
     }
 
+    // Hover detection for visual feedback
+    const newHovered = findElementAtScreen(m);
+    if (newHovered !== hoveredElement) {
+        hoveredElement = newHovered;
+        canvas.style.cursor = newHovered ? 'pointer' : 'crosshair';
+        draw();
+        return;
+    }
+
     draw();
 }
 
@@ -1074,6 +1089,7 @@ function handleMouseUp(e) {
     fiberConnectSource = null;
     fiberConnectMousePos = null;
     view.isPanning = false;
+    hoveredElement = null;
     canvas.style.cursor = 'crosshair';
 
     if (wasDragging && selection.size === 1) {
@@ -1110,17 +1126,39 @@ function handleWheel(e) {
  * @param {KeyboardEvent} e - Keyboard event
  */
 function handleKeyDown(e) {
-    if (e.repeat) return;
-    keys[e.key] = true;
-    if (e.key === 'Shift') shiftPressed = true;
-    if (e.key === 'Control' || e.key === 'Meta') ctrlPressed = true;
+    if (!e.repeat) {
+        keys[e.key] = true;
+        if (e.key === 'Shift') shiftPressed = true;
+        if (e.key === 'Control' || e.key === 'Meta') ctrlPressed = true;
+    }
     const codeKey = e.code?.startsWith('Key') ? e.code.slice(3).toLowerCase() : null;
 
     const activeTag = document.activeElement?.tagName;
     if (activeTag === 'INPUT' || activeTag === 'TEXTAREA') return;
 
+    // Arrow key nudging (allow key repeat for smooth continuous movement)
+    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key) && selection.size > 0) {
+        e.preventDefault();
+        const step = e.shiftKey ? GRID_PITCH_MM : e.ctrlKey ? 1 : HALF_GRID_MM;
+        const dx = e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0;
+        const dy = e.key === 'ArrowUp' ? -step : e.key === 'ArrowDown' ? step : 0;
+        if (!e.repeat) saveToHistory();
+        selection.forEach(el => {
+            if (!el.locked) {
+                el.x += dx;
+                el.y += dy;
+            }
+        });
+        updateUI();
+        draw();
+        return;
+    }
+
+    if (e.repeat) return;
+
     // Escape - cancel fiber connection, pending board, measure mode, or deselect all
     if (e.key === 'Escape') {
+        hideContextMenu();
         if (isFiberConnecting) {
             isFiberConnecting = false;
             fiberConnectSource = null;
@@ -1462,6 +1500,105 @@ function handleDoubleClick(e) {
         updateUI();
         draw();
     }
+}
+
+// ── Helper: find topmost element under a screen coordinate ────────────────────
+
+function findElementAtScreen(screenPos) {
+    const w = screenToWorld(screenPos.x, screenPos.y);
+    const components = elements.filter(el => el.type !== 'board');
+    const hit = components.slice().reverse().find(el => {
+        if (el.type === 'measure') return measureLineHit(el, w);
+        const cosR = Math.cos(-el.rotation);
+        const sinR = Math.sin(-el.rotation);
+        const dx = w.x - el.x;
+        const dy = w.y - el.y;
+        const localX = dx * cosR - dy * sinR;
+        const localY = dx * sinR + dy * cosR;
+        return Math.abs(localX) <= Math.max(el.width / 2, 10) && Math.abs(localY) <= Math.max(el.height / 2, 10);
+    });
+    if (hit) return hit;
+    const boards = elements.filter(el => el.type === 'board');
+    return boards.slice().reverse().find(el =>
+        w.x > el.x - el.width / 2 && w.x < el.x + el.width / 2 &&
+        w.y > el.y - el.height / 2 && w.y < el.y + el.height / 2
+    ) || null;
+}
+
+// ── Right-click context menu ──────────────────────────────────────────────────
+
+function handleContextMenu(e) {
+    e.preventDefault();
+    const m = { x: e.clientX - canvas.getBoundingClientRect().left, y: e.clientY - canvas.getBoundingClientRect().top };
+    const hit = findElementAtScreen(m);
+
+    if (hit && !selection.has(hit)) {
+        selection.clear();
+        selection.add(hit);
+        updateUI();
+        draw();
+    }
+
+    const hasSelection = selection.size > 0;
+    const hasRotatable = hasSelection && Array.from(selection).some(el => el.type !== 'board');
+    const menu = document.getElementById('context-menu');
+
+    document.getElementById('ctx-duplicate').style.display = hasSelection ? '' : 'none';
+    document.getElementById('ctx-copy').style.display = hasSelection ? '' : 'none';
+    document.getElementById('ctx-rotate').style.display = hasRotatable ? '' : 'none';
+    document.getElementById('ctx-delete').style.display = hasSelection ? '' : 'none';
+    document.getElementById('ctx-paste').style.display = clipboard ? '' : 'none';
+
+    if (!hasSelection && !clipboard) { menu.style.display = 'none'; return; }
+
+    menu.style.left = e.clientX + 'px';
+    menu.style.top = e.clientY + 'px';
+    menu.style.display = 'block';
+
+    // Nudge menu inside viewport if it overflows
+    requestAnimationFrame(() => {
+        const rect = menu.getBoundingClientRect();
+        if (rect.right > window.innerWidth) menu.style.left = (e.clientX - rect.width) + 'px';
+        if (rect.bottom > window.innerHeight) menu.style.top = (e.clientY - rect.height) + 'px';
+    });
+}
+
+function hideContextMenu() {
+    const menu = document.getElementById('context-menu');
+    if (menu) menu.style.display = 'none';
+}
+
+function contextMenuAction(action) {
+    hideContextMenu();
+    if (action === 'duplicate') {
+        if (selection.size === 0) return;
+        saveToHistory();
+        const clones = [];
+        selection.forEach(el => {
+            const clone = rehydrateElement(JSON.parse(JSON.stringify(el)));
+            clone.id = Date.now() + Math.random();
+            clone.x += GRID_PITCH_MM;
+            clone.y += GRID_PITCH_MM;
+            clones.push(clone);
+            elements.push(clone);
+        });
+        selection.clear();
+        clones.forEach(c => selection.add(c));
+    } else if (action === 'copy') {
+        copySelected();
+    } else if (action === 'paste') {
+        pasteElements();
+    } else if (action === 'rotate') {
+        if (selection.size === 0) return;
+        saveToHistory();
+        selection.forEach(el => {
+            if (!el.locked && el.type !== 'board') el.rotation += Math.PI / 2;
+        });
+    } else if (action === 'delete') {
+        deleteSelected();
+    }
+    updateUI();
+    draw();
 }
 
 

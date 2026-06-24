@@ -87,6 +87,21 @@ function drawElement(el) {
         ctx.lineWidth = 3;
         ctx.strokeRect(-el.width / 2, -el.height / 2, el.width, el.height);
         ctx.shadowBlur = 0;
+    } else if (!isSelected && el === hoveredElement && !isDragging && !isRotating && !isResizing) {
+        ctx.shadowColor = 'rgba(100,160,255,0.7)';
+        ctx.shadowBlur = 8;
+        ctx.strokeStyle = 'rgba(100,160,255,0.45)';
+        ctx.lineWidth = 1;
+        if (el.type === 'board') {
+            ctx.strokeRect(-el.width / 2, -el.height / 2, el.width, el.height);
+        } else if (el.type === 'measure') {
+            ctx.strokeRect(-el.width / 2 - 2, -5, el.width + 4, 10);
+        } else if (el.type.includes('mirror')) {
+            ctx.strokeRect(-el.width / 2 - 2, -2, el.width + 4, el.height + 4);
+        } else {
+            ctx.strokeRect(-el.width / 2 - 2, -el.height / 2 - 2, el.width + 4, el.height + 4);
+        }
+        ctx.shadowBlur = 0;
     } else if (isSelected) {
         ctx.shadowColor = 'white';
         ctx.shadowBlur = 10;

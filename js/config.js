@@ -136,6 +136,9 @@ let customComponentLibrary = [];
 let isMeasureMode = false;
 let measureP1 = null;
 
+// Hover state
+let hoveredElement = null;
+
 // Alignment state
 let alignPreference = 0;
 let hasCycleOptions = false;
