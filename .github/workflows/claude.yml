@@ -45,7 +45,7 @@ jobs:
             **IMPORTANT - WHEN WORKING ON ISSUES:**
             After you finish implementing the code changes and committing them, create a pull request:
             ```
-            gh pr create --title "Your descriptive title" --body "## Summary
+            gh pr create --title "Your descriptive title" --label "ready-for-review" --body "## Summary
             Your summary of what was implemented.
              
             Closes #${{ github.event.issue.number }}"
