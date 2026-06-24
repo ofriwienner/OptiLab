@@ -270,12 +270,13 @@
                         class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none transition resize-none"></textarea>
                 </div>
 
-                <p class="text-xs text-gray-500">Clicking Submit will open GitHub to create an issue. A GitHub account is required.</p>
             </div>
+
+            <div id="feedback-result" class="hidden"></div>
 
             <div class="flex gap-2 mt-4">
                 <button onclick="closeFeedback()" class="flex-1 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 text-sm rounded-lg transition">Cancel</button>
-                <button onclick="submitFeedback()" class="flex-1 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition">Submit Feedback</button>
+                <button id="feedback-submit-btn" onclick="submitFeedback()" class="flex-1 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition">Submit Feedback</button>
             </div>
         </div>
     </div>
