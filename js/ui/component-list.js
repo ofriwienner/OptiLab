@@ -318,29 +318,29 @@ function openComponentListModal() {
     };
 
     txtBtn.onclick = () => {
-        const lines = ['COMPONENT LIST', '=============', ''];
-        currentGroups.forEach(g => {
-            if (g.label) { lines.push(g.label); lines.push('-'.repeat(g.label.length)); }
-            g.items.forEach(el => {
-                const pb = getParentBoard(el);
-                const board = pb ? (pb.title || 'Board') : 'No Board';
-                let lasersStr = 'None';
-                if (el.type === 'laser') {
-                    lasersStr = 'Source';
-                } else {
-                    const hits = hitMap.get(el.id);
-                    if (hits && hits.size > 0) {
-                        lasersStr = Array.from(hits).map(lid => {
-                            const l = lasers.find(x => x.id === lid);
-                            return l ? getLaserName(l) : '';
-                        }).filter(Boolean).join(', ');
-                    }
-                }
-                lines.push('  ' + getComponentDisplayName(el) + ' [' + (COMP_TYPE_LABELS[el.type] || el.type) + ']  Board: ' + board + '  Lasers: ' + lasersStr);
-            });
-            if (g.label) lines.push('');
+        const comps = getFilteredComps().filter(el => el.type !== 'laser');
+        const groupMap = new Map();
+        comps.forEach(el => {
+            const typeLabel = COMP_TYPE_LABELS[el.type] || el.type;
+            const hits = hitMap.get(el.id);
+            const laserNames = hits && hits.size > 0
+                ? Array.from(hits).map(lid => { const l = lasers.find(x => x.id === lid); return l ? getLaserName(l) : null; }).filter(Boolean).sort()
+                : [];
+            const key = typeLabel + '\0' + laserNames.join(',');
+            if (!groupMap.has(key)) groupMap.set(key, { typeLabel, laserNames, count: 0 });
+            groupMap.get(key).count++;
         });
-        dlCompFile('component-list.txt', lines.join('\n'), 'text/plain');
+        const lines = Array.from(groupMap.values()).map(({ typeLabel, laserNames, count }) => {
+            const prefix = count > 1 ? count + ' x ' : '';
+            const laserPart = laserNames.length > 0 ? ' [' + laserNames.join(', ') + ']' : '';
+            return prefix + typeLabel + laserPart;
+        });
+        const text = lines.join('\n');
+        navigator.clipboard.writeText(text).then(() => {
+            const orig = txtBtn.textContent;
+            txtBtn.textContent = 'Copied!';
+            setTimeout(() => { txtBtn.textContent = orig; }, 1500);
+        }).catch(() => dlCompFile('component-list.txt', text, 'text/plain'));
     };
 
     renderList();
