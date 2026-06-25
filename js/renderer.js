@@ -1707,28 +1707,47 @@ function drawBorder(el, sc) {
             const tolerance = 1;
             const ax1 = el.x - el.width / 2, ax2 = el.x + el.width / 2;
             const ay1 = el.y - el.height / 2, ay2 = el.y + el.height / 2;
-            const skipRight = borders.some(b => {
-                const bx1 = b.x - b.width / 2, by1 = b.y - b.height / 2, by2 = b.y + b.height / 2;
-                return Math.abs(ax2 - bx1) < tolerance && ay1 < by2 - tolerance && ay2 > by1 + tolerance;
-            });
-            const skipLeft = borders.some(b => {
-                const bx2 = b.x + b.width / 2, by1 = b.y - b.height / 2, by2 = b.y + b.height / 2;
-                return Math.abs(ax1 - bx2) < tolerance && ay1 < by2 - tolerance && ay2 > by1 + tolerance;
-            });
-            const skipBottom = borders.some(b => {
-                const by1 = b.y - b.height / 2, bx1 = b.x - b.width / 2, bx2 = b.x + b.width / 2;
-                return Math.abs(ay2 - by1) < tolerance && ax1 < bx2 - tolerance && ax2 > bx1 + tolerance;
-            });
-            const skipTop = borders.some(b => {
-                const by2 = b.y + b.height / 2, bx1 = b.x - b.width / 2, bx2 = b.x + b.width / 2;
-                return Math.abs(ay1 - by2) < tolerance && ax1 < bx2 - tolerance && ax2 > bx1 + tolerance;
-            });
+
+            const drawLineWithGaps = (isVertical, fixedCoord, start, end, gaps) => {
+                const merged = [];
+                for (const [gs, ge] of gaps) {
+                    const cs = Math.max(gs, start), ce = Math.min(ge, end);
+                    if (ce > cs) merged.push([cs, ce]);
+                }
+                merged.sort((a, b) => a[0] - b[0]);
+                let cursor = start;
+                for (const [gs, ge] of merged) {
+                    if (cursor < gs) {
+                        if (isVertical) { ctx.moveTo(fixedCoord, cursor); ctx.lineTo(fixedCoord, gs); }
+                        else { ctx.moveTo(cursor, fixedCoord); ctx.lineTo(gs, fixedCoord); }
+                    }
+                    cursor = ge;
+                }
+                if (cursor < end) {
+                    if (isVertical) { ctx.moveTo(fixedCoord, cursor); ctx.lineTo(fixedCoord, end); }
+                    else { ctx.moveTo(cursor, fixedCoord); ctx.lineTo(end, fixedCoord); }
+                }
+            };
+
+            const rightGaps = borders
+                .filter(b => Math.abs(ax2 - (b.x - b.width / 2)) < tolerance && ay1 < b.y + b.height / 2 - tolerance && ay2 > b.y - b.height / 2 + tolerance)
+                .map(b => [Math.max(ay1, b.y - b.height / 2) - el.y, Math.min(ay2, b.y + b.height / 2) - el.y]);
+            const leftGaps = borders
+                .filter(b => Math.abs(ax1 - (b.x + b.width / 2)) < tolerance && ay1 < b.y + b.height / 2 - tolerance && ay2 > b.y - b.height / 2 + tolerance)
+                .map(b => [Math.max(ay1, b.y - b.height / 2) - el.y, Math.min(ay2, b.y + b.height / 2) - el.y]);
+            const bottomGaps = borders
+                .filter(b => Math.abs(ay2 - (b.y - b.height / 2)) < tolerance && ax1 < b.x + b.width / 2 - tolerance && ax2 > b.x - b.width / 2 + tolerance)
+                .map(b => [Math.max(ax1, b.x - b.width / 2) - el.x, Math.min(ax2, b.x + b.width / 2) - el.x]);
+            const topGaps = borders
+                .filter(b => Math.abs(ay1 - (b.y + b.height / 2)) < tolerance && ax1 < b.x + b.width / 2 - tolerance && ax2 > b.x - b.width / 2 + tolerance)
+                .map(b => [Math.max(ax1, b.x - b.width / 2) - el.x, Math.min(ax2, b.x + b.width / 2) - el.x]);
+
             const x1 = -el.width / 2, y1 = -el.height / 2, x2 = el.width / 2, y2 = el.height / 2;
             ctx.beginPath();
-            if (!skipTop) { ctx.moveTo(x1, y1); ctx.lineTo(x2, y1); }
-            if (!skipRight) { ctx.moveTo(x2, y1); ctx.lineTo(x2, y2); }
-            if (!skipBottom) { ctx.moveTo(x2, y2); ctx.lineTo(x1, y2); }
-            if (!skipLeft) { ctx.moveTo(x1, y2); ctx.lineTo(x1, y1); }
+            drawLineWithGaps(false, y1, x1, x2, topGaps);
+            drawLineWithGaps(true, x2, y1, y2, rightGaps);
+            drawLineWithGaps(false, y2, x1, x2, bottomGaps);
+            drawLineWithGaps(true, x1, y1, y2, leftGaps);
             ctx.stroke();
         } else {
             ctx.strokeRect(-el.width / 2, -el.height / 2, el.width, el.height);
