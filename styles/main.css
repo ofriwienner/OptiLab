@@ -476,6 +476,29 @@ canvas {
     line-height: 1;
 }
 
+/* Inline Title Editor */
+#inline-title-input {
+    display: none;
+    position: absolute;
+    background: rgba(17, 24, 39, 0.95);
+    border: 1px solid #4b5563;
+    border-radius: 3px;
+    color: #9ca3af;
+    font: 11px sans-serif;
+    padding: 1px 4px;
+    outline: none;
+    z-index: 200;
+    min-width: 60px;
+    width: 120px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
+    user-select: text;
+}
+
+#inline-title-input:focus {
+    border-color: #6b7280;
+    box-shadow: 0 0 0 2px rgba(107, 114, 128, 0.25), 0 2px 8px rgba(0, 0, 0, 0.6);
+}
+
 /* Calibration Modal - Modern Toast Style */
 .calibration-modal {
     position: fixed;
