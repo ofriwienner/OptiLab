@@ -903,9 +903,7 @@ function handleMouseMove(e) {
     const newHovered = findElementAtScreen(m);
     if (newHovered !== hoveredElement) {
         hoveredElement = newHovered;
-        // Boards are not interactable via click/drag from body; selected elements don't need pointer feedback
-        const showPointer = newHovered && newHovered.type !== 'board' && !selection.has(newHovered);
-        canvas.style.cursor = showPointer ? 'pointer' : 'crosshair';
+        canvas.style.cursor = 'crosshair';
         draw();
         return;
     }
