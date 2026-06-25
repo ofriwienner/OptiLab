@@ -49,7 +49,8 @@ _ref_tmpdir = None
 def gh_run(*args, check=True):
     result = subprocess.run(
         ["gh", *args],
-        capture_output=True, text=True, cwd=REPO_ROOT,
+        capture_output=True, text=True, encoding='utf-8', errors='replace',
+        cwd=REPO_ROOT,
     )
     if check and result.returncode != 0:
         print(f"  gh error: {result.stderr.strip()}")
@@ -60,7 +61,8 @@ def gh_run(*args, check=True):
 def git_run(*args, cwd=None):
     return subprocess.run(
         ["git", *args],
-        capture_output=True, text=True, cwd=str(cwd or REPO_ROOT),
+        capture_output=True, text=True, encoding='utf-8', errors='replace',
+        cwd=str(cwd or REPO_ROOT),
     )
 
 
