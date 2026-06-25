@@ -217,7 +217,6 @@ function handleMouseDown(e) {
         view.isPanning = true;
         view.startPanX = m.x - view.x;
         view.startPanY = m.y - view.y;
-        if (!isDragging) canvas.style.cursor = 'grabbing';
         return;
     }
 
@@ -249,7 +248,6 @@ function handleMouseDown(e) {
         dragOffsets.set(b, { dx: b.x - w.x, dy: b.y - w.y });
         
         pendingBoard = null;
-        canvas.style.cursor = 'grabbing';
         updateUI();
         draw();
         return;
@@ -263,7 +261,7 @@ function handleMouseDown(e) {
         selection.add(cellKnobTarget);
         axisAdjustTarget = cellKnobTarget;
         isAdjustingAxis = true;
-        canvas.style.cursor = 'grabbing';
+        canvas.style.cursor = 'crosshair';
         updateCellAngleFromPoint(cellKnobTarget, w);
         updateUI();
         draw();
@@ -278,7 +276,7 @@ function handleMouseDown(e) {
         selection.add(knobTarget);
         axisAdjustTarget = knobTarget;
         isAdjustingAxis = true;
-        canvas.style.cursor = 'grabbing';
+        canvas.style.cursor = 'crosshair';
         updateWaveplateAxisFromPoint(knobTarget, w);
         updateUI();
         draw();
@@ -361,7 +359,7 @@ function handleMouseDown(e) {
             ];
             groupRotateState = { centroid: { x: gx, y: gy }, startAngle: Math.atan2(ady, adx), initials, initBoxWorld, currentDelta: 0 };
             isRotating = true;
-            canvas.style.cursor = 'grabbing';
+            canvas.style.cursor = 'crosshair';
             draw();
             return;
         }
@@ -903,7 +901,6 @@ function handleMouseMove(e) {
     const newHovered = findElementAtScreen(m);
     if (newHovered !== hoveredElement) {
         hoveredElement = newHovered;
-        canvas.style.cursor = 'crosshair';
         draw();
         return;
     }
@@ -1280,7 +1277,7 @@ function handleKeyDown(e) {
             // Set drag offsets for all selected elements
             selection.forEach(el => dragOffsets.set(el, { dx: el.x - w.x, dy: el.y - w.y }));
             
-            canvas.style.cursor = 'grabbing';
+            canvas.style.cursor = 'crosshair';
             updateUI();
             draw();
             return;
