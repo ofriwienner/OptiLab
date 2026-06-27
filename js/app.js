@@ -110,6 +110,8 @@ function exposeGlobalFunctions() {
     window.renderCustomLibrary = renderCustomLibrary;
     window.startMeasureTool = startMeasureTool;
     window.updateMeasureBtn = updateMeasureBtn;
+    window.addBorder = addBorder;
+    window.updateBorderBtn = updateBorderBtn;
     window.tryAutoAlign = tryAutoAlign;
     window.cycleSnapRotation = cycleSnapRotation;
     window.moveToBack = moveToBack;

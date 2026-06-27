@@ -86,6 +86,57 @@ function updateMeasureBtn() {
     }
 }
 
+// ── Border tool helpers ───────────────────────────────────────────────────────
+
+function snapBorderPoint(w) {
+    const halfGrid = GRID_PITCH_MM / 2;
+    return {
+        x: Math.round(w.x / halfGrid) * halfGrid,
+        y: Math.round(w.y / halfGrid) * halfGrid
+    };
+}
+
+function applyBorderSnap(p1, p2) {
+    if (!p1 || !p2) return p2;
+    const dx = p2.x - p1.x;
+    const dy = p2.y - p1.y;
+    if (dx === 0 && dy === 0) return p2;
+    const angle = Math.atan2(dy, dx);
+    const absAngle = Math.abs(angle);
+    const threshold = toRad(10);
+    if (absAngle < threshold || absAngle > Math.PI - threshold) {
+        return { x: p2.x, y: p1.y };
+    }
+    if (Math.abs(absAngle - Math.PI / 2) < threshold) {
+        return { x: p1.x, y: p2.y };
+    }
+    return p2;
+}
+
+function addBorder() {
+    if (isBorderMode) {
+        isBorderMode = false;
+        borderP1 = null;
+    } else {
+        isBorderMode = true;
+        borderP1 = null;
+        selection.clear();
+    }
+    updateBorderBtn();
+    canvas.style.cursor = 'crosshair';
+    draw();
+}
+
+function updateBorderBtn() {
+    const btn = document.getElementById('addBorderBtn');
+    if (!btn) return;
+    if (isBorderMode) {
+        btn.classList.add('ring-2', 'ring-teal-400', 'ring-offset-1', 'ring-offset-gray-900');
+    } else {
+        btn.classList.remove('ring-2', 'ring-teal-400', 'ring-offset-1', 'ring-offset-gray-900');
+    }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
@@ -199,6 +250,54 @@ function handleMouseDown(e) {
             }
             measureP1 = null;
             updateMeasureBtn();
+            canvas.style.cursor = 'crosshair';
+            updateUI();
+            draw();
+        }
+        return;
+    }
+
+    // Border tool placement
+    if (isBorderMode && e.button === 0) {
+        const raw = screenToWorld(m.x, m.y);
+        const snapped = snapBorderPoint(raw);
+
+        if (!borderP1) {
+            borderP1 = snapped;
+            draw();
+        } else {
+            const p2 = applyBorderSnap(borderP1, snapped);
+            const dx = p2.x - borderP1.x;
+            const dy = p2.y - borderP1.y;
+            const isHLine = Math.abs(dy) < 1;
+            const isVLine = Math.abs(dx) < 1;
+            const cx = (borderP1.x + p2.x) / 2;
+            const cy = (borderP1.y + p2.y) / 2;
+            let el = null;
+
+            if (isHLine && Math.abs(dx) >= 10) {
+                saveToHistory();
+                el = new Element('border', cx, cy, Math.abs(dx), Math.abs(dx), '');
+                el.borderShape = 'line';
+                el.rotation = 0;
+            } else if (isVLine && Math.abs(dy) >= 10) {
+                saveToHistory();
+                el = new Element('border', cx, cy, Math.abs(dy), Math.abs(dy), '');
+                el.borderShape = 'line';
+                el.rotation = Math.PI / 2;
+            } else if (Math.abs(dx) >= 10 && Math.abs(dy) >= 10) {
+                saveToHistory();
+                el = new Element('border', cx, cy, Math.abs(dx), Math.abs(dy), '');
+                el.width = Math.abs(dx);
+                el.height = Math.abs(dy);
+            }
+
+            if (el) {
+                elements.push(el);
+                selection.clear();
+                selection.add(el);
+            }
+            borderP1 = null;
             canvas.style.cursor = 'crosshair';
             updateUI();
             draw();
@@ -980,8 +1079,8 @@ function handleMouseMove(e) {
         return;
     }
 
-    // If pending board or measure mode, redraw to update preview
-    if (pendingBoard || isMeasureMode) {
+    // If pending board, measure mode, or border mode, redraw to update preview
+    if (pendingBoard || isMeasureMode || isBorderMode) {
         draw();
         return;
     }
@@ -1228,6 +1327,12 @@ function handleKeyDown(e) {
             measureP1 = null;
             canvas.style.cursor = 'crosshair';
             updateMeasureBtn();
+        }
+        if (isBorderMode) {
+            isBorderMode = false;
+            borderP1 = null;
+            canvas.style.cursor = 'crosshair';
+            updateBorderBtn();
         }
         selection.clear();
         updateUI();

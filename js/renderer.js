@@ -1465,6 +1465,7 @@ function draw() {
     drawFiberConnectingLine();
     drawPendingBoardPreview();
     drawMeasureOverlay();
+    drawBorderOverlay();
     drawHints();
 }
 
@@ -1661,6 +1662,112 @@ function drawMeasureOverlay() {
         ctx.textBaseline = 'bottom';
         ctx.fillText('Click to set start point', snappedScreen.x + 10, snappedScreen.y - 6);
         ctx.restore();
+    }
+}
+
+/**
+ * Draw live border-creation preview while borderP1 is set
+ */
+function drawBorderPreview(p1World, p2World) {
+    const dx = p2World.x - p1World.x;
+    const dy = p2World.y - p1World.y;
+    const isHLine = Math.abs(dy) < 1;
+    const isVLine = Math.abs(dx) < 1;
+    const p1s = worldToScreen(p1World.x, p1World.y);
+    const p2s = worldToScreen(p2World.x, p2World.y);
+
+    ctx.save();
+    ctx.strokeStyle = 'rgba(94, 234, 212, 0.85)';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([6, 4]);
+
+    if (isHLine || isVLine) {
+        ctx.beginPath();
+        ctx.moveTo(p1s.x, p1s.y);
+        ctx.lineTo(p2s.x, p2s.y);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        const len = isHLine ? Math.abs(dx) : Math.abs(dy);
+        const label = formatDistance(len);
+        const midX = (p1s.x + p2s.x) / 2;
+        const midY = (p1s.y + p2s.y) / 2;
+        ctx.font = 'bold 10px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = 'rgba(0,0,0,0.6)';
+        ctx.fillText(label, midX + 1, midY - 13);
+        ctx.fillStyle = '#99f6e4';
+        ctx.fillText(label, midX, midY - 14);
+    } else {
+        const x = Math.min(p1World.x, p2World.x);
+        const y = Math.min(p1World.y, p2World.y);
+        const w = Math.abs(dx);
+        const h = Math.abs(dy);
+        const tls = worldToScreen(x, y);
+        const brs = worldToScreen(x + w, y + h);
+        const rw = brs.x - tls.x;
+        const rh = brs.y - tls.y;
+
+        ctx.setLineDash([]);
+        ctx.fillStyle = 'rgba(94, 234, 212, 0.08)';
+        ctx.fillRect(tls.x, tls.y, rw, rh);
+
+        ctx.setLineDash([6, 4]);
+        ctx.strokeRect(tls.x, tls.y, rw, rh);
+        ctx.setLineDash([]);
+
+        ctx.font = 'bold 10px sans-serif';
+        ctx.fillStyle = '#99f6e4';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'bottom';
+        ctx.fillText(formatDistance(w), tls.x + rw / 2, tls.y - 4);
+
+        ctx.save();
+        ctx.translate(brs.x + 14, tls.y + rh / 2);
+        ctx.rotate(Math.PI / 2);
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'bottom';
+        ctx.fillText(formatDistance(h), 0, 0);
+        ctx.restore();
+    }
+
+    ctx.fillStyle = '#5eead4';
+    ctx.beginPath();
+    ctx.arc(p1s.x, p1s.y, 4, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.restore();
+}
+
+/**
+ * Draw live border-mode overlay (cursor dot before first click, then preview rect/line)
+ */
+function drawBorderOverlay() {
+    if (!isBorderMode) return;
+
+    const w = screenToWorld(lastMousePos.x, lastMousePos.y);
+    const snapped = snapBorderPoint(w);
+    const ss = worldToScreen(snapped.x, snapped.y);
+
+    if (!borderP1) {
+        ctx.save();
+        ctx.fillStyle = '#5eead4';
+        ctx.strokeStyle = '#134e4a';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(ss.x, ss.y, 5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.font = '11px sans-serif';
+        ctx.fillStyle = '#99f6e4';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'bottom';
+        ctx.fillText('Click to set start point', ss.x + 10, ss.y - 6);
+        ctx.restore();
+    } else {
+        const p2 = applyBorderSnap(borderP1, snapped);
+        drawBorderPreview(borderP1, p2);
     }
 }
 
