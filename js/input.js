@@ -1410,6 +1410,51 @@ function handleKeyUp(e) {
     if (e.key === 'Control' || e.key === 'Meta') ctrlPressed = false;
 }
 
+function startInlineTitleEdit(el) {
+    const input = document.getElementById('inline-title-input');
+    const sc = view.scale * PIXELS_PER_MM;
+    const pos = worldToScreen(el.x, el.y);
+    const textX = el.type === 'board' ? (-el.width / 2 + 5) : (-el.width / 2);
+    const textY = el.type === 'board' ? (-el.height / 2 - 5) : (-el.height / 2 - 8);
+    const cosR = Math.cos(el.rotation);
+    const sinR = Math.sin(el.rotation);
+    const sx = pos.x + sc * (textX * cosR - textY * sinR);
+    const sy = pos.y + sc * (textX * sinR + textY * cosR);
+
+    input.value = el.title || '';
+    input.style.left = sx + 'px';
+    input.style.top = (sy - 11) + 'px';
+    input.style.display = 'block';
+    input.focus();
+    input.select();
+
+    let done = false;
+
+    function finish(save) {
+        if (done) return;
+        done = true;
+        input.style.display = 'none';
+        input.removeEventListener('keydown', onKeydown);
+        input.removeEventListener('blur', onBlur);
+        if (save && input.value !== el.title) {
+            saveToHistory();
+            el.title = input.value;
+            draw();
+        }
+    }
+
+    function onKeydown(e) {
+        e.stopPropagation();
+        if (e.key === 'Enter') { e.preventDefault(); finish(true); }
+        else if (e.key === 'Escape') { finish(false); }
+    }
+
+    function onBlur() { finish(true); }
+
+    input.addEventListener('keydown', onKeydown);
+    input.addEventListener('blur', onBlur);
+}
+
 /**
  * Handle double-click events
  * @param {MouseEvent} e - Mouse event
@@ -1443,13 +1488,7 @@ function handleDoubleClick(e) {
     }
 
     if (hit && isTitle) {
-        const label = hit.type === 'board' ? "Enter Board Title:" : "Enter Component Label:";
-        const newTitle = prompt(label, hit.title);
-        if (newTitle !== null) {
-            saveToHistory();
-            hit.title = newTitle;
-            draw();
-        }
+        startInlineTitleEdit(hit);
     } else {
         if (selection.size > 0) {
             saveToHistory();
