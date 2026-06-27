@@ -104,15 +104,6 @@ function initInputHandlers() {
     // Wheel handler
     canvas.addEventListener('wheel', handleWheel);
 
-    // Right-click context menu
-    canvas.addEventListener('contextmenu', handleContextMenu);
-    document.addEventListener('click', hideContextMenu);
-    document.getElementById('ctx-duplicate').addEventListener('click', () => { contextMenuAction('duplicate'); });
-    document.getElementById('ctx-copy').addEventListener('click', () => { contextMenuAction('copy'); });
-    document.getElementById('ctx-paste').addEventListener('click', () => { contextMenuAction('paste'); });
-    document.getElementById('ctx-rotate').addEventListener('click', () => { contextMenuAction('rotate'); });
-    document.getElementById('ctx-delete').addEventListener('click', () => { contextMenuAction('delete'); });
-
     // Keyboard handlers
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
@@ -897,14 +888,6 @@ function handleMouseMove(e) {
         return;
     }
 
-    // Hover detection for visual feedback
-    const newHovered = findElementAtScreen(m);
-    if (newHovered !== hoveredElement) {
-        hoveredElement = newHovered;
-        draw();
-        return;
-    }
-
     draw();
 }
 
@@ -1086,7 +1069,6 @@ function handleMouseUp(e) {
     fiberConnectSource = null;
     fiberConnectMousePos = null;
     view.isPanning = false;
-    hoveredElement = null;
     canvas.style.cursor = 'crosshair';
 
     if (wasDragging && selection.size === 1) {
@@ -1155,7 +1137,6 @@ function handleKeyDown(e) {
 
     // Escape - cancel fiber connection, pending board, measure mode, or deselect all
     if (e.key === 'Escape') {
-        hideContextMenu();
         if (isFiberConnecting) {
             isFiberConnecting = false;
             fiberConnectSource = null;
@@ -1522,80 +1503,5 @@ function findElementAtScreen(screenPos) {
     ) || null;
 }
 
-// ── Right-click context menu ──────────────────────────────────────────────────
-
-function handleContextMenu(e) {
-    e.preventDefault();
-    const m = { x: e.clientX - canvas.getBoundingClientRect().left, y: e.clientY - canvas.getBoundingClientRect().top };
-    const hit = findElementAtScreen(m);
-
-    if (hit && !selection.has(hit)) {
-        selection.clear();
-        selection.add(hit);
-        updateUI();
-        draw();
-    }
-
-    const hasSelection = selection.size > 0;
-    const hasRotatable = hasSelection && Array.from(selection).some(el => el.type !== 'board');
-    const menu = document.getElementById('context-menu');
-
-    document.getElementById('ctx-duplicate').style.display = hasSelection ? '' : 'none';
-    document.getElementById('ctx-copy').style.display = hasSelection ? '' : 'none';
-    document.getElementById('ctx-rotate').style.display = hasRotatable ? '' : 'none';
-    document.getElementById('ctx-delete').style.display = hasSelection ? '' : 'none';
-    document.getElementById('ctx-paste').style.display = clipboard ? '' : 'none';
-
-    if (!hasSelection && !clipboard) { menu.style.display = 'none'; return; }
-
-    menu.style.left = e.clientX + 'px';
-    menu.style.top = e.clientY + 'px';
-    menu.style.display = 'block';
-
-    // Nudge menu inside viewport if it overflows
-    requestAnimationFrame(() => {
-        const rect = menu.getBoundingClientRect();
-        if (rect.right > window.innerWidth) menu.style.left = (e.clientX - rect.width) + 'px';
-        if (rect.bottom > window.innerHeight) menu.style.top = (e.clientY - rect.height) + 'px';
-    });
-}
-
-function hideContextMenu() {
-    const menu = document.getElementById('context-menu');
-    if (menu) menu.style.display = 'none';
-}
-
-function contextMenuAction(action) {
-    hideContextMenu();
-    if (action === 'duplicate') {
-        if (selection.size === 0) return;
-        saveToHistory();
-        const clones = [];
-        selection.forEach(el => {
-            const clone = rehydrateElement(JSON.parse(JSON.stringify(el)));
-            clone.id = Date.now() + Math.random();
-            clone.x += GRID_PITCH_MM;
-            clone.y += GRID_PITCH_MM;
-            clones.push(clone);
-            elements.push(clone);
-        });
-        selection.clear();
-        clones.forEach(c => selection.add(c));
-    } else if (action === 'copy') {
-        copySelected();
-    } else if (action === 'paste') {
-        pasteElements();
-    } else if (action === 'rotate') {
-        if (selection.size === 0) return;
-        saveToHistory();
-        selection.forEach(el => {
-            if (!el.locked && el.type !== 'board') el.rotation += Math.PI / 2;
-        });
-    } else if (action === 'delete') {
-        deleteSelected();
-    }
-    updateUI();
-    draw();
-}
 
 
