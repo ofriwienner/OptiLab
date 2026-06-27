@@ -74,15 +74,20 @@ open index.html  # or double-click the file
 | `Ctrl+C` / `Ctrl+V` | Copy / Paste |
 | `Ctrl+Drag` | Duplicate and move |
 | `Delete` / `Backspace` | Delete selected |
-| `R` | Rotate clockwise (22.5°) |
-| `T` | Rotate counter-clockwise (22.5°) |
+| `↑` `↓` `←` `→` | Nudge selection by half-grid (12.5 mm) |
+| `Shift+↑↓←→` | Nudge selection by full grid (25 mm) |
+| `Ctrl+↑↓←→` | Nudge selection by 1 mm |
+| `R` | Rotate clockwise (90°) |
+| `Shift+R` | Rotate counter-clockwise (90°) |
+| `T` | Rotate clockwise (45°) |
 | `X` | Flip horizontal |
 | `Y` | Flip vertical |
-| `M` | Enter measurement mode |
+| `M` | Enter movement mode |
 | `Esc` | Deselect / cancel current mode |
 | `H` | Set selected laser to horizontal polarization |
 | `V` | Set selected laser to vertical polarization |
 | `O` | Toggle selected AOM on/off |
+| Right-click | Context menu (Duplicate, Copy, Paste, Rotate, Delete) |
 
 ## Project Structure
 
