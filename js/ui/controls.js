@@ -1133,17 +1133,6 @@ function addBoard() {
     draw();
 }
 
-function addBorder() {
-    saveToHistory();
-    const cx = screenToWorld(canvas.width / 2, canvas.height / 2);
-    const el = new Element('border', cx.x, cx.y);
-    elements.push(el);
-    selection.clear();
-    selection.add(el);
-    updateUI();
-    draw();
-}
-
 function toggleBoardUnit() {
     const wInput = document.getElementById('boardW');
     const hInput = document.getElementById('boardH');

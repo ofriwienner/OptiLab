@@ -647,28 +647,14 @@ function handleMouseDown(e) {
         return Math.abs(localX) <= Math.max(el.width / 2, 10) && Math.abs(localY) <= Math.max(el.height / 2, 10);
     });
 
-    // Check borders if no component was clicked (borders are behind components)
-    if (!clicked) {
-        const borders = elements.filter(el => el.type === 'border');
-        clicked = borders.reverse().find(el => {
-            const cosR = Math.cos(-el.rotation);
-            const sinR = Math.sin(-el.rotation);
-            const dx = w.x - el.x;
-            const dy = w.y - el.y;
-            const localX = dx * cosR - dy * sinR;
-            const localY = dx * sinR + dy * cosR;
-            return Math.abs(localX) <= el.width / 2 && Math.abs(localY) <= Math.max(el.height / 2, 8);
-        });
-    }
-
-    // Check boards if no component or border was clicked
+    // Check boards if no component was clicked (boards are behind components but above borders)
     if (!clicked) {
         const boards = elements.filter(el => el.type === 'board');
         const clickedBoard = boards.reverse().find(el => {
             return w.x > el.x - el.width / 2 && w.x < el.x + el.width / 2 &&
                    w.y > el.y - el.height / 2 && w.y < el.y + el.height / 2;
         });
-        
+
         if (clickedBoard) {
             // If board is already selected, allow dragging from anywhere on it
             if (selection.has(clickedBoard)) {
@@ -681,6 +667,20 @@ function handleMouseDown(e) {
                 }
             }
         }
+    }
+
+    // Check borders if no component or board was clicked (borders are behind everything)
+    if (!clicked) {
+        const borders = elements.filter(el => el.type === 'border');
+        clicked = borders.reverse().find(el => {
+            const cosR = Math.cos(-el.rotation);
+            const sinR = Math.sin(-el.rotation);
+            const dx = w.x - el.x;
+            const dy = w.y - el.y;
+            const localX = dx * cosR - dy * sinR;
+            const localY = dx * sinR + dy * cosR;
+            return Math.abs(localX) <= el.width / 2 && Math.abs(localY) <= Math.max(el.height / 2, 8);
+        });
     }
 
     if (clicked) {
@@ -987,16 +987,12 @@ function handleMouseMove(e) {
                         }
                     }
                 } else if (el.type === 'border') {
-                    // Borders snap center to world grid
                     if (shiftPressed) {
                         newX = rawX;
                         newY = rawY;
-                    } else if (ctrlPressed) {
+                    } else {
                         newX = Math.round(rawX / HALF_GRID_MM) * HALF_GRID_MM;
                         newY = Math.round(rawY / HALF_GRID_MM) * HALF_GRID_MM;
-                    } else {
-                        newX = Math.round(rawX / GRID_PITCH_MM) * GRID_PITCH_MM;
-                        newY = Math.round(rawY / GRID_PITCH_MM) * GRID_PITCH_MM;
                     }
                 } else {
                     // For components, use existing snapping logic
