@@ -18,10 +18,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Ensure labels exist
+        run: |
+          gh label create pending  --color "0075ca" --description "Ready for implementation" 2>/dev/null || true
+          gh label create claimed  --color "e4e669" --description "Being implemented"        2>/dev/null || true
+
       - name: Create issues from INBOX.md
         run: |
           in_items=false
           created=0
+          failed=0
 
           while IFS= read -r line; do
             if [[ "$line" == "---" ]]; then
@@ -29,26 +35,29 @@ jobs:
               continue
             fi
             if $in_items && [[ "$line" =~ ^[-*]\  ]]; then
-              item="${line#[-*] }"
-              item="${item#- }"
+              item="${line#*- }"
+              item="${item#*\* }"
+              item="${item#"${item%%[! ]*}"}"   # trim leading spaces
               [[ -z "$item" || "$item" == TBD* ]] && continue
-              gh issue create --title "$item" --body "$item" --label pending
-              created=$((created + 1))
+              if gh issue create --title "$item" --body "$item" --label pending; then
+                created=$((created + 1))
+              else
+                echo "Failed to create issue for: $item"
+                failed=$((failed + 1))
+              fi
             fi
           done < INBOX.md
 
-          if [[ $created -gt 0 ]]; then
-            cat > INBOX.md << 'EOF'
-          # Feature Inbox
+          echo "Created: $created  Failed: $failed"
 
-          Add feature requests below as bullet points. Claude reads this during bulk features runs, converts each item to a GitHub Issue, and clears the list.
-
-          ---
-
-          EOF
+          if [[ $created -gt 0 && $failed -eq 0 ]]; then
+            printf '# Feature Inbox\n\nAdd feature requests below as bullet points. Claude reads this during bulk features runs, converts each item to a GitHub Issue, and clears the list.\n\n---\n\n' > INBOX.md
             git config user.email "actions@github.com"
             git config user.name "GitHub Actions"
             git add INBOX.md
             git commit -m "Clear INBOX.md after creating $created issue(s) [skip ci]"
             git push origin main
+          elif [[ $failed -gt 0 ]]; then
+            echo "Not clearing INBOX.md - $failed issue(s) failed to create."
+            exit 1
           fi

@@ -1,141 +1,90 @@
-# Bulk Features Procedure
+# Feature Pipeline
 
-This document describes the workflow for implementing multiple features in parallel using GitHub Issues + PRs, with isolated worktrees and manual testing via the review script.
-
-## Overview
-
-1. Read `INBOX.md` + check GitHub for pending/fix-requested work
-2. Create GitHub Issues from inbox items
-3. Claim issues atomically to prevent double-implementation
-4. Read codebase, plan implementations
-5. Create one branch + worktree per feature, spawn agents in parallel
-6. Push branches, create PRs labeled `ready-for-review`
-7. Tell the user to run `python review_features.py`
-
-## Step-by-Step
-
-### 1. Collect work items
-
-**New features from `INBOX.md`**:
-- Read all bullet points
-- Skip unclear/TBD items (note why)
-- Skip items that appear already implemented in the codebase
-
-**Unassigned pending issues on GitHub**:
-```
-gh issue list --label pending --no-assignee --json number,title,body
-```
-
-**Fix-requested PRs**:
-```
-gh pr list --label fix-requested --state open --json number,title,headRefName,body,reviews
-```
-Get the fix description from the latest `CHANGES_REQUESTED` review comment.
-
-### 2. Create GitHub Issues from inbox items
-
-For each inbox item, create an issue:
-```
-gh issue create --title "<feature name>" --body "<description and test instructions>" --label pending
-```
-
-Then clear the processed items from `INBOX.md`, leaving just the header.
-
-### 3. Claim issues atomically
-
-Before starting implementation, assign each issue to yourself:
-```
-gh issue edit <number> --add-assignee @me
-```
-
-GitHub assignment is atomic - if two workers race, the second sees the issue already assigned and skips it. Always pull and re-check before claiming.
-
-### 4. Create implementation plan
-
-- Read relevant source files before planning
-- For each new feature: identify exact files and lines, describe the diff
-- For each fix: read the existing branch's code, describe how to fix it
-
-### 5. Create branches and worktrees
-
-**New features only** - fix-requested PRs already have a branch.
-
-```powershell
-git branch feat/<name>
-git worktree add "..\OptiLab-worktrees\feat-<name>" feat/<name>
-```
-
-Worktrees live at `C:\Users\ofriw\PycharmProjects\OptiLab-worktrees\` locally.
-On a remote server, use a suitable temp path.
-
-**For fix-requested PRs**, fetch the existing branch into a worktree:
-```powershell
-git fetch origin <branch>
-git worktree add "..\OptiLab-worktrees\<branch-slug>" origin/<branch>
-```
-
-### 6. Spawn agents in parallel
-
-One Agent tool call per item (new feature OR fix), all in the same message.
-
-- Each agent works ONLY in its assigned worktree
-- Each agent commits with a descriptive message
-- **Fix agents must also push**: `git push origin HEAD:<branch>`
-
-### 7. Push branches and create PRs (new features only)
+## How it works
 
 ```
-git push origin feat/<name>
+INBOX.md  ──push──►  inbox-to-issues.yml  ──►  GitHub Issues (label: pending)
+                                                         │
+                                               nightly-implement.yml (2 AM UTC)
+                                                         │
+                                               GitHub PRs (label: ready-for-review)
+                                                         │
+                                             python review_features.py  (local)
+                                               /          |          \
+                                          Approve      Fix (F)      Reject
+                                             │            │
+                                        merge_pr    fix-requested label
+                                                         │
+                                               fix-pr.yml (cloud, auto)
+                                                         │
+                                          **Fix applied:** comment + label removed
+                                                         │
+                                             python review_features.py  (re-review)
 ```
 
-Create a PR using this exact body format (the review script parses it):
-```
-gh pr create `
-  --title "<feature name>" `
-  --body "## Description`n`n<test instructions>`n`nCloses #<issue_number>" `
-  --label "ready-for-review" `
-  --head feat/<name>
-```
+## Step-by-step
 
-**For fix-requested PRs**: after the agent pushes, remove the `fix-requested` label so the PR re-enters the review queue:
-```
-gh pr edit <pr_number> --remove-label fix-requested
-```
+### 1. Add feature requests
 
-### 8. Clear INBOX.md
+Edit `INBOX.md`, add a bullet point per feature, push to main.
+The `inbox-to-issues.yml` workflow fires automatically and creates GitHub Issues labeled `pending`.
 
-Remove all processed bullet points from `INBOX.md`, leaving just the header and `---`.
+### 2. Nightly implementation
 
-### 9. Tell the user to review
+The `nightly-implement.yml` workflow runs at 2 AM UTC. It:
+- Lists unassigned `pending` issues (up to 5)
+- Assigns `claimed` label to each before implementing (prevents double-work)
+- Creates a `feat/<number>-<slug>` branch per issue
+- Implements the feature
+- Opens a PR labeled `ready-for-review` with `Closes #<number>` in the body
 
+Trigger manually: GitHub > Actions > "Nightly Feature Implementation" > Run workflow.
+
+### 3. Review
+
+Run locally:
 ```
 python review_features.py
 ```
 
-Run from a real terminal (PowerShell, CMD, Windows Terminal) - NOT via `!` inside Claude Code, as that needs interactive stdin.
+For each PR it opens a browser side-by-side (feature vs. reference) and prompts:
+- **A** - Approve (queues for merge)
+- **F** - Fix needed (describe it; cloud workflow applies the fix automatically in ~5 min)
+- **B** - Accept as-is + create follow-up issue for the fix
+- **R** - Reject (closes PR and issue)
+- **S** - Skip (decide later)
 
-## Files
+### 4. Fix loop
 
-| File | Purpose |
-|------|---------|
-| `INBOX.md` | Quick-capture for new feature requests |
-| `review_features.py` | Interactive review/test/merge script |
-| `BULK_FEATURES_PROCEDURE.md` | This file |
-| `features_manifest.json` | Historical record only - not used for new features |
+When you choose **F**, the script:
+1. Posts a `**Fix requested:** <your description>` comment on the PR
+2. Adds the `fix-requested` label
+
+`fix-pr.yml` triggers immediately. Claude reads the fix comment, applies it, then:
+- Posts `**Fix applied:** <summary>` on the PR
+- Removes the `fix-requested` label
+
+Run `review_features.py` again. The PR re-enters the queue; the "Previous fix applied" line appears at the top so you know it's a re-review.
+
+If the cloud fix fails, it posts a comment with a link to the Actions run. You can re-trigger via the **T** option in the review script or by re-adding the label on GitHub.
+
+### 5. Merge
+
+At the end of each review session the script offers to merge all approved PRs.
 
 ## GitHub Labels
 
 | Label | Applies to | Meaning |
 |-------|-----------|---------|
 | `pending` | Issue | Ready to be implemented, unassigned |
-| `claimed` | Issue | Being implemented by a worker |
-| `ready-for-review` | PR | Implementation done, awaiting user review |
-| `fix-requested` | PR | User requested changes; also has `ready-for-review` |
+| `claimed` | Issue | Being implemented by the nightly worker |
+| `ready-for-review` | PR | Implementation done, awaiting review |
+| `fix-requested` | PR | Cloud fix workflow queued/running |
 | `approved` | PR | Approved during review, queued for merge |
 
 ## PR Body Format
 
-The review script parses the PR body. Always use this format:
+Required for the review script to parse correctly:
 
 ```
 ## Description
@@ -145,12 +94,17 @@ The review script parses the PR body. Always use this format:
 Closes #<issue_number>
 ```
 
+## Workflows
+
+| File | Trigger | Purpose |
+|------|---------|---------|
+| `inbox-to-issues.yml` | Push to main (INBOX.md changed) | Convert bullet points to GitHub Issues |
+| `nightly-implement.yml` | 2 AM UTC / manual | Implement pending issues, open PRs |
+| `fix-pr.yml` | `fix-requested` label added | Apply fix described in PR comment |
+| `claude.yml` | `@claude` mention in issue/PR | Ad-hoc Claude invocation |
+
 ## Common Pitfalls
 
-- **Claim before implementing**: Always assign the issue before creating the worktree. Pull first so you don't miss claims made by the other worker.
-- **PR body format**: Must include `## Description` and `Closes #<number>` - the review script parses both.
-- **Fix agents must push**: Unlike new-feature agents that only commit locally, fix agents must run `git push origin HEAD:<branch>` after committing.
-- **PowerShell 5.1 heredocs**: Use `@'...'@` (single-quoted, `'@` at column 0) for multi-line git messages. The bash `$(cat <<'EOF'...)` syntax does not work.
-- **Resolving merge conflicts**: Run `git add <file>` before `git commit` after manual resolution.
 - **Cloning elements**: Always use `rehydrateElement(JSON.parse(JSON.stringify(el)))` - never plain JSON clone.
-- **Agent prompts for worktree fixes**: Agents need `--dangerously-skip-permissions` and `cwd` set to the worktree path.
+- **PowerShell heredocs**: Use `@'...'@` (single-quoted, `'@` at column 0) for multi-line git messages.
+- **Resolving merge conflicts**: Run `git add <file>` before `git commit` after manual resolution.

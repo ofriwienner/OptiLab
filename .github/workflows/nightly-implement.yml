@@ -1,0 +1,103 @@
+name: Nightly Feature Implementation
+
+on:
+  schedule:
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+
+jobs:
+  implement:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      id-token: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure git
+        run: |
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+
+      - name: Check for pending issues
+        id: check
+        run: |
+          count=$(gh issue list --label pending --no-assignee --json number --jq length)
+          echo "count=$count" >> $GITHUB_OUTPUT
+          echo "Found $count pending issue(s)"
+
+      - name: Implement pending features
+        if: steps.check.outputs.count != '0'
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          claude_args: |
+            --max-turns 80
+            --dangerously-skip-permissions
+          prompt: |
+            You are a nightly batch worker implementing feature requests for OptiLab, a static HTML/JS optical bench simulator.
+            No build step - open index.html directly in a browser. All source is in js/ and styles/.
+
+            Key files:
+            - js/config.js - all global state variables and constants
+            - js/element.js - Element class, component types, ray-tracing segments
+            - js/input.js - all mouse/keyboard event handlers
+            - js/renderer.js - all canvas drawing functions
+            - js/state.js - save/load/undo/redo
+            - js/ui/controls.js - dynamic sidebar UI panel
+            - js/physics/raytracing.js - ray casting and beam physics
+            - js/physics/optics.js - Mueller matrix optics
+
+            Coding rules:
+            - No comments unless the why is non-obvious
+            - No build tools, plain JS, no imports, everything global
+            - Tailwind CSS classes for UI (loaded via CDN)
+            - State lives in config.js as let globals
+            - saveToHistory() before any mutation that should be undoable
+            - draw() after any state change that affects visuals
+            - updateUI() after selection changes
+            - Clone elements: rehydrateElement(JSON.parse(JSON.stringify(el)))
+
+            Commit messages (max 72 chars, imperative mood, no articles, no trailing period).
+            Example: "Add inline name editing on double-click"
+
+            TASK - implement each pending issue sequentially (up to 5):
+
+            1. List pending unassigned issues:
+               gh issue list --label pending --no-assignee --json number,title,body --limit 5
+
+            2. For each issue:
+               a. Claim it before starting (atomic - prevents double work):
+                  gh issue edit <number> --add-label claimed --remove-label pending
+               b. Read CLAUDE.md for full coding context.
+               c. Read the relevant source files to understand what needs to change.
+               d. Create a feature branch:
+                  git checkout -b feat/<number>-<2-3-word-slug>
+               e. Implement the feature.
+               f. Commit your changes.
+               g. Push:
+                  git push origin feat/<number>-<slug>
+               h. Create a PR with a clear test description:
+                  gh pr create \
+                    --title "<feature title>" \
+                    --label "ready-for-review" \
+                    --head "feat/<number>-<slug>" \
+                    --body "## Description
+
+            <concise description of what was implemented and how to verify it works>
+
+            Closes #<number>"
+               i. Return to main for the next issue:
+                  git checkout main && git pull origin main
+
+            3. If an issue is too vague to implement safely, skip it:
+               gh issue comment <number> --body "Skipping: too vague. Please provide more detail."
+               Then move on to the next one.
+
+            Work through all issues before stopping. Report a summary of what was done.
