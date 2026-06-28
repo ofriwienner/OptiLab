@@ -104,9 +104,6 @@ function initInputHandlers() {
     // Wheel handler
     canvas.addEventListener('wheel', handleWheel);
 
-    // Context menu prevention
-    canvas.addEventListener('contextmenu', (e) => e.preventDefault());
-
     // Keyboard handlers
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
@@ -211,7 +208,6 @@ function handleMouseDown(e) {
         view.isPanning = true;
         view.startPanX = m.x - view.x;
         view.startPanY = m.y - view.y;
-        if (!isDragging) canvas.style.cursor = 'grabbing';
         return;
     }
 
@@ -243,7 +239,6 @@ function handleMouseDown(e) {
         dragOffsets.set(b, { dx: b.x - w.x, dy: b.y - w.y });
         
         pendingBoard = null;
-        canvas.style.cursor = 'grabbing';
         updateUI();
         draw();
         return;
@@ -257,7 +252,7 @@ function handleMouseDown(e) {
         selection.add(cellKnobTarget);
         axisAdjustTarget = cellKnobTarget;
         isAdjustingAxis = true;
-        canvas.style.cursor = 'grabbing';
+        canvas.style.cursor = 'crosshair';
         updateCellAngleFromPoint(cellKnobTarget, w);
         updateUI();
         draw();
@@ -272,7 +267,7 @@ function handleMouseDown(e) {
         selection.add(knobTarget);
         axisAdjustTarget = knobTarget;
         isAdjustingAxis = true;
-        canvas.style.cursor = 'grabbing';
+        canvas.style.cursor = 'crosshair';
         updateWaveplateAxisFromPoint(knobTarget, w);
         updateUI();
         draw();
@@ -355,7 +350,7 @@ function handleMouseDown(e) {
             ];
             groupRotateState = { centroid: { x: gx, y: gy }, startAngle: Math.atan2(ady, adx), initials, initBoxWorld, currentDelta: 0 };
             isRotating = true;
-            canvas.style.cursor = 'grabbing';
+            canvas.style.cursor = 'crosshair';
             draw();
             return;
         }
@@ -1110,14 +1105,35 @@ function handleWheel(e) {
  * @param {KeyboardEvent} e - Keyboard event
  */
 function handleKeyDown(e) {
-    if (e.repeat) return;
-    keys[e.key] = true;
-    if (e.key === 'Shift') shiftPressed = true;
-    if (e.key === 'Control' || e.key === 'Meta') ctrlPressed = true;
+    if (!e.repeat) {
+        keys[e.key] = true;
+        if (e.key === 'Shift') shiftPressed = true;
+        if (e.key === 'Control' || e.key === 'Meta') ctrlPressed = true;
+    }
     const codeKey = e.code?.startsWith('Key') ? e.code.slice(3).toLowerCase() : null;
 
     const activeTag = document.activeElement?.tagName;
     if (activeTag === 'INPUT' || activeTag === 'TEXTAREA') return;
+
+    // Arrow key nudging (allow key repeat for smooth continuous movement)
+    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key) && selection.size > 0) {
+        e.preventDefault();
+        const step = e.shiftKey ? GRID_PITCH_MM : e.ctrlKey ? 1 : HALF_GRID_MM;
+        const dx = e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0;
+        const dy = e.key === 'ArrowUp' ? -step : e.key === 'ArrowDown' ? step : 0;
+        if (!e.repeat) saveToHistory();
+        selection.forEach(el => {
+            if (!el.locked) {
+                el.x += dx;
+                el.y += dy;
+            }
+        });
+        updateUI();
+        draw();
+        return;
+    }
+
+    if (e.repeat) return;
 
     // Escape - cancel fiber connection, pending board, measure mode, or deselect all
     if (e.key === 'Escape') {
@@ -1242,7 +1258,7 @@ function handleKeyDown(e) {
             // Set drag offsets for all selected elements
             selection.forEach(el => dragOffsets.set(el, { dx: el.x - w.x, dy: el.y - w.y }));
             
-            canvas.style.cursor = 'grabbing';
+            canvas.style.cursor = 'crosshair';
             updateUI();
             draw();
             return;
@@ -1502,5 +1518,29 @@ function handleDoubleClick(e) {
         draw();
     }
 }
+
+// ── Helper: find topmost element under a screen coordinate ────────────────────
+
+function findElementAtScreen(screenPos) {
+    const w = screenToWorld(screenPos.x, screenPos.y);
+    const components = elements.filter(el => el.type !== 'board');
+    const hit = components.slice().reverse().find(el => {
+        if (el.type === 'measure') return measureLineHit(el, w);
+        const cosR = Math.cos(-el.rotation);
+        const sinR = Math.sin(-el.rotation);
+        const dx = w.x - el.x;
+        const dy = w.y - el.y;
+        const localX = dx * cosR - dy * sinR;
+        const localY = dx * sinR + dy * cosR;
+        return Math.abs(localX) <= Math.max(el.width / 2, 10) && Math.abs(localY) <= Math.max(el.height / 2, 10);
+    });
+    if (hit) return hit;
+    const boards = elements.filter(el => el.type === 'board');
+    return boards.slice().reverse().find(el =>
+        w.x > el.x - el.width / 2 && w.x < el.x + el.width / 2 &&
+        w.y > el.y - el.height / 2 && w.y < el.y + el.height / 2
+    ) || null;
+}
+
 
 
