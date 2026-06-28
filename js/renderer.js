@@ -24,16 +24,19 @@ function drawGrid() {
     const endX = bottomRight.x + gridStep;
     const endY = bottomRight.y + gridStep;
 
-    ctx.fillStyle = 'rgba(50, 50, 70, 0.6)';
+    const dotRadius = 1.2 * view.scale;
+    if (dotRadius < 0.3) return;
 
+    ctx.fillStyle = 'rgba(50, 50, 70, 0.6)';
+    ctx.beginPath();
     for (let wx = startX; wx < endX; wx += gridStep) {
         for (let wy = startY; wy < endY; wy += gridStep) {
             const sp = worldToScreen(wx, wy);
-            ctx.beginPath();
-            ctx.arc(sp.x, sp.y, 1.2 * view.scale, 0, Math.PI * 2);
-            ctx.fill();
+            ctx.moveTo(sp.x + dotRadius, sp.y);
+            ctx.arc(sp.x, sp.y, dotRadius, 0, Math.PI * 2);
         }
     }
+    ctx.fill();
 }
 
 /**
@@ -211,15 +214,18 @@ function drawBoard(el, sc) {
     const startWX = Math.ceil((boardLeft - gridOffset) / gx) * gx + gridOffset;
     const startWY = Math.ceil((boardTop - gridOffset) / gx) * gx + gridOffset;
 
-    ctx.fillStyle = '#111';
-    for (let wx = startWX; wx < boardRight; wx += gx) {
-        for (let wy = startWY; wy < boardBottom; wy += gx) {
-            const lx = wx - el.x;
-            const ly = wy - el.y;
-            ctx.beginPath();
-            ctx.arc(lx, ly, 1.2, 0, Math.PI * 2);
-            ctx.fill();
+    if (sc >= 0.25) {
+        ctx.fillStyle = '#111';
+        ctx.beginPath();
+        for (let wx = startWX; wx < boardRight; wx += gx) {
+            for (let wy = startWY; wy < boardBottom; wy += gx) {
+                const lx = wx - el.x;
+                const ly = wy - el.y;
+                ctx.moveTo(lx + 1.2, ly);
+                ctx.arc(lx, ly, 1.2, 0, Math.PI * 2);
+            }
         }
+        ctx.fill();
     }
     ctx.restore();
 }
@@ -977,6 +983,13 @@ function drawRays(rays) {
         const p1 = worldToScreen(seg.x1, seg.y1);
         const p2 = worldToScreen(seg.x2, seg.y2);
 
+        // Viewport culling — skip segments entirely outside the visible area
+        const m = 10;
+        if ((p1.x < -m && p2.x < -m) ||
+            (p1.x > canvas.width + m && p2.x > canvas.width + m) ||
+            (p1.y < -m && p2.y < -m) ||
+            (p1.y > canvas.height + m && p2.y > canvas.height + m)) return;
+
         // Apply intensity override if intensity display is disabled
         let beamColor = seg.color;
         if (!showIntensity) {
@@ -1014,7 +1027,7 @@ function drawRays(rays) {
         const isCircular = Math.abs(seg.stokes[3]) > (seg.stokes[0] * 0.1);
         const isVertical = !isCircular && seg.stokes[0] > 0 && seg.stokes[1] < -0.9 * seg.stokes[0];
 
-        const step = 40 * view.scale;
+        const step = Math.max(40 * view.scale, 15);
         for (let d = step; d < dist - step / 2; d += step) {
             const t = d / dist;
             const px = p1.x + dx * t;
@@ -1406,17 +1419,51 @@ function drawFiberConnectingLine() {
     fiberConnectAnimationId = requestAnimationFrame(() => draw());
 }
 
+let _cachedRays = null;
+let _lastRayHash = null;
+
+function _computeRayHash() {
+    let h = elements.length;
+    for (let i = 0; i < elements.length; i++) {
+        const e = elements[i];
+        h = Math.imul(h, 1000003) ^ ((e.x * 100 + 0.5) | 0);
+        h = Math.imul(h, 1000003) ^ ((e.y * 100 + 0.5) | 0);
+        h = Math.imul(h, 1000003) ^ ((e.rotation * 10000 + 0.5) | 0);
+        if (e.aomEnabled !== undefined) h = Math.imul(h, 1000003) ^ (e.aomEnabled ? 1 : 2);
+        if (e.cellAngle != null)  h = Math.imul(h, 1000003) ^ ((e.cellAngle  * 1000 + 0.5) | 0);
+        if (e.polAngle  != null)  h = Math.imul(h, 1000003) ^ ((e.polAngle   *  100 + 0.5) | 0);
+        if (e.aperture  != null)  h = Math.imul(h, 1000003) ^ ((e.aperture   * 1000 + 0.5) | 0);
+        if (e.gain      != null)  h = Math.imul(h, 1000003) ^ ((e.gain       *  100 + 0.5) | 0);
+        if (e.isFlipped) h = Math.imul(h, 1000003) ^ 3;
+        if (e.pairedWith) h = Math.imul(h, 1000003) ^ 5;
+        if (e.blockedLasers && e.blockedLasers.length) h = Math.imul(h, 1000003) ^ e.blockedLasers.length;
+    }
+    return h;
+}
+
+function isElementOnScreen(el) {
+    const pos = worldToScreen(el.x, el.y);
+    const sc = view.scale * PIXELS_PER_MM;
+    const r = (Math.max(el.width, el.height) * 0.75 + 30) * sc;
+    return pos.x + r > 0 && pos.x - r < canvas.width &&
+           pos.y + r > 0 && pos.y - r < canvas.height;
+}
+
 /**
  * Main draw function - renders the entire scene
  */
 function draw() {
     drawGrid();
     drawFiberCables();
-    elements.forEach(el => { if (el.type === 'board') drawElement(el); });
-    elements.forEach(el => { if (el.type !== 'board' && !selection.has(el)) drawElement(el); });
+    elements.forEach(el => { if (el.type === 'board' && isElementOnScreen(el)) drawElement(el); });
+    elements.forEach(el => { if (el.type !== 'board' && !selection.has(el) && isElementOnScreen(el)) drawElement(el); });
     elements.forEach(el => { if (el.type !== 'board' && selection.has(el)) drawElement(el); });
-    const rays = castRays();
-    drawRays(rays);
+    const rayHash = _computeRayHash();
+    if (rayHash !== _lastRayHash) {
+        _cachedRays = castRays();
+        _lastRayHash = rayHash;
+    }
+    drawRays(_cachedRays);
     drawGroupSelectionBox();
     drawLensFocusDots();
     drawMarquee();
