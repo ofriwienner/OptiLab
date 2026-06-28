@@ -82,8 +82,36 @@ function updateUI() {
     if (deleteSection) deleteSection.classList.toggle('hidden', !hasSelection);
     if (badge) {
         if (hasSelection) {
-            badge.textContent = p.type.replace(/-/g, ' ');
-            badge.classList.remove('hidden');
+            const TYPE_DISPLAY = {
+                'laser': 'Laser', 'mirror': 'Mirror', 'mirror-d': 'D-Mirror',
+                'splitter': 'Splitter', 'pbs': 'PBS', 'aom': 'AOM', 'lens': 'Lens',
+                'hwp': 'HWP', 'qwp': 'QWP', 'blocker': 'Blocker', 'detector': 'Detector',
+                'fiber-coupler': 'Fiber', 'amplifier': 'Amplifier', 'iris': 'Iris',
+                'twinleaf': 'Twinleaf', 'cell': 'Cell', 'filter': 'Filter',
+                'custom': 'Custom', 'board': 'Board', 'border': 'Border', 'measure': 'Measure'
+            };
+            const TYPE_BADGE_CLASSES = {
+                'laser':         'bg-red-900/50 border border-red-700/50 text-red-300',
+                'mirror':        'bg-cyan-900/50 border border-cyan-700/50 text-cyan-300',
+                'mirror-d':      'bg-cyan-900/50 border border-cyan-700/50 text-cyan-300',
+                'splitter':      'bg-yellow-900/50 border border-yellow-700/50 text-yellow-300',
+                'pbs':           'bg-purple-900/50 border border-purple-700/50 text-purple-300',
+                'hwp':           'bg-green-900/50 border border-green-700/50 text-green-300',
+                'qwp':           'bg-orange-900/50 border border-orange-700/50 text-orange-300',
+                'lens':          'bg-blue-900/50 border border-blue-700/50 text-blue-300',
+                'aom':           'bg-red-900/50 border border-red-700/50 text-red-300',
+                'detector':      'bg-pink-900/50 border border-pink-700/50 text-pink-300',
+                'fiber-coupler': 'bg-orange-900/50 border border-orange-700/50 text-orange-300',
+                'amplifier':     'bg-red-900/50 border border-red-700/50 text-red-300',
+                'iris':          'bg-purple-900/50 border border-purple-700/50 text-purple-300',
+                'twinleaf':      'bg-gray-700/50 border border-gray-600/50 text-gray-300',
+                'cell':          'bg-cyan-900/50 border border-cyan-700/50 text-cyan-300',
+                'filter':        'bg-yellow-900/50 border border-yellow-700/50 text-yellow-300',
+                'board':         'bg-indigo-900/50 border border-indigo-700/50 text-indigo-300',
+                'border':        'bg-gray-700/50 border border-gray-600/50 text-gray-300',
+            };
+            badge.textContent = TYPE_DISPLAY[p.type] || p.type;
+            badge.className = 'ml-auto text-[9px] px-1.5 py-0.5 rounded ' + (TYPE_BADGE_CLASSES[p.type] || 'bg-amber-900/50 border border-amber-700/50 text-amber-300');
         } else {
             badge.classList.add('hidden');
         }

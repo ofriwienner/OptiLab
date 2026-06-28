@@ -34,25 +34,27 @@
         <div class="p-3 flex-1 overflow-y-auto">
 
             <!-- ── ADD ──────────────────────────────────────── -->
-            <div class="mb-3 bg-gradient-to-br from-gray-800/80 to-gray-900/80 p-2 rounded-lg border border-gray-800 shadow-md backdrop-blur-sm">
-                <h3 class="text-[10px] font-bold text-gray-300 uppercase mb-1.5 tracking-wider flex items-center gap-1.5">
-                    <svg class="w-3.5 h-3.5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z"></path></svg>
-                    Create Board
-                </h3>
-                <div class="space-y-1.5">
-                    <input type="text" id="boardTitle" placeholder="Title" class="w-full bg-gray-800/50 border border-gray-700 rounded-lg px-2 py-1.5 text-[10px] text-white placeholder-gray-500 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 transition">
-                    <select id="boardSizeSelect" class="w-full bg-gray-800/50 border border-gray-700 rounded-lg px-2 py-1.5 text-[10px] text-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 transition" onchange="updateBoardInputs()">
-                        <option value="300x225">S - 12×9 (300x225)</option>
-                        <option value="300x450" selected>M - 12×18 (300x450)</option>
-                        <option value="450x450">L - 18×18 (450x450)</option>
-                        <option value="custom">Custom</option>
-                    </select>
-                    <div class="flex gap-1.5 items-center">
-                        <input type="number" id="boardW" value="300" step="25" class="w-5/12 bg-gray-800/50 border border-gray-700 rounded-lg px-2 py-1.5 text-[10px] text-white placeholder-gray-500 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 transition" placeholder="W">
-                        <input type="number" id="boardH" value="450" step="25" class="w-5/12 bg-gray-800/50 border border-gray-700 rounded-lg px-2 py-1.5 text-[10px] text-white placeholder-gray-500 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 transition" placeholder="H">
-                        <button id="boardUnitToggle" onclick="toggleBoardUnit()" class="w-2/12 py-1.5 bg-gray-700 hover:bg-gray-600 border border-gray-600 rounded-lg text-[10px] text-gray-300 hover:text-white transition font-medium">mm</button>
+            <div class="mb-2 bg-gradient-to-br from-gray-800/80 to-gray-900/80 px-2 py-1.5 rounded-lg border border-gray-800 shadow-md backdrop-blur-sm">
+                <div class="flex items-center gap-1.5 mb-1">
+                    <svg class="w-3 h-3 text-indigo-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z"></path></svg>
+                    <span class="text-[10px] font-bold text-gray-300 uppercase tracking-wider">Create Board</span>
+                </div>
+                <div class="space-y-1">
+                    <div class="flex gap-1">
+                        <input type="text" id="boardTitle" placeholder="Title" class="flex-1 bg-gray-800/50 border border-gray-700 rounded px-1.5 py-0.5 text-[10px] text-white placeholder-gray-500 focus:border-indigo-500 focus:outline-none transition">
+                        <select id="boardSizeSelect" class="flex-1 bg-gray-800/50 border border-gray-700 rounded px-1 py-0.5 text-[10px] text-white focus:border-indigo-500 focus:outline-none transition" onchange="updateBoardInputs()">
+                            <option value="300x225">S 12×9</option>
+                            <option value="300x450" selected>M 12×18</option>
+                            <option value="450x450">L 18×18</option>
+                            <option value="custom">Custom</option>
+                        </select>
                     </div>
-                    <button onclick="addBoard()" class="w-full py-1.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white text-[10px] font-medium rounded-lg border border-indigo-500/50 transition-all shadow-md hover:shadow-lg hover:scale-[1.02]">Add Board</button>
+                    <div class="flex gap-1 items-center">
+                        <input type="number" id="boardW" value="300" step="25" class="w-5/12 bg-gray-800/50 border border-gray-700 rounded px-1.5 py-0.5 text-[10px] text-white placeholder-gray-500 focus:border-indigo-500 focus:outline-none transition" placeholder="W">
+                        <input type="number" id="boardH" value="450" step="25" class="w-5/12 bg-gray-800/50 border border-gray-700 rounded px-1.5 py-0.5 text-[10px] text-white placeholder-gray-500 focus:border-indigo-500 focus:outline-none transition" placeholder="H">
+                        <button id="boardUnitToggle" onclick="toggleBoardUnit()" class="w-2/12 py-0.5 bg-gray-700 hover:bg-gray-600 border border-gray-600 rounded text-[10px] text-gray-300 hover:text-white transition font-medium">mm</button>
+                    </div>
+                    <button onclick="addBoard()" class="w-full py-0.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white text-[10px] font-medium rounded border border-indigo-500/50 transition-all">Add Board</button>
                 </div>
             </div>
 
@@ -120,8 +122,26 @@
                 </div>
             </div>
 
+            <!-- My Components Library -->
+            <div class="mt-2 bg-gradient-to-br from-gray-800/80 to-gray-900/80 p-2 rounded-lg border border-gray-800 shadow-md">
+                <div class="flex items-center justify-between mb-1.5">
+                    <h3 class="text-[10px] font-bold text-gray-300 uppercase tracking-wider flex items-center gap-1.5">
+                        <svg class="w-3 h-3 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2zm7 4v6m-3-3h6"/>
+                        </svg>
+                        My Components
+                    </h3>
+                    <div class="flex items-center gap-1">
+                        <button onclick="downloadCustomLibrary()" title="Download library as JSON" class="px-1.5 py-0.5 rounded bg-gray-700 hover:bg-gray-600 text-gray-300 hover:text-white text-[10px] cursor-pointer transition leading-none">↓ JSON</button>
+                        <label for="customLibraryInput" title="Upload library from JSON" class="px-1.5 py-0.5 rounded bg-gray-700 hover:bg-gray-600 text-gray-300 hover:text-white text-[10px] cursor-pointer transition leading-none">↑ JSON</label>
+                        <input type="file" id="customLibraryInput" accept=".json" class="hidden" onchange="uploadCustomLibrary(this)">
+                    </div>
+                </div>
+                <div id="custom-components-list"></div>
+            </div>
+
             <!-- Measure Tool -->
-            <div class="mt-3">
+            <div class="mt-2">
                 <button id="measureToolBtn" onclick="startMeasureTool()" class="w-full py-1.5 bg-gray-800/50 rounded-lg border border-gray-700/50 text-[9px] text-gray-300 hover:border-amber-500/50 hover:text-amber-300 transition flex items-center justify-center gap-1.5">
                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7h18M3 12h4m10 0h4M3 17h18M7 9v6M17 9v6"/>
@@ -140,31 +160,13 @@
                 </button>
             </div>
 
-            <!-- My Components Library -->
-            <div class="mt-4 bg-gradient-to-br from-gray-800/80 to-gray-900/80 p-2 rounded-lg border border-gray-800 shadow-md">
-                <div class="flex items-center justify-between mb-1.5">
-                    <h3 class="text-[10px] font-bold text-gray-300 uppercase tracking-wider flex items-center gap-1.5">
-                        <svg class="w-3 h-3 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2zm7 4v6m-3-3h6"/>
-                        </svg>
-                        My Components
-                    </h3>
-                    <div class="flex items-center gap-1">
-                        <button onclick="downloadCustomLibrary()" title="Download library as JSON" class="px-1.5 py-0.5 rounded bg-gray-700 hover:bg-gray-600 text-gray-300 hover:text-white text-[10px] cursor-pointer transition leading-none">↓ JSON</button>
-                        <label for="customLibraryInput" title="Upload library from JSON" class="px-1.5 py-0.5 rounded bg-gray-700 hover:bg-gray-600 text-gray-300 hover:text-white text-[10px] cursor-pointer transition leading-none">↑ JSON</label>
-                        <input type="file" id="customLibraryInput" accept=".json" class="hidden" onchange="uploadCustomLibrary(this)">
-                    </div>
-                </div>
-                <div id="custom-components-list"></div>
-            </div>
-
             <!-- ── PROPERTIES ────────────────────────────────── -->
             <div class="mt-5 mb-2 flex items-center gap-2">
                 <h2 class="text-[11px] font-bold text-gray-300 uppercase tracking-wider flex items-center gap-2">
                     <svg class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path></svg>
                     Properties
                 </h2>
-                <span id="selected-type-badge" class="hidden ml-auto text-[9px] px-1.5 py-0.5 rounded bg-amber-900/50 border border-amber-700/50 text-amber-300 capitalize"></span>
+                <span id="selected-type-badge" class="hidden ml-auto text-[9px] px-1.5 py-0.5 rounded bg-amber-900/50 border border-amber-700/50 text-amber-300"></span>
             </div>
             <div class="bg-gradient-to-br from-gray-800/80 to-gray-900/80 rounded-xl p-3 border border-gray-800 shadow-lg">
                 <p id="no-selection-hint" class="text-[10px] text-gray-500 text-center py-2 italic">Select a component to edit its properties</p>
@@ -200,9 +202,8 @@
                     <input type="checkbox" id="showFuturePlansCheckbox" checked onchange="showFuturePlans = this.checked; draw();" class="w-4 h-4 accent-purple-500 rounded border-gray-700 bg-gray-800/50 focus:ring-2 focus:ring-purple-500/20 cursor-pointer">
                     <label for="showFuturePlansCheckbox" class="text-[11px] text-gray-300 cursor-pointer font-medium">Show Future Plans</label>
                 </div>
-                <div class="flex gap-1 pt-1">
-                    <button onclick="resetView()" class="flex-1 py-1 px-2 bg-blue-900/50 hover:bg-blue-900 text-blue-200 text-[10px] rounded border border-blue-800 transition">Fit Table</button>
-                    <button onclick="clearAll()" class="flex-1 py-1 px-2 bg-gray-600 hover:bg-gray-500 text-white text-[10px] rounded border border-gray-500 transition">Clear All</button>
+                <div class="pt-1">
+                    <button onclick="resetView()" class="w-full py-1 px-2 bg-blue-900/50 hover:bg-blue-900 text-blue-200 text-[10px] rounded border border-blue-800 transition">Fit Table</button>
                 </div>
             </div>
 
