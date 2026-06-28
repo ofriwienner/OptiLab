@@ -1,53 +1,22 @@
 const FEEDBACK_REPO = 'ofriwienner/OptiLab';
-
-function getFeedbackToken() {
-    return localStorage.getItem('optilab_github_token') || '';
-}
-
-function saveFeedbackToken(token) {
-    localStorage.setItem('optilab_github_token', token.trim());
-    document.getElementById('feedback-config-result').textContent = 'Token saved!';
-    document.getElementById('feedback-config-result').className = 'text-[11px] text-green-400 text-center py-1';
-    document.getElementById('feedback-config-result').classList.remove('hidden');
-    setTimeout(() => closeFeedbackConfig(), 1000);
-}
-
-function openFeedbackConfig() {
-    document.getElementById('feedback-form-panel').classList.add('hidden');
-    document.getElementById('feedback-config-panel').classList.remove('hidden');
-    document.getElementById('feedback-config-result').classList.add('hidden');
-    const current = getFeedbackToken();
-    document.getElementById('feedback-token-input').value = current;
-    document.getElementById('feedback-token-input').focus();
-}
-
-function closeFeedbackConfig() {
-    document.getElementById('feedback-config-panel').classList.add('hidden');
-    document.getElementById('feedback-form-panel').classList.remove('hidden');
-}
+// Create a fine-grained GitHub PAT with Issues:Write on this repo and paste it here:
+const FEEDBACK_BOT_TOKEN = '';
 
 function openFeedback() {
     document.getElementById('feedback-modal').classList.remove('hidden');
-    closeFeedbackConfig();
+    document.getElementById('feedback-result').classList.add('hidden');
     document.getElementById('feedback-message').focus();
 }
 
 function closeFeedback() {
     document.getElementById('feedback-modal').classList.add('hidden');
     document.getElementById('feedback-result').classList.add('hidden');
-    closeFeedbackConfig();
+    document.getElementById('feedback-message').value = '';
+    document.getElementById('feedback-contact').value = '';
+    document.getElementById('feedback-category').value = 'Feature Request';
 }
 
 async function submitFeedback() {
-    const token = getFeedbackToken();
-    if (!token) {
-        const resultDiv = document.getElementById('feedback-result');
-        resultDiv.innerHTML = 'To submit feedback, please configure your GitHub token. <button onclick="openFeedbackConfig()" class="underline text-blue-400 hover:text-blue-300">Configure</button>';
-        resultDiv.className = 'text-[11px] text-yellow-400 text-center py-1';
-        resultDiv.classList.remove('hidden');
-        return;
-    }
-
     const contact = document.getElementById('feedback-contact').value.trim();
     const category = document.getElementById('feedback-category').value;
     const message = document.getElementById('feedback-message').value.trim();
@@ -57,6 +26,11 @@ async function submitFeedback() {
         return;
     }
     document.getElementById('feedback-message').classList.remove('border-red-500');
+
+    if (!FEEDBACK_BOT_TOKEN) {
+        showFeedbackResult('Feedback system not configured yet. Please try again later.', true);
+        return;
+    }
 
     const title = `[${category}] ${message.slice(0, 60)}${message.length > 60 ? '...' : ''}`;
     let body = '';
@@ -72,7 +46,7 @@ async function submitFeedback() {
         const resp = await fetch(`https://api.github.com/repos/${FEEDBACK_REPO}/issues`, {
             method: 'POST',
             headers: {
-                'Authorization': `Bearer ${token}`,
+                'Authorization': `Bearer ${FEEDBACK_BOT_TOKEN}`,
                 'Content-Type': 'application/json',
                 'Accept': 'application/vnd.github+json',
                 'X-GitHub-Api-Version': '2022-11-28',
@@ -100,9 +74,6 @@ function showFeedbackResult(msg, isError) {
         : 'text-[11px] text-green-400 text-center py-1';
     resultDiv.classList.remove('hidden');
     if (!isError) {
-        document.getElementById('feedback-message').value = '';
-        document.getElementById('feedback-contact').value = '';
-        document.getElementById('feedback-category').value = 'Feature Request';
         setTimeout(closeFeedback, 1500);
     }
 }

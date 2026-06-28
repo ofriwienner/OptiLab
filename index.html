@@ -240,24 +240,11 @@
                     Send Feedback
                 </h2>
                 <div class="flex items-center gap-2">
-                    <button onclick="openFeedbackConfig()" title="Configure GitHub token" class="text-gray-500 hover:text-gray-300 transition text-base leading-none">&#9881;</button>
                     <button onclick="closeFeedback()" class="text-gray-400 hover:text-white transition">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                         </svg>
                     </button>
-                </div>
-            </div>
-
-            <!-- Config panel (shown when configuring token) -->
-            <div id="feedback-config-panel" class="hidden space-y-3">
-                <p class="text-xs text-gray-400">Enter a GitHub PAT with <span class="text-white font-medium">Issues: Write</span> permission on <span class="text-white font-medium">ofriwienner/OptiLab</span>. The token is stored locally in your browser.</p>
-                <input type="password" id="feedback-token-input" placeholder="github_pat_..."
-                    class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none transition font-mono">
-                <div id="feedback-config-result" class="hidden"></div>
-                <div class="flex gap-2">
-                    <button onclick="closeFeedbackConfig()" class="flex-1 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 text-sm rounded-lg transition">Cancel</button>
-                    <button onclick="saveFeedbackToken(document.getElementById('feedback-token-input').value)" class="flex-1 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition">Save Token</button>
                 </div>
             </div>
 
