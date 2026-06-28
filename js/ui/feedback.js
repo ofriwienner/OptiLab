@@ -27,15 +27,17 @@ async function submitFeedback() {
     }
     document.getElementById('feedback-message').classList.remove('border-red-500');
 
-    if (!FEEDBACK_BOT_TOKEN) {
-        showFeedbackResult('Feedback system not configured yet. Please try again later.', true);
-        return;
-    }
-
     const title = `[${category}] ${message.slice(0, 60)}${message.length > 60 ? '...' : ''}`;
     let body = '';
     if (contact) body += `**From:** ${contact}\n\n`;
     body += `**Category:** ${category}\n\n**Feedback:**\n${message}`;
+
+    if (!FEEDBACK_BOT_TOKEN) {
+        const params = new URLSearchParams({ title, body, labels: 'feedback' });
+        window.open(`https://github.com/${FEEDBACK_REPO}/issues/new?${params}`, '_blank');
+        showFeedbackResult('Opening GitHub to complete your submission...', false);
+        return;
+    }
 
     const submitBtn = document.getElementById('feedback-submit-btn');
     const origText = submitBtn.textContent;
