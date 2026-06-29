@@ -138,7 +138,7 @@ let measureP1 = null;
 
 // Border creation tool state
 let isBorderMode = false;
-let borderP1 = null;
+let borderPolyPoints = [];
 
 // Alignment state
 let alignPreference = 0;

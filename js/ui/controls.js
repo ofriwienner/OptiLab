@@ -622,56 +622,65 @@ function updateUI() {
             sectionTitle.innerText = "Border / Area";
             borderBox.appendChild(sectionTitle);
 
-            // Shape selector
-            const shapeRow = document.createElement('div');
-            shapeRow.className = "flex items-center justify-between";
-            const shapeLabel = document.createElement('label');
-            shapeLabel.className = "text-[9px] text-gray-400";
-            shapeLabel.innerText = "Shape";
-            const shapeSelect = document.createElement('select');
-            shapeSelect.className = "bg-gray-700 border border-gray-600 rounded px-1 py-0.5 text-[10px] text-white cursor-pointer";
-            shapeSelect.onmousedown = e => e.stopPropagation();
-            ['rect', 'line'].forEach(s => {
-                const opt = document.createElement('option');
-                opt.value = s;
-                opt.innerText = s === 'rect' ? 'Rectangle' : 'Line';
-                if ((p.borderShape || 'rect') === s) opt.selected = true;
-                shapeSelect.appendChild(opt);
-            });
-            shapeSelect.onchange = e => { saveToHistory(); p.borderShape = e.target.value; draw(); };
-            shapeRow.appendChild(shapeLabel);
-            shapeRow.appendChild(shapeSelect);
-            borderBox.appendChild(shapeRow);
+            // Shape selector (not shown for polygon - it's fixed)
+            if (p.borderShape !== 'polygon') {
+                const shapeRow = document.createElement('div');
+                shapeRow.className = "flex items-center justify-between";
+                const shapeLabel = document.createElement('label');
+                shapeLabel.className = "text-[9px] text-gray-400";
+                shapeLabel.innerText = "Shape";
+                const shapeSelect = document.createElement('select');
+                shapeSelect.className = "bg-gray-700 border border-gray-600 rounded px-1 py-0.5 text-[10px] text-white cursor-pointer";
+                shapeSelect.onmousedown = e => e.stopPropagation();
+                ['rect', 'line'].forEach(s => {
+                    const opt = document.createElement('option');
+                    opt.value = s;
+                    opt.innerText = s === 'rect' ? 'Rectangle' : 'Line';
+                    if ((p.borderShape || 'rect') === s) opt.selected = true;
+                    shapeSelect.appendChild(opt);
+                });
+                shapeSelect.onchange = e => { saveToHistory(); p.borderShape = e.target.value; draw(); };
+                shapeRow.appendChild(shapeLabel);
+                shapeRow.appendChild(shapeSelect);
+                borderBox.appendChild(shapeRow);
+            } else {
+                const polyLabel = document.createElement('div');
+                polyLabel.className = "text-[9px] text-teal-400";
+                polyLabel.innerText = "Shape: Polygon";
+                borderBox.appendChild(polyLabel);
+            }
 
-            // Size inputs
-            const sizeRow = document.createElement('div');
-            sizeRow.className = "flex items-center gap-1 mt-1";
-            const wLabel = document.createElement('span');
-            wLabel.className = "text-[9px] text-gray-400";
-            wLabel.innerText = "W";
-            const wInput = document.createElement('input');
-            wInput.type = 'number';
-            wInput.min = '10';
-            wInput.value = Math.round(p.width);
-            wInput.className = "w-14 bg-gray-700 border border-gray-600 rounded px-1 py-0.5 text-[10px] text-white";
-            wInput.onmousedown = e => e.stopPropagation();
-            wInput.oninput = e => { const v = parseInt(e.target.value); if (v >= 10) { saveToHistory(); p.width = v; draw(); } };
-            const hLabel = document.createElement('span');
-            hLabel.className = "text-[9px] text-gray-400";
-            hLabel.innerText = "H";
-            const hInput = document.createElement('input');
-            hInput.type = 'number';
-            hInput.min = '10';
-            hInput.value = Math.round(p.height);
-            hInput.className = "w-14 bg-gray-700 border border-gray-600 rounded px-1 py-0.5 text-[10px] text-white";
-            hInput.onmousedown = e => e.stopPropagation();
-            hInput.oninput = e => { const v = parseInt(e.target.value); if (v >= 10) { saveToHistory(); p.height = v; draw(); } };
-            sizeRow.appendChild(wLabel); sizeRow.appendChild(wInput);
-            sizeRow.appendChild(hLabel); sizeRow.appendChild(hInput);
-            borderBox.appendChild(sizeRow);
+            // Size inputs (not shown for polygon borders)
+            if (p.borderShape !== 'polygon') {
+                const sizeRow = document.createElement('div');
+                sizeRow.className = "flex items-center gap-1 mt-1";
+                const wLabel = document.createElement('span');
+                wLabel.className = "text-[9px] text-gray-400";
+                wLabel.innerText = "W";
+                const wInput = document.createElement('input');
+                wInput.type = 'number';
+                wInput.min = '10';
+                wInput.value = Math.round(p.width);
+                wInput.className = "w-14 bg-gray-700 border border-gray-600 rounded px-1 py-0.5 text-[10px] text-white";
+                wInput.onmousedown = e => e.stopPropagation();
+                wInput.oninput = e => { const v = parseInt(e.target.value); if (v >= 10) { saveToHistory(); p.width = v; draw(); } };
+                const hLabel = document.createElement('span');
+                hLabel.className = "text-[9px] text-gray-400";
+                hLabel.innerText = "H";
+                const hInput = document.createElement('input');
+                hInput.type = 'number';
+                hInput.min = '10';
+                hInput.value = Math.round(p.height);
+                hInput.className = "w-14 bg-gray-700 border border-gray-600 rounded px-1 py-0.5 text-[10px] text-white";
+                hInput.onmousedown = e => e.stopPropagation();
+                hInput.oninput = e => { const v = parseInt(e.target.value); if (v >= 10) { saveToHistory(); p.height = v; draw(); } };
+                sizeRow.appendChild(wLabel); sizeRow.appendChild(wInput);
+                sizeRow.appendChild(hLabel); sizeRow.appendChild(hInput);
+                borderBox.appendChild(sizeRow);
+            }
 
-            // Fill opacity (only for rect)
-            if ((p.borderShape || 'rect') === 'rect') {
+            // Fill opacity (for rect and polygon)
+            if ((p.borderShape || 'rect') === 'rect' || p.borderShape === 'polygon') {
                 const opacityRow = document.createElement('div');
                 opacityRow.className = "flex items-center justify-between mt-1";
                 const opacityLbl = document.createElement('span');

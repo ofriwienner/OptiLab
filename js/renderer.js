@@ -964,21 +964,23 @@ function drawBoardHandles(el, sc) {
  * Draw border element interaction handles (resize corners + rotate)
  */
 function drawBorderHandles(el, sc) {
-    const rCorners = [
-        { dx:  el.width / 2, dy:  el.height / 2, key: 'br' },
-        { dx: -el.width / 2, dy:  el.height / 2, key: 'bl' },
-        { dx:  el.width / 2, dy: -el.height / 2, key: 'tr' },
-        { dx: -el.width / 2, dy: -el.height / 2, key: 'tl' },
-    ];
-    rCorners.forEach(c => {
-        ctx.beginPath();
-        ctx.rect(c.dx - 5, c.dy - 5, 10, 10);
-        ctx.fillStyle = (isResizing && resizeCorner === c.key) ? '#f87171' : '#6ee7b7';
-        ctx.fill();
-        ctx.strokeStyle = 'white';
-        ctx.lineWidth = 1 / sc;
-        ctx.stroke();
-    });
+    if (el.borderShape !== 'polygon') {
+        const rCorners = [
+            { dx:  el.width / 2, dy:  el.height / 2, key: 'br' },
+            { dx: -el.width / 2, dy:  el.height / 2, key: 'bl' },
+            { dx:  el.width / 2, dy: -el.height / 2, key: 'tr' },
+            { dx: -el.width / 2, dy: -el.height / 2, key: 'tl' },
+        ];
+        rCorners.forEach(c => {
+            ctx.beginPath();
+            ctx.rect(c.dx - 5, c.dy - 5, 10, 10);
+            ctx.fillStyle = (isResizing && resizeCorner === c.key) ? '#f87171' : '#6ee7b7';
+            ctx.fill();
+            ctx.strokeStyle = 'white';
+            ctx.lineWidth = 1 / sc;
+            ctx.stroke();
+        });
+    }
 
     // Rotate handle (same style as component rotate handle)
     const handleDist = el.width / 2 + 15;
@@ -1741,7 +1743,7 @@ function drawBorderPreview(p1World, p2World) {
 }
 
 /**
- * Draw live border-mode overlay (cursor dot before first click, then preview rect/line)
+ * Draw live border-mode overlay (cursor dot before first click, then polyline preview)
  */
 function drawBorderOverlay() {
     if (!isBorderMode) return;
@@ -1750,7 +1752,7 @@ function drawBorderOverlay() {
     const snapped = snapBorderPoint(w);
     const ss = worldToScreen(snapped.x, snapped.y);
 
-    if (!borderP1) {
+    if (borderPolyPoints.length === 0) {
         ctx.save();
         ctx.fillStyle = '#5eead4';
         ctx.strokeStyle = '#134e4a';
@@ -1766,8 +1768,66 @@ function drawBorderOverlay() {
         ctx.fillText('Click to set start point', ss.x + 10, ss.y - 6);
         ctx.restore();
     } else {
-        const p2 = applyBorderSnap(borderP1, snapped);
-        drawBorderPreview(borderP1, p2);
+        const last = borderPolyPoints[borderPolyPoints.length - 1];
+        const p2 = applyBorderSnap(last, snapped);
+        const first = borderPolyPoints[0];
+        const closeDist = Math.sqrt((p2.x - first.x) ** 2 + (p2.y - first.y) ** 2);
+        const isClosing = borderPolyPoints.length >= 2 && closeDist < 15;
+        const liveTarget = isClosing ? first : p2;
+        const livePt = worldToScreen(liveTarget.x, liveTarget.y);
+        const s0 = worldToScreen(first.x, first.y);
+
+        ctx.save();
+        ctx.strokeStyle = 'rgba(94, 234, 212, 0.85)';
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([6, 4]);
+        ctx.beginPath();
+        ctx.moveTo(s0.x, s0.y);
+        for (let i = 1; i < borderPolyPoints.length; i++) {
+            const si = worldToScreen(borderPolyPoints[i].x, borderPolyPoints[i].y);
+            ctx.lineTo(si.x, si.y);
+        }
+        ctx.lineTo(livePt.x, livePt.y);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        ctx.fillStyle = '#5eead4';
+        borderPolyPoints.forEach(pt => {
+            const s = worldToScreen(pt.x, pt.y);
+            ctx.beginPath();
+            ctx.arc(s.x, s.y, 4, 0, Math.PI * 2);
+            ctx.fill();
+        });
+
+        if (isClosing) {
+            ctx.strokeStyle = '#fde68a';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(s0.x, s0.y, 8, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.font = '11px sans-serif';
+            ctx.fillStyle = '#fde68a';
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'bottom';
+            ctx.fillText('Click to close shape', ss.x + 10, ss.y - 6);
+        } else {
+            const lastS = worldToScreen(last.x, last.y);
+            const dx = p2.x - last.x;
+            const dy = p2.y - last.y;
+            const len = Math.sqrt(dx * dx + dy * dy);
+            if (len > 1) {
+                const midX = (lastS.x + livePt.x) / 2;
+                const midY = (lastS.y + livePt.y) / 2;
+                ctx.font = 'bold 10px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillStyle = 'rgba(0,0,0,0.6)';
+                ctx.fillText(formatDistance(len), midX + 1, midY - 13);
+                ctx.fillStyle = '#99f6e4';
+                ctx.fillText(formatDistance(len), midX, midY - 14);
+            }
+        }
+        ctx.restore();
     }
 }
 
@@ -1790,7 +1850,24 @@ function drawBorder(el, sc) {
         else ctx.setLineDash([]);
     };
 
-    if (shape === 'line') {
+    if (shape === 'polygon') {
+        const pts = el.borderPoints || [];
+        if (pts.length < 2) return;
+        const r2 = parseInt(fillColor.slice(1, 3), 16);
+        const g2 = parseInt(fillColor.slice(3, 5), 16);
+        const b2 = parseInt(fillColor.slice(5, 7), 16);
+        ctx.beginPath();
+        ctx.moveTo(pts[0].x, pts[0].y);
+        for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+        ctx.closePath();
+        ctx.fillStyle = `rgba(${r2}, ${g2}, ${b2}, ${fillOpacity})`;
+        ctx.fill();
+        ctx.strokeStyle = borderColor;
+        ctx.lineWidth = lineWidth;
+        applyLineStyle();
+        ctx.stroke();
+        ctx.setLineDash([]);
+    } else if (shape === 'line') {
         ctx.strokeStyle = borderColor;
         ctx.lineWidth = lineWidth;
         applyLineStyle();

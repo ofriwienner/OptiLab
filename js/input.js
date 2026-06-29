@@ -116,10 +116,10 @@ function applyBorderSnap(p1, p2) {
 function addBorder() {
     if (isBorderMode) {
         isBorderMode = false;
-        borderP1 = null;
+        borderPolyPoints = [];
     } else {
         isBorderMode = true;
-        borderP1 = null;
+        borderPolyPoints = [];
         selection.clear();
     }
     updateBorderBtn();
@@ -131,9 +131,11 @@ function updateBorderBtn() {
     const btn = document.getElementById('addBorderBtn');
     if (!btn) return;
     if (isBorderMode) {
-        btn.classList.add('ring-2', 'ring-teal-400', 'ring-offset-1', 'ring-offset-gray-900');
+        btn.classList.add('border-teal-500', 'text-teal-300', 'bg-teal-900/20');
+        btn.classList.remove('border-gray-700/50', 'text-gray-300');
     } else {
-        btn.classList.remove('ring-2', 'ring-teal-400', 'ring-offset-1', 'ring-offset-gray-900');
+        btn.classList.remove('border-teal-500', 'text-teal-300', 'bg-teal-900/20');
+        btn.classList.add('border-gray-700/50', 'text-gray-300');
     }
 }
 
@@ -257,50 +259,48 @@ function handleMouseDown(e) {
         return;
     }
 
-    // Border tool placement
+    // Border tool placement (polyline mode)
     if (isBorderMode && e.button === 0) {
         const raw = screenToWorld(m.x, m.y);
         const snapped = snapBorderPoint(raw);
 
-        if (!borderP1) {
-            borderP1 = snapped;
+        if (borderPolyPoints.length === 0) {
+            borderPolyPoints.push(snapped);
             draw();
         } else {
-            const p2 = applyBorderSnap(borderP1, snapped);
-            const dx = p2.x - borderP1.x;
-            const dy = p2.y - borderP1.y;
-            const isHLine = Math.abs(dy) < 1;
-            const isVLine = Math.abs(dx) < 1;
-            const cx = (borderP1.x + p2.x) / 2;
-            const cy = (borderP1.y + p2.y) / 2;
-            let el = null;
+            const last = borderPolyPoints[borderPolyPoints.length - 1];
+            const p2 = applyBorderSnap(last, snapped);
+            const first = borderPolyPoints[0];
+            const closeDist = Math.sqrt((p2.x - first.x) ** 2 + (p2.y - first.y) ** 2);
 
-            if (isHLine && Math.abs(dx) >= 10) {
+            if (borderPolyPoints.length >= 2 && closeDist < 15) {
+                // Close the polygon - create a filled polygon border element
                 saveToHistory();
-                el = new Element('border', cx, cy, Math.abs(dx), Math.abs(dx), '');
-                el.borderShape = 'line';
-                el.rotation = 0;
-            } else if (isVLine && Math.abs(dy) >= 10) {
-                saveToHistory();
-                el = new Element('border', cx, cy, Math.abs(dy), Math.abs(dy), '');
-                el.borderShape = 'line';
-                el.rotation = Math.PI / 2;
-            } else if (Math.abs(dx) >= 10 && Math.abs(dy) >= 10) {
-                saveToHistory();
-                el = new Element('border', cx, cy, Math.abs(dx), Math.abs(dy), '');
-                el.width = Math.abs(dx);
-                el.height = Math.abs(dy);
-            }
-
-            if (el) {
+                const pts = [...borderPolyPoints];
+                const xs = pts.map(p => p.x);
+                const ys = pts.map(p => p.y);
+                const minX = Math.min(...xs), maxX = Math.max(...xs);
+                const minY = Math.min(...ys), maxY = Math.max(...ys);
+                const cx = (minX + maxX) / 2;
+                const cy = (minY + maxY) / 2;
+                const el = new Element('border', cx, cy, Math.max(maxX - minX, 10), Math.max(maxY - minY, 10), '');
+                el.borderShape = 'polygon';
+                el.borderPoints = pts.map(p => ({ x: p.x - cx, y: p.y - cy }));
                 elements.push(el);
                 selection.clear();
                 selection.add(el);
+                borderPolyPoints = [];
+                canvas.style.cursor = 'crosshair';
+                updateUI();
+                draw();
+            } else {
+                const dx = p2.x - last.x;
+                const dy = p2.y - last.y;
+                if (Math.sqrt(dx * dx + dy * dy) >= 5) {
+                    borderPolyPoints.push(p2);
+                }
+                draw();
             }
-            borderP1 = null;
-            canvas.style.cursor = 'crosshair';
-            updateUI();
-            draw();
         }
         return;
     }
@@ -475,8 +475,8 @@ function handleMouseDown(e) {
             }
         }
 
-        // Board and Border shared: resize corner handles
-        if ((primary.type === 'board' || primary.type === 'border') && !primary.locked) {
+        // Board and Border shared: resize corner handles (polygon borders don't support resize)
+        if ((primary.type === 'board' || (primary.type === 'border' && primary.borderShape !== 'polygon')) && !primary.locked) {
             // Resize handles - check all 4 corners
             const resizeCorners = [
                 { key: 'br', dx: primary.width / 2, dy: primary.height / 2 },
@@ -1325,10 +1325,13 @@ function handleKeyDown(e) {
             updateMeasureBtn();
         }
         if (isBorderMode) {
-            isBorderMode = false;
-            borderP1 = null;
+            if (borderPolyPoints.length > 0) {
+                borderPolyPoints = [];
+            } else {
+                isBorderMode = false;
+                updateBorderBtn();
+            }
             canvas.style.cursor = 'crosshair';
-            updateBorderBtn();
         }
         selection.clear();
         updateUI();

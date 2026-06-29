@@ -162,6 +162,7 @@ function rehydrateElement(data) {
         if (typeof data.borderFillOpacity === 'number') el.borderFillOpacity = data.borderFillOpacity;
         if (data.borderLineStyle) el.borderLineStyle = data.borderLineStyle;
         if (typeof data.borderLineWidth === 'number') el.borderLineWidth = data.borderLineWidth;
+        if (Array.isArray(data.borderPoints)) el.borderPoints = data.borderPoints;
     }
 
     return el;
