@@ -321,13 +321,14 @@ def handle_fix_requested(feature):
 
 
 def handle_normal_decision(feature, worktree_path):
+    """Returns True if the PR was approved (A or B), False otherwise."""
     while True:
         choice = input("\n  Decision: ").strip().upper()
 
         if choice == "A":
             pr_label(feature["pr_number"], add="approved", remove="ready-for-review")
             print("  Approved - queued for merge.")
-            break
+            return True
 
         elif choice == "R":
             reason = input("  Reason (optional): ").strip()
@@ -336,7 +337,7 @@ def handle_normal_decision(feature, worktree_path):
                 body = f"Rejected. {reason}" if reason else "Rejected."
                 gh_run("issue", "close", str(feature["issue_number"]), "--comment", body)
             print("  Rejected.")
-            break
+            return False
 
         elif choice == "F":
             fix_desc = input("  Describe the fix: ").strip()
@@ -348,7 +349,7 @@ def handle_normal_decision(feature, worktree_path):
             pr_label(feature["pr_number"], add="fix-requested")
             print("  Fix queued. Cloud workflow will apply it automatically (~5 min).")
             print("  Come back and run review_features.py again to re-review.")
-            break
+            return False
 
         elif choice == "B":
             fix_desc = input("  Describe the fix (a follow-up issue will be created): ").strip()
@@ -361,11 +362,11 @@ def handle_normal_decision(feature, worktree_path):
                              "--body", fix_desc,
                              "--label", "pending")
             print(f"  Approved - queued for merge. Follow-up issue: {new_url.strip()}")
-            break
+            return True
 
         elif choice == "S":
             print("  Skipped (will appear again next session).")
-            break
+            return False
 
         else:
             print("  Enter A, R, F, B, or S.")
@@ -399,11 +400,89 @@ def do_merges(approved_prs):
             print(f"  Merge failed: {err}")
 
 
+def process_inbox():
+    inbox = REPO_ROOT / "INBOX.md"
+    if not inbox.exists():
+        print("  INBOX.md not found.")
+        return
+
+    lines = inbox.read_text(encoding="utf-8").splitlines()
+    in_items = False
+    items = []
+    for line in lines:
+        if line.strip() == "---":
+            in_items = True
+            continue
+        if in_items and re.match(r'^[-*]\s', line):
+            item = re.sub(r'^[-*]\s+', '', line).strip()
+            if item and not item.upper().startswith("TBD"):
+                items.append(item)
+
+    if not items:
+        print("  INBOX.md has no pending items.")
+        return
+
+    print(f"\n  {len(items)} item(s) to create as GitHub issues:")
+    for item in items:
+        print(f"    - {item}")
+
+    if input("\n  Create issues? [y/N]: ").strip().upper() != "Y":
+        print("  Cancelled.")
+        return
+
+    created = failed = 0
+    for item in items:
+        url = gh_run("issue", "create", "--title", item, "--body", item, "--label", "pending")
+        if url:
+            print(f"  Created #{url.split('/')[-1]}: {item}")
+            created += 1
+        else:
+            print(f"  Failed: {item}")
+            failed += 1
+
+    if created > 0 and failed == 0:
+        inbox.write_text(
+            "# Feature Inbox\n\n"
+            "Add feature requests below as bullet points. "
+            "Claude reads this during bulk features runs, converts each item to a GitHub Issue, "
+            "and clears the list.\n\n---\n\n",
+            encoding="utf-8",
+        )
+        git_run("add", "INBOX.md")
+        r = git_run("commit", "-m", f"Clear INBOX.md after creating {created} issue(s) [skip ci]")
+        if r.returncode == 0:
+            git_run("push", "origin", "main")
+            print(f"  {created} issue(s) created. INBOX.md cleared and pushed.")
+        else:
+            print(f"  {created} issue(s) created. Commit failed: {r.stderr.strip()}")
+    elif failed > 0:
+        print(f"  {created} created, {failed} failed. INBOX.md not cleared.")
+
+
+def ensure_labels():
+    for name, color, desc in [
+        ("pending",          "0075ca", "Ready for implementation"),
+        ("claimed",          "e4e669", "Being implemented"),
+        ("ready-for-review", "0e8a16", "Implementation done, awaiting review"),
+        ("fix-requested",    "e11d48", "Cloud fix queued/running"),
+        ("approved",         "1a7f37", "Approved, queued for merge"),
+    ]:
+        subprocess.run(
+            ["gh", "label", "create", name, "--color", color, "--description", desc, "--force"],
+            capture_output=True, cwd=REPO_ROOT,
+        )
+
+
 def review():
     git_run("pull", "--ff-only")
+    ensure_labels()
+
+    if input("  [I] Process INBOX.md   [Enter] Skip: ").strip().upper() == "I":
+        process_inbox()
 
     features = load()
     approved_prs = load_approved()
+    session_approved = []
 
     if approved_prs:
         print(f"\n  Note: {len(approved_prs)} PR(s) from a previous session are approved and waiting to merge.")
@@ -449,16 +528,26 @@ def review():
                 print("\n  Take your time to test. When ready:")
                 print("    [A] Approve      [R] Reject      [B] Accept + fix note")
                 print("    [F] Fix needed   [S] Skip (decide later)")
-                handle_normal_decision(feature, worktree_path)
+                if handle_normal_decision(feature, worktree_path):
+                    session_approved.append({"number": feature["pr_number"], "title": feature["name"]})
 
         close_browser()
 
+    # Combine re-fetched approvals (prior sessions) with this session's, deduped.
     approved_prs = load_approved()
+    seen_approved = {p["number"] for p in approved_prs}
+    for p in session_approved:
+        if p["number"] not in seen_approved:
+            approved_prs.append(p)
+            seen_approved.add(p["number"])
+
+    session_approved_numbers = {p["number"] for p in session_approved}
 
     header("Summary")
     remaining = load()
     for status, group in [
-        ("pending",      [f for f in remaining if f["status"] == "pending"]),
+        ("pending",      [f for f in remaining if f["status"] == "pending"
+                          and f["pr_number"] not in session_approved_numbers]),
         ("fix-requested",[f for f in remaining if f["status"] == "fix-requested"]),
         ("approved",     [{"name": p["title"], "pr_number": p["number"]} for p in approved_prs]),
     ]:
