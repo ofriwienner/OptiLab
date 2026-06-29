@@ -1118,7 +1118,10 @@ function handleKeyDown(e) {
     // Arrow key nudging (allow key repeat for smooth continuous movement)
     if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key) && selection.size > 0) {
         e.preventDefault();
-        const step = e.shiftKey ? GRID_PITCH_MM : e.ctrlKey ? 1 : HALF_GRID_MM;
+        const primary = Array.from(selection).pop();
+        const usesHalfGrid = primary && (primary.type === 'measure' || primary.type === 'custom');
+        const defaultStep = usesHalfGrid ? HALF_GRID_MM : GRID_PITCH_MM;
+        const step = e.ctrlKey ? 1 : e.shiftKey ? HALF_GRID_MM : defaultStep;
         const dx = e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0;
         const dy = e.key === 'ArrowUp' ? -step : e.key === 'ArrowDown' ? step : 0;
         if (!e.repeat) saveToHistory();
