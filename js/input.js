@@ -762,6 +762,43 @@ function handleMouseMove(e) {
             invalidBoardPlacement = false;
         }
 
+        // For multi-element groups without boards, snap the reference element and
+        // move all others by the same delta so the group moves as a rigid body.
+        let groupSnapDelta = null;
+        if (selection.size > 1 && selectedBoards.length === 0) {
+            let ref = null;
+            for (const el of selection) { if (!el.locked) { ref = el; break; } }
+            if (ref) {
+                const off = dragOffsets.get(ref);
+                if (off) {
+                    const rawX = w.x + off.dx;
+                    const rawY = w.y + off.dy;
+                    let snapX = rawX, snapY = rawY;
+                    if (ref.type === 'measure') {
+                        snapX = Math.round(rawX / HALF_GRID_MM) * HALF_GRID_MM;
+                        snapY = Math.round(rawY / HALF_GRID_MM) * HALF_GRID_MM;
+                    } else if (shiftPressed) {
+                        snapX = rawX; snapY = rawY;
+                    } else if (ctrlPressed) {
+                        snapX = Math.round(rawX / HALF_GRID_MM) * HALF_GRID_MM;
+                        snapY = Math.round(rawY / HALF_GRID_MM) * HALF_GRID_MM;
+                    } else {
+                        const board = elements.find(b => b.type === 'board' && b !== ref &&
+                            rawX >= b.x - b.width / 2 && rawX <= b.x + b.width / 2 &&
+                            rawY >= b.y - b.height / 2 && rawY <= b.y + b.height / 2);
+                        if (board) {
+                            const snap = getClosestGridPoint({ x: rawX, y: rawY }, board);
+                            snapX = snap.x; snapY = snap.y;
+                        } else {
+                            snapX = Math.round((rawX - 12.5) / GRID_PITCH_MM) * GRID_PITCH_MM + 12.5;
+                            snapY = Math.round((rawY - 12.5) / GRID_PITCH_MM) * GRID_PITCH_MM + 12.5;
+                        }
+                    }
+                    groupSnapDelta = { dx: snapX - rawX, dy: snapY - rawY };
+                }
+            }
+        }
+
         // First, move all selected elements
         selection.forEach(el => {
             if (el.locked) return;
@@ -769,66 +806,45 @@ function handleMouseMove(e) {
             if (off) {
                 const rawX = w.x + off.dx;
                 const rawY = w.y + off.dy;
-                let newX = rawX;
-                let newY = rawY;
+                let newX, newY;
 
-                // Board-Relative Snapping
-                // No modifier = full grid snap
-                // Ctrl/Cmd = half grid snap (fine movement)
-                // Shift = free movement (no snap)
-                if (el.type === 'board') {
-                    // For boards, snap edges to be between grid points
+                if (groupSnapDelta !== null) {
+                    // Rigid group: all elements get same snap delta from reference
+                    newX = rawX + groupSnapDelta.dx;
+                    newY = rawY + groupSnapDelta.dy;
+                } else if (el.type === 'board') {
                     if (shiftPressed) {
-                        // Free movement - no snapping
-                        newX = rawX;
-                        newY = rawY;
+                        newX = rawX; newY = rawY;
                     } else {
-                        // Calculate left and top edges
                         const leftEdge = rawX - el.width / 2;
                         const topEdge = rawY - el.height / 2;
-                        
                         if (ctrlPressed) {
-                            // Half grid snap - snap edges to half-grid positions
-                            const snappedLeft = Math.round(leftEdge / HALF_GRID_MM) * HALF_GRID_MM;
-                            const snappedTop = Math.round(topEdge / HALF_GRID_MM) * HALF_GRID_MM;
-                            newX = snappedLeft + el.width / 2;
-                            newY = snappedTop + el.height / 2;
+                            newX = Math.round(leftEdge / HALF_GRID_MM) * HALF_GRID_MM + el.width / 2;
+                            newY = Math.round(topEdge / HALF_GRID_MM) * HALF_GRID_MM + el.height / 2;
                         } else {
-                            // Full grid snap - snap edges to be between grid points (at multiples of GRID_PITCH_MM)
-                            const snappedLeft = Math.round(leftEdge / GRID_PITCH_MM) * GRID_PITCH_MM;
-                            const snappedTop = Math.round(topEdge / GRID_PITCH_MM) * GRID_PITCH_MM;
-                            newX = snappedLeft + el.width / 2;
-                            newY = snappedTop + el.height / 2;
+                            newX = Math.round(leftEdge / GRID_PITCH_MM) * GRID_PITCH_MM + el.width / 2;
+                            newY = Math.round(topEdge / GRID_PITCH_MM) * GRID_PITCH_MM + el.height / 2;
                         }
                     }
                 } else {
-                    // For components, use existing snapping logic
                     if (el.type === 'measure') {
-                        // Measurement always snaps to half grid
                         newX = Math.round(rawX / HALF_GRID_MM) * HALF_GRID_MM;
                         newY = Math.round(rawY / HALF_GRID_MM) * HALF_GRID_MM;
                     } else if (el.type === 'custom' && !shiftPressed && !ctrlPressed) {
-                        // Custom components snap to half grid by default
                         newX = Math.round(rawX / HALF_GRID_MM) * HALF_GRID_MM;
                         newY = Math.round(rawY / HALF_GRID_MM) * HALF_GRID_MM;
                     } else if (shiftPressed) {
-                        // Free movement - no snapping
-                        newX = rawX;
-                        newY = rawY;
+                        newX = rawX; newY = rawY;
                     } else if (ctrlPressed) {
-                        // Half grid snap
                         newX = Math.round(rawX / HALF_GRID_MM) * HALF_GRID_MM;
                         newY = Math.round(rawY / HALF_GRID_MM) * HALF_GRID_MM;
                     } else {
-                        // Full grid snap
                         const board = elements.find(b => b.type === 'board' && b !== el &&
                             rawX >= b.x - b.width / 2 && rawX <= b.x + b.width / 2 &&
                             rawY >= b.y - b.height / 2 && rawY <= b.y + b.height / 2);
-
                         if (board) {
                             const snap = getClosestGridPoint({ x: rawX, y: rawY }, board);
-                            newX = snap.x;
-                            newY = snap.y;
+                            newX = snap.x; newY = snap.y;
                         } else {
                             newX = Math.round((rawX - 12.5) / GRID_PITCH_MM) * GRID_PITCH_MM + 12.5;
                             newY = Math.round((rawY - 12.5) / GRID_PITCH_MM) * GRID_PITCH_MM + 12.5;
@@ -843,7 +859,6 @@ function handleMouseMove(e) {
                 el.y = newY;
 
                 if (el.type === 'board') {
-                    // Move all children of this board
                     draggedChildren.forEach((rel, child) => {
                         if (rel.parentBoard === el) {
                             child.x = el.x + rel.dx;
@@ -857,9 +872,8 @@ function handleMouseMove(e) {
                 }
             }
         });
-        
+
         // Move all components on selected boards that aren't already selected
-        // (selected components were already moved above)
         if (selectedBoards.length > 0) {
             draggedChildren.forEach((rel, child) => {
                 if (!selection.has(child) && selectedBoards.includes(rel.parentBoard)) {
@@ -868,7 +882,7 @@ function handleMouseMove(e) {
                 }
             });
         }
-        
+
         draw();
         return;
     }
