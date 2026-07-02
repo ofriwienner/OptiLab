@@ -42,6 +42,9 @@ let showIntensity = true;
 
 // Future plan visibility toggle
 let showFuturePlans = true;
+
+// Maps element id → hex color of the laser currently illuminating it
+let elementLaserColor = new Map();
 const SNAP_ROTATION = 22.5;
 
 // Waveplate constants

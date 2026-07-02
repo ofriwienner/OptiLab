@@ -28,7 +28,7 @@ jobs:
       - name: Check for pending issues
         id: check
         run: |
-          count=$(gh issue list --label pending --no-assignee --json number --jq length)
+          count=$(gh issue list --label pending --search "no:assignee" --json number --jq length)
           echo "count=$count" >> $GITHUB_OUTPUT
           echo "Found $count pending issue(s)"
 
@@ -70,7 +70,7 @@ jobs:
             TASK - implement each pending issue sequentially (up to 5):
 
             1. List pending unassigned issues:
-               gh issue list --label pending --no-assignee --json number,title,body --limit 5
+               gh issue list --label pending --search "no:assignee" --json number,title,body --limit 5
 
             2. For each issue:
                a. Claim it before starting (atomic - prevents double work):

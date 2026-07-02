@@ -6,6 +6,9 @@
 // When set to a Map, records which lasers hit each element: elementId -> Set<laserId>
 let laserHitTracker = null;
 
+// Records the beam color of the first laser hitting each element: elementId -> hex string
+let laserColorTracker = null;
+
 /**
  * Trace a single ray through the optical system
  * @param {Object} ray - Ray object with x, y, dx, dy, intensity, stokes, color
@@ -23,6 +26,7 @@ function traceRay(ray, depth, results) {
     // Find intersection with all elements
     elements.forEach(el => {
         if (el.type === 'laser' || el.type === 'board') return;
+        if (el.isFuturePlan && !showFuturePlans) return;
         el.getSegments().forEach(seg => {
             const hit = getIntersection(
                 { x: ray.x, y: ray.y },
@@ -53,6 +57,11 @@ function traceRay(ray, depth, results) {
         if (laserHitTracker && hitObject) {
             if (!laserHitTracker.has(hitObject.id)) laserHitTracker.set(hitObject.id, new Set());
             laserHitTracker.get(hitObject.id).add(ray.laserId);
+        }
+        if (laserColorTracker && hitObject && !laserColorTracker.has(hitObject.id)) {
+            const m = ray.color.match(/rgba\((\d+),\s*(\d+),\s*(\d+)/);
+            if (m) laserColorTracker.set(hitObject.id,
+                '#' + [m[1], m[2], m[3]].map(v => parseInt(v).toString(16).padStart(2, '0')).join(''));
         }
 
         const segVec = closestHit.segVector;
@@ -379,8 +388,9 @@ function traceRay(ray, depth, results) {
  */
 function castRays() {
     lastHitOnSelected = null;
+    laserColorTracker = new Map();
     let raysToDraw = [];
-    const lasers = elements.filter(e => e.type === 'laser');
+    const lasers = elements.filter(e => e.type === 'laser' && (!e.isFuturePlan || showFuturePlans));
 
     lasers.forEach(laser => {
         const dir = rotatePoint({ x: 1, y: 0 }, laser.rotation);
@@ -409,6 +419,8 @@ function castRays() {
         traceRay(ray, 0, raysToDraw);
     });
 
+    elementLaserColor = laserColorTracker;
+    laserColorTracker = null;
     return raysToDraw;
 }
 

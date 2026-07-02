@@ -514,7 +514,7 @@ function updateUI() {
             const shapeSelect = document.createElement('select');
             shapeSelect.className = "bg-gray-700 border border-gray-600 rounded px-1 py-0.5 text-[10px] text-white cursor-pointer";
             shapeSelect.onmousedown = e => e.stopPropagation();
-            ['rectangle', 'circle', 'triangle', 'diamond'].forEach(s => {
+            ['rectangle', 'circle', 'triangle', 'diamond', 'cylinder'].forEach(s => {
                 const opt = document.createElement('option');
                 opt.value = s;
                 opt.innerText = s.charAt(0).toUpperCase() + s.slice(1);

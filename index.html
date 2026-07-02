@@ -36,6 +36,16 @@
             <button onclick="exportState()" class="flex-1 py-2 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 border border-blue-500 rounded-lg text-white font-medium transition-all shadow-md hover:shadow-lg">Export</button>
             <label for="fileInput" class="flex-1 py-2 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 border border-blue-500 rounded-lg text-white font-medium transition-all shadow-md hover:shadow-lg text-center cursor-pointer">Import</label>
         </div>
+        <div class="flex gap-2 px-3 py-2 border-b border-gray-800 bg-gray-900/30 text-[11px]">
+            <button onclick="captureScreenshot(false)" title="Save current viewport as high-res PNG (3×)" class="flex-1 py-1.5 bg-gray-800 hover:bg-gray-700 border border-gray-600 hover:border-gray-500 rounded-lg text-gray-300 hover:text-white font-medium transition-all flex items-center justify-center gap-1.5">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" stroke-width="2"/><circle cx="12" cy="12" r="4" stroke-width="2"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor"/></svg>
+                View
+            </button>
+            <button onclick="captureScreenshot(true)" title="Save entire scene as high-res PNG" class="flex-1 py-1.5 bg-gray-800 hover:bg-gray-700 border border-gray-600 hover:border-gray-500 rounded-lg text-gray-300 hover:text-white font-medium transition-all flex items-center justify-center gap-1.5">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" stroke-width="2"/><circle cx="12" cy="12" r="4" stroke-width="2"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor"/></svg>
+                Scene
+            </button>
+        </div>
 
         <div class="p-3 flex-1 overflow-y-auto">
 
