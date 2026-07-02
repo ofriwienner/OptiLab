@@ -1131,8 +1131,12 @@ function handleKeyDown(e) {
                 newX = Math.round((el.x + dirX * HALF_GRID_MM) / HALF_GRID_MM) * HALF_GRID_MM;
                 newY = Math.round((el.y + dirY * HALF_GRID_MM) / HALF_GRID_MM) * HALF_GRID_MM;
             } else if (el.type === 'board') {
-                newX = Math.round((el.x + dirX * GRID_PITCH_MM) / GRID_PITCH_MM) * GRID_PITCH_MM;
-                newY = Math.round((el.y + dirY * GRID_PITCH_MM) / GRID_PITCH_MM) * GRID_PITCH_MM;
+                const rawX = el.x + dirX * GRID_PITCH_MM;
+                const rawY = el.y + dirY * GRID_PITCH_MM;
+                const snappedLeft = Math.round((rawX - el.width / 2) / GRID_PITCH_MM) * GRID_PITCH_MM;
+                const snappedTop = Math.round((rawY - el.height / 2) / GRID_PITCH_MM) * GRID_PITCH_MM;
+                newX = snappedLeft + el.width / 2;
+                newY = snappedTop + el.height / 2;
             } else if (el.type === 'measure' || el.type === 'custom') {
                 newX = Math.round((el.x + dirX * HALF_GRID_MM) / HALF_GRID_MM) * HALF_GRID_MM;
                 newY = Math.round((el.y + dirY * HALF_GRID_MM) / HALF_GRID_MM) * HALF_GRID_MM;
