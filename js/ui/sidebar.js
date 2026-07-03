@@ -119,7 +119,14 @@ function copySelected() {
             data.customTextColor = el.customTextColor;
             data.customFontSize = el.customFontSize;
             data.customFontBold = el.customFontBold;
+            data.customNoBorder = !!el.customNoBorder;
             if (typeof el.customOpacity === 'number') data.customOpacity = el.customOpacity;
+            if (el.customBehavior) data.customBehavior = el.customBehavior;
+            if (typeof el.customTransmission === 'number') data.customTransmission = el.customTransmission;
+            if (typeof el.customPolAngle === 'number') data.customPolAngle = el.customPolAngle;
+        }
+        if (el.type === 'board' && el.imgSrc) {
+            data.imgSrc = el.imgSrc;
         }
 
         return data;
@@ -212,9 +219,19 @@ function pasteElements() {
             if (data.customTextColor) el.customTextColor = data.customTextColor;
             if (typeof data.customFontSize === 'number') el.customFontSize = data.customFontSize;
             if (typeof data.customFontBold === 'boolean') el.customFontBold = data.customFontBold;
+            el.customNoBorder = !!data.customNoBorder;
             if (typeof data.customOpacity === 'number') el.customOpacity = data.customOpacity;
+            if (typeof data.customBehavior === 'string') el.customBehavior = data.customBehavior;
+            if (typeof data.customTransmission === 'number') el.customTransmission = data.customTransmission;
+            if (typeof data.customPolAngle === 'number') el.customPolAngle = data.customPolAngle;
             el.width = data.width;
             el.height = data.height;
+        }
+        if (el.type === 'board' && typeof data.imgSrc === 'string' && data.imgSrc) {
+            el.imgSrc = data.imgSrc;
+            const img = new Image();
+            img.onload = () => { el.imgData = img; draw(); };
+            img.src = data.imgSrc;
         }
 
         elements.push(el);
@@ -286,6 +303,23 @@ function drawCustomPreview(pctx, template) {
         pctx.textAlign = 'center';
         pctx.textBaseline = 'middle';
         pctx.fillText(text.substring(0, 5), 0, 0);
+    }
+
+    // Optical behavior marker (matches on-canvas indicator colors)
+    const behavior = template.customBehavior || 'none';
+    if (behavior !== 'none') {
+        const BEHAVIOR_COLORS = {
+            'blocker': '#f87171', 'mirror': '#22d3ee', 'splitter': '#facc15',
+            'polarizer': '#4ade80', 'attenuator': '#94a3b8'
+        };
+        pctx.strokeStyle = BEHAVIOR_COLORS[behavior] || '#ffffff';
+        pctx.lineWidth = 1.5;
+        pctx.beginPath();
+        if (behavior === 'mirror') { pctx.moveTo(-w / 2, 0); pctx.lineTo(w / 2, 0); }
+        else if (behavior === 'splitter') { pctx.moveTo(-w / 2, -h / 2); pctx.lineTo(w / 2, h / 2); }
+        else if (behavior === 'blocker') { pctx.rect(-w / 2, -h / 2, w, h); }
+        else { pctx.moveTo(0, -h / 2); pctx.lineTo(0, h / 2); }
+        pctx.stroke();
     }
     pctx.restore();
 }
@@ -378,7 +412,11 @@ function startCustomComponentDrag(e, template) {
     el.customTextColor = template.customTextColor || '#ffffff';
     el.customFontSize = template.customFontSize || 10;
     el.customFontBold = !!template.customFontBold;
+    el.customNoBorder = !!template.customNoBorder;
     el.customOpacity = template.customOpacity ?? 1;
+    el.customBehavior = template.customBehavior || 'none';
+    el.customTransmission = template.customTransmission ?? 0.5;
+    el.customPolAngle = template.customPolAngle ?? 0;
 
     elements.push(el);
     selection.clear();

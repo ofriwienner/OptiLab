@@ -15,8 +15,10 @@ let laserColorTracker = null;
  * @param {number} depth - Current bounce depth
  * @param {Array} results - Array to collect ray segments
  */
+const MIN_RAY_INTENSITY = 0.001;
+
 function traceRay(ray, depth, results) {
-    if (depth > MAX_BOUNCES || ray.intensity == 0) return;
+    if (depth > MAX_BOUNCES || !(ray.intensity > MIN_RAY_INTENSITY)) return;
 
     let closestHit = null;
     let closestDist = Infinity;
@@ -344,6 +346,50 @@ function traceRay(ray, depth, results) {
                     dy: inc.y,
                 }, depth + 1, results);
             }
+
+        } else if (hitSegment.type === 'custom-mirror') {
+            // Custom double-sided mirror: reflects from either face
+            const newStokes = MuellerMath.interact(ray.stokes, MuellerMath.MATRICES.MIRROR);
+            const rx = inc.x - 2 * dp * nx;
+            const ry = inc.y - 2 * dp * ny;
+            traceRay({
+                ...ray,
+                x: closestHit.x,
+                y: closestHit.y,
+                dx: rx,
+                dy: ry,
+                intensity: newStokes[0],
+                stokes: newStokes
+            }, depth + 1, results);
+
+        } else if (hitSegment.type === 'custom-polarizer') {
+            // Custom linear polarizer: transmission axis = body rotation + user angle
+            const axis = hitObject.rotation + toRad(hitObject.customPolAngle || 0);
+            const mat = MuellerMath.rotateComponent(MuellerMath.MATRICES.POLARIZER_H, axis);
+            const newStokes = MuellerMath.interact(ray.stokes, mat);
+            traceRay({
+                ...ray,
+                x: closestHit.x + inc.x * 0.1,
+                y: closestHit.y + inc.y * 0.1,
+                dx: inc.x,
+                dy: inc.y,
+                intensity: newStokes[0],
+                stokes: newStokes
+            }, depth + 1, results);
+
+        } else if (hitSegment.type === 'custom-attenuator') {
+            // Custom attenuator: scales intensity by transmission factor
+            const t = Math.max(0, Math.min(1, hitObject.customTransmission ?? 0.5));
+            const newStokes = ray.stokes.map(v => v * t);
+            traceRay({
+                ...ray,
+                x: closestHit.x + inc.x * 0.1,
+                y: closestHit.y + inc.y * 0.1,
+                dx: inc.x,
+                dy: inc.y,
+                intensity: newStokes[0],
+                stokes: newStokes
+            }, depth + 1, results);
 
         } else if (hitObject.type === 'iris') {
             // Iris pass-through (visual only for now)

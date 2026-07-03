@@ -130,8 +130,22 @@ class Element {
                 this.customFontBold = false;
                 this.customOpacity = 1.0;
                 this.customNoBorder = false;
+                this.customBehavior = 'none';
+                this.customTransmission = 0.5;
+                this.customPolAngle = 0;
                 break;
         }
+    }
+
+    /**
+     * Serialize for JSON.stringify — drops the live Image object (kept as
+     * imgSrc data URL) so history snapshots and saves round-trip cleanly.
+     * @returns {Object} Plain serializable data
+     */
+    toJSON() {
+        const data = { ...this };
+        delete data.imgData;
+        return data;
     }
 
     /**
@@ -322,7 +336,37 @@ class Element {
                 normal: normal2
             });
         } else if (this.type === 'custom') {
-            // Custom components are visual markers - no optical interaction
+            const behavior = this.customBehavior || 'none';
+            if (behavior === 'blocker') {
+                for (let i = 0; i < 4; i++) {
+                    segments.push({ p1: worldCorners[i], p2: worldCorners[(i + 1) % 4], type: 'blocker' });
+                }
+            } else if (behavior === 'mirror') {
+                const r1 = rotatePoint({ x: -w / 2, y: 0 }, this.rotation);
+                const r2 = rotatePoint({ x: w / 2, y: 0 }, this.rotation);
+                segments.push({
+                    p1: { x: cx + r1.x, y: cy + r1.y },
+                    p2: { x: cx + r2.x, y: cy + r2.y },
+                    type: 'custom-mirror'
+                });
+            } else if (behavior === 'splitter') {
+                const p1 = rotatePoint({ x: -w / 2, y: -h / 2 }, this.rotation);
+                const p2 = rotatePoint({ x: w / 2, y: h / 2 }, this.rotation);
+                segments.push({
+                    p1: { x: p1.x + cx, y: p1.y + cy },
+                    p2: { x: p2.x + cx, y: p2.y + cy },
+                    type: 'splitter'
+                });
+            } else if (behavior === 'polarizer' || behavior === 'attenuator') {
+                const start = rotatePoint({ x: 0, y: -h / 2 }, this.rotation);
+                const end = rotatePoint({ x: 0, y: h / 2 }, this.rotation);
+                segments.push({
+                    p1: { x: cx + start.x, y: cy + start.y },
+                    p2: { x: cx + end.x, y: cy + end.y },
+                    type: 'custom-' + behavior
+                });
+            }
+            // behavior 'none': visual marker, no optical interaction
         } else if (this.type === 'measure') {
             // Measurement annotations have no optical interaction
         } else if (this.type === 'filter') {

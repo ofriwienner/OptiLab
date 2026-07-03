@@ -110,16 +110,15 @@ function initInputHandlers() {
 
     // Reset modifier keys when the window loses focus so the app never gets
     // stuck in multi-select / shift-rotate mode after an alt-tab.
-    window.addEventListener('blur', () => {
+    const resetModifierKeys = () => {
         shiftPressed = false;
         ctrlPressed = false;
-    });
+        for (const k in keys) keys[k] = false;
+    };
+    window.addEventListener('blur', resetModifierKeys);
 
     window.addEventListener('visibilitychange', () => {
-        if (document.hidden) {
-            shiftPressed = false;
-            ctrlPressed = false;
-        }
+        if (document.hidden) resetModifierKeys();
     });
 
     // Double-click handler
@@ -128,7 +127,10 @@ function initInputHandlers() {
     // Image upload handler
     document.getElementById('imgUpload').addEventListener('change', (e) => handleImageUpload(e.target));
 
-    // Rotation slider handler
+    // Rotation slider handler (snapshot once at drag start so it's undoable)
+    rotationSlider.addEventListener('pointerdown', () => {
+        if (selection.size > 0) saveToHistory();
+    });
     rotationSlider.addEventListener('input', (e) => {
         const p = Array.from(selection).pop();
         if (p) {
@@ -1127,7 +1129,7 @@ function handleKeyDown(e) {
     const codeKey = e.code?.startsWith('Key') ? e.code.slice(3).toLowerCase() : null;
 
     const activeTag = document.activeElement?.tagName;
-    if (activeTag === 'INPUT' || activeTag === 'TEXTAREA') return;
+    if (activeTag === 'INPUT' || activeTag === 'TEXTAREA' || activeTag === 'SELECT') return;
 
     // Arrow key nudging (allow key repeat for smooth continuous movement)
     if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key) && selection.size > 0) {

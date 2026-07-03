@@ -15,6 +15,18 @@ function darkenHex(hex) {
 }
 
 /**
+ * Snapshot the scene when the user starts interacting with a control,
+ * so property edits become undoable. saveToHistory() dedupes identical
+ * snapshots, so attaching to both events is safe.
+ */
+function makeUndoable(inp) {
+    const snap = () => saveToHistory();
+    inp.addEventListener('pointerdown', snap);
+    inp.addEventListener('focus', snap);
+    return inp;
+}
+
+/**
  * Create a labeled color picker row
  */
 function makeColorRow(label, value, onChange) {
@@ -33,6 +45,7 @@ function makeColorRow(label, value, onChange) {
     inp.style.padding = '0';
     inp.onmousedown = e => e.stopPropagation();
     inp.oninput = e => onChange(e.target.value);
+    makeUndoable(inp);
     row.appendChild(lbl);
     row.appendChild(inp);
     container.appendChild(row);
@@ -44,7 +57,7 @@ function makeColorRow(label, value, onChange) {
         swatch.style.cssText = `width:13px;height:13px;background:${color};border-radius:2px;cursor:pointer;border:1px solid rgba(255,255,255,0.15);flex-shrink:0`;
         swatch.title = color;
         swatch.onmousedown = e => e.stopPropagation();
-        swatch.onclick = () => { inp.value = color; onChange(color); };
+        swatch.onclick = () => { saveToHistory(); inp.value = color; onChange(color); };
         swatches.appendChild(swatch);
     });
     container.appendChild(swatches);
@@ -142,6 +155,7 @@ function updateUI() {
             nameInp.className = "w-28 bg-gray-700 border border-gray-600 rounded px-1 py-0.5 text-[10px] text-white placeholder-gray-500";
             nameInp.onmousedown = e => e.stopPropagation();
             nameInp.oninput = e => { p.title = e.target.value; draw(); };
+            makeUndoable(nameInp);
             nameRow.appendChild(nameLbl);
             nameRow.appendChild(nameInp);
             div.appendChild(nameRow);
@@ -158,6 +172,7 @@ function updateUI() {
             select.onmousedown = (e) => e.stopPropagation();
 
             select.onchange = (e) => {
+                saveToHistory();
                 p.polAngle = parseInt(e.target.value);
                 draw();
             };
@@ -192,6 +207,7 @@ function updateUI() {
                 p.beamColor = e.target.value;
                 draw();
             };
+            makeUndoable(colorInput);
             colorRow.appendChild(colorLabel);
             colorRow.appendChild(colorInput);
             div.appendChild(colorRow);
@@ -217,6 +233,7 @@ function updateUI() {
             thickSlider.value = p.beamThickness ?? 1;
             thickSlider.className = "w-full accent-red-400 h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer";
             thickSlider.onmousedown = (e) => e.stopPropagation();
+            makeUndoable(thickSlider);
             thickSlider.oninput = (e) => {
                 p.beamThickness = parseFloat(e.target.value);
                 thickVal.innerText = p.beamThickness.toFixed(1) + '×';
@@ -244,6 +261,7 @@ function updateUI() {
             alignBtn.className = "w-full py-1 bg-gray-700 border border-gray-600 rounded text-[10px] text-gray-200 hover:bg-gray-600 transition cursor-pointer";
             alignBtn.innerText = "Match Axis to Body";
             alignBtn.onclick = () => {
+                saveToHistory();
                 p.axisAngle = clampWaveplateAngle(p.rotation || 0);
                 draw();
                 updateUI();
@@ -266,6 +284,7 @@ function updateUI() {
             toggleBtn.className = `w-full py-1 text-[10px] rounded border transition cursor-pointer ${enabled ? 'bg-green-700/50 border-green-600 text-green-100 hover:bg-green-700' : 'bg-red-900/50 border-red-600 text-red-100 hover:bg-red-900'}`;
             toggleBtn.innerText = enabled ? 'AOM ON' : 'AOM OFF';
             toggleBtn.onclick = () => {
+                saveToHistory();
                 p.aomEnabled = !isAomEnabled(p);
                 draw();
                 updateUI();
@@ -310,6 +329,7 @@ function updateUI() {
                     btn.className = `text-[9px] px-2 py-0.5 rounded border cursor-pointer transition ${blocked ? 'bg-red-900/50 border-red-600 text-red-200 hover:bg-red-800' : 'bg-green-900/50 border-green-600 text-green-200 hover:bg-green-800'}`;
                     btn.innerText = blocked ? 'Blocked' : 'Pass';
                     btn.onclick = () => {
+                        saveToHistory();
                         if (!p.blockedLasers) p.blockedLasers = [];
                         if (blocked) {
                             p.blockedLasers = p.blockedLasers.filter(id => id !== laser.id);
@@ -358,6 +378,7 @@ function updateUI() {
             slider.step = GRID_PITCH_MM / 10;
             slider.value = p.optics.focalLength;
             slider.className = "w-full accent-amber-400 h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer";
+            makeUndoable(slider);
             slider.oninput = (e) => {
                 let val = parseFloat(e.target.value);
                 if (isNaN(val)) return;
@@ -424,6 +445,7 @@ function updateUI() {
                 disconnectBtn.className = "w-full py-1 bg-red-900/50 border border-red-600 rounded text-[10px] text-red-100 hover:bg-red-900 cursor-pointer";
                 disconnectBtn.innerText = "Disconnect";
                 disconnectBtn.onclick = () => {
+                    saveToHistory();
                     const paired = elements.find(el => el.id === p.pairedWith);
                     if (paired) {
                         paired.pairedWith = null;
@@ -438,7 +460,7 @@ function updateUI() {
             } else {
                 const connectHint = document.createElement('p');
                 connectHint.className = "text-[9px] text-gray-500";
-                connectHint.innerText = "Ctrl+Click or Right-Click to connect to another fiber coupler";
+                connectHint.innerText = "Click the side pin, then click another coupler's pin to connect";
                 fiberBox.appendChild(connectHint);
             }
 
@@ -461,7 +483,7 @@ function updateUI() {
             const resetBtn = document.createElement('button');
             resetBtn.className = "w-full py-1 mt-1 bg-gray-700 border border-gray-600 rounded text-[10px] text-gray-200 hover:bg-gray-600 transition cursor-pointer";
             resetBtn.innerText = "Reset to 0°";
-            resetBtn.onclick = () => { p.cellAngle = 0; draw(); updateUI(); };
+            resetBtn.onclick = () => { saveToHistory(); p.cellAngle = 0; draw(); updateUI(); };
             btnContainer.appendChild(resetBtn);
         }
 
@@ -521,10 +543,102 @@ function updateUI() {
                 if ((p.customShape || 'rectangle') === s) opt.selected = true;
                 shapeSelect.appendChild(opt);
             });
-            shapeSelect.onchange = e => { p.customShape = e.target.value; draw(); };
+            shapeSelect.onchange = e => { saveToHistory(); p.customShape = e.target.value; draw(); };
             shapeRow.appendChild(shapeLabel);
             shapeRow.appendChild(shapeSelect);
             customBox.appendChild(shapeRow);
+
+            // Optical behavior selector (passive marker vs active optics)
+            const BEHAVIOR_OPTIONS = [
+                ['none', 'None (visual only)'],
+                ['blocker', 'Beam Blocker'],
+                ['mirror', 'Mirror (two-sided)'],
+                ['splitter', 'Splitter (50/50)'],
+                ['polarizer', 'Polarizer'],
+                ['attenuator', 'Attenuator'],
+            ];
+            const BEHAVIOR_HINTS = {
+                'none': 'Decoration only — beams pass through.',
+                'blocker': 'Absorbs any beam that hits it.',
+                'mirror': 'Reflects beams off the horizontal center line.',
+                'splitter': 'Splits beams 50/50 on the diagonal.',
+                'polarizer': 'Linear polarizer along the vertical line.',
+                'attenuator': 'Dims beams crossing the vertical line.',
+            };
+            const behaviorRow = document.createElement('div');
+            behaviorRow.className = "flex items-center justify-between mt-1";
+            const behaviorLabel = document.createElement('label');
+            behaviorLabel.className = "text-[9px] text-gray-400";
+            behaviorLabel.innerText = "Optics";
+            const behaviorSelect = document.createElement('select');
+            behaviorSelect.className = "bg-gray-700 border border-gray-600 rounded px-1 py-0.5 text-[10px] text-white cursor-pointer";
+            behaviorSelect.onmousedown = e => e.stopPropagation();
+            BEHAVIOR_OPTIONS.forEach(([v, t]) => {
+                const opt = document.createElement('option');
+                opt.value = v;
+                opt.innerText = t;
+                if ((p.customBehavior || 'none') === v) opt.selected = true;
+                behaviorSelect.appendChild(opt);
+            });
+            behaviorSelect.onchange = e => { saveToHistory(); p.customBehavior = e.target.value; draw(); updateUI(); };
+            behaviorRow.appendChild(behaviorLabel);
+            behaviorRow.appendChild(behaviorSelect);
+            customBox.appendChild(behaviorRow);
+
+            const behaviorHint = document.createElement('p');
+            behaviorHint.className = "text-[9px] text-gray-500";
+            behaviorHint.innerText = BEHAVIOR_HINTS[p.customBehavior || 'none'] || '';
+            customBox.appendChild(behaviorHint);
+
+            if ((p.customBehavior || 'none') === 'attenuator') {
+                const transRow = document.createElement('div');
+                transRow.className = "flex items-center justify-between mt-1";
+                const transLbl = document.createElement('span');
+                transLbl.className = "text-[9px] text-gray-400";
+                const transVal = Math.round((p.customTransmission ?? 0.5) * 100);
+                transLbl.innerText = `Transmission ${transVal}%`;
+                const transInput = document.createElement('input');
+                transInput.type = 'range';
+                transInput.min = '0';
+                transInput.max = '1';
+                transInput.step = '0.05';
+                transInput.value = p.customTransmission ?? 0.5;
+                transInput.className = "w-20 accent-blue-400 cursor-pointer";
+                transInput.onmousedown = e => e.stopPropagation();
+                makeUndoable(transInput);
+                transInput.oninput = e => {
+                    p.customTransmission = parseFloat(e.target.value);
+                    transLbl.innerText = `Transmission ${Math.round(p.customTransmission * 100)}%`;
+                    draw();
+                };
+                transRow.appendChild(transLbl);
+                transRow.appendChild(transInput);
+                customBox.appendChild(transRow);
+            }
+
+            if ((p.customBehavior || 'none') === 'polarizer') {
+                const polRow = document.createElement('div');
+                polRow.className = "flex items-center justify-between mt-1";
+                const polLbl = document.createElement('span');
+                polLbl.className = "text-[9px] text-gray-400";
+                polLbl.innerText = "Axis (° from body)";
+                const polInput = document.createElement('input');
+                polInput.type = 'number';
+                polInput.min = '-90';
+                polInput.max = '90';
+                polInput.step = '5';
+                polInput.value = Math.round(p.customPolAngle || 0);
+                polInput.className = "w-14 bg-gray-700 border border-gray-600 rounded px-1 py-0.5 text-[10px] text-white";
+                polInput.onmousedown = e => e.stopPropagation();
+                makeUndoable(polInput);
+                polInput.oninput = e => {
+                    const v = parseFloat(e.target.value);
+                    if (isFinite(v)) { p.customPolAngle = v; draw(); }
+                };
+                polRow.appendChild(polLbl);
+                polRow.appendChild(polInput);
+                customBox.appendChild(polRow);
+            }
 
             // Size inputs
             const sizeRow = document.createElement('div');
@@ -538,6 +652,7 @@ function updateUI() {
             wInput.value = Math.round(p.width);
             wInput.className = "w-14 bg-gray-700 border border-gray-600 rounded px-1 py-0.5 text-[10px] text-white";
             wInput.onmousedown = e => e.stopPropagation();
+            makeUndoable(wInput);
             wInput.oninput = e => { const v = parseInt(e.target.value); if (v > 0) { p.width = v; draw(); } };
             const hLabel = document.createElement('span');
             hLabel.className = "text-[9px] text-gray-400";
@@ -548,6 +663,7 @@ function updateUI() {
             hInput.value = Math.round(p.height);
             hInput.className = "w-14 bg-gray-700 border border-gray-600 rounded px-1 py-0.5 text-[10px] text-white";
             hInput.onmousedown = e => e.stopPropagation();
+            makeUndoable(hInput);
             hInput.oninput = e => { const v = parseInt(e.target.value); if (v > 0) { p.height = v; draw(); } };
             sizeRow.appendChild(wLabel); sizeRow.appendChild(wInput);
             sizeRow.appendChild(hLabel); sizeRow.appendChild(hInput);
@@ -566,6 +682,7 @@ function updateUI() {
             opacityInput.value = p.customOpacity ?? 1;
             opacityInput.className = "w-20 accent-blue-400 cursor-pointer";
             opacityInput.onmousedown = e => e.stopPropagation();
+            makeUndoable(opacityInput);
             opacityInput.oninput = e => { p.customOpacity = parseFloat(e.target.value); draw(); };
             opacityRow.appendChild(opacityLbl);
             opacityRow.appendChild(opacityInput);
@@ -591,6 +708,7 @@ function updateUI() {
             noBorderRow.innerHTML = `<input type="checkbox" id="noBorderCheck" ${p.customNoBorder ? 'checked' : ''}> <label for="noBorderCheck">No border</label>`;
             noBorderRow.onmousedown = e => e.stopPropagation();
             noBorderRow.querySelector('input').onchange = e => {
+                saveToHistory();
                 p.customNoBorder = e.target.checked;
                 if (!p.customNoBorder) p.customBorderColor = darkenHex(p.customColor);
                 draw(); updateUI();
@@ -609,6 +727,7 @@ function updateUI() {
             textInp.placeholder = 'Text inside shape';
             textInp.className = "w-full bg-gray-700 border border-gray-600 rounded px-1 py-0.5 text-[10px] text-white placeholder-gray-500";
             textInp.onmousedown = e => e.stopPropagation();
+            makeUndoable(textInp);
             textInp.oninput = e => { p.customText = e.target.value; draw(); };
             textRow.appendChild(textLbl);
             textRow.appendChild(textInp);
@@ -630,6 +749,7 @@ function updateUI() {
             fsInput.value = p.customFontSize || 10;
             fsInput.className = "w-12 bg-gray-700 border border-gray-600 rounded px-1 py-0.5 text-[10px] text-white";
             fsInput.onmousedown = e => e.stopPropagation();
+            makeUndoable(fsInput);
             fsInput.oninput = e => { const v = parseInt(e.target.value); if (v > 0) { p.customFontSize = v; draw(); } };
             const boldChk = document.createElement('input');
             boldChk.type = 'checkbox';
@@ -637,7 +757,7 @@ function updateUI() {
             boldChk.title = 'Bold';
             boldChk.className = "accent-blue-400 cursor-pointer";
             boldChk.onmousedown = e => e.stopPropagation();
-            boldChk.onchange = e => { p.customFontBold = e.target.checked; draw(); };
+            boldChk.onchange = e => { saveToHistory(); p.customFontBold = e.target.checked; draw(); };
             const boldLbl = document.createElement('span');
             boldLbl.className = "text-[9px] text-gray-400 font-bold";
             boldLbl.innerText = "B";
@@ -725,7 +845,7 @@ function updateUI() {
 
                 const slideDiv = document.createElement('div');
                 slideDiv.className = "mt-1";
-                slideDiv.innerHTML = `<label class="text-[9px] text-gray-400 block">Opacity</label><input type="range" min="0" max="1" step="0.1" value="${p.imgConfig.opacity}" class="w-full accent-blue-500 h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer" oninput="window.updateOpacity(this.value)">`;
+                slideDiv.innerHTML = `<label class="text-[9px] text-gray-400 block">Opacity</label><input type="range" min="0" max="1" step="0.1" value="${p.imgConfig.opacity}" class="w-full accent-blue-500 h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer" onpointerdown="window.saveToHistory()" oninput="window.updateOpacity(this.value)">`;
                 btnContainer.appendChild(slideDiv);
 
                 const togBtn = document.createElement('button');
@@ -763,6 +883,7 @@ function toggleBoardLock() {
 function toggleImage() {
     const p = Array.from(selection).pop();
     if (p && p.type === 'board') {
+        saveToHistory();
         p.imgConfig.visible = !p.imgConfig.visible;
         draw();
         updateUI();
@@ -775,7 +896,9 @@ function toggleImage() {
 function removeImage() {
     const p = Array.from(selection).pop();
     if (p && p.type === 'board') {
+        saveToHistory();
         p.imgData = null;
+        p.imgSrc = null;
         draw();
         updateUI();
     }
@@ -870,7 +993,9 @@ function handleImageUpload(input) {
     r.onload = (e) => {
         const i = new Image();
         i.onload = () => {
+            saveToHistory();
             p.imgData = i;
+            p.imgSrc = e.target.result;
             const a = i.height / i.width;
             p.imgConfig.w = p.width;
             p.imgConfig.h = p.width * a;
@@ -1115,6 +1240,7 @@ function deleteSelected() {
         
         elements = elements.filter(e => !selection.has(e));
         selection.clear();
+        updateUI();
         draw();
     }
 }
@@ -1126,6 +1252,7 @@ function clearAll() {
     saveToHistory();
     elements = [];
     selection.clear();
+    updateUI();
     draw();
 }
 

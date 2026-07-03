@@ -1423,23 +1423,46 @@ function drawFiberConnectingLine() {
 let _cachedRays = null;
 let _lastRayHash = null;
 
+function _hashNum(h, n) {
+    return Math.imul(h, 1000003) ^ ((n * 1000 + 0.5) | 0);
+}
+
+function _hashStr(h, s) {
+    for (let i = 0; i < s.length; i++) h = Math.imul(h, 1000003) ^ s.charCodeAt(i);
+    return h;
+}
+
 function _computeRayHash() {
     let h = elements.length;
     h = Math.imul(h, 1000003) ^ (showFuturePlans ? 7 : 11);
     for (let i = 0; i < elements.length; i++) {
         const e = elements[i];
-        h = Math.imul(h, 1000003) ^ ((e.x * 100 + 0.5) | 0);
-        h = Math.imul(h, 1000003) ^ ((e.y * 100 + 0.5) | 0);
-        h = Math.imul(h, 1000003) ^ ((e.rotation * 10000 + 0.5) | 0);
+        h = _hashStr(h, e.type);
+        h = _hashNum(h, e.x);
+        h = _hashNum(h, e.y);
+        h = _hashNum(h, e.rotation * 10);
+        h = _hashNum(h, e.width);
+        h = _hashNum(h, e.height);
         if (e.isFuturePlan) h = Math.imul(h, 1000003) ^ 13;
         if (e.aomEnabled !== undefined) h = Math.imul(h, 1000003) ^ (e.aomEnabled ? 1 : 2);
-        if (e.cellAngle != null)  h = Math.imul(h, 1000003) ^ ((e.cellAngle  * 1000 + 0.5) | 0);
-        if (e.polAngle  != null)  h = Math.imul(h, 1000003) ^ ((e.polAngle   *  100 + 0.5) | 0);
-        if (e.aperture  != null)  h = Math.imul(h, 1000003) ^ ((e.aperture   * 1000 + 0.5) | 0);
-        if (e.gain      != null)  h = Math.imul(h, 1000003) ^ ((e.gain       *  100 + 0.5) | 0);
+        if (e.cellAngle != null)  h = _hashNum(h, e.cellAngle);
+        if (e.polAngle  != null)  h = _hashNum(h, e.polAngle);
+        if (e.aperture  != null)  h = _hashNum(h, e.aperture);
+        if (e.gain      != null)  h = _hashNum(h, e.gain);
+        if (e.axisAngle != null)  h = _hashNum(h, e.axisAngle * 10);
+        if (e.optics && e.optics.focalLength != null) h = _hashNum(h, e.optics.focalLength);
+        if (e.beamColor) h = _hashStr(h, e.beamColor);
+        if (e.beamThickness != null) h = _hashNum(h, e.beamThickness);
         if (e.isFlipped) h = Math.imul(h, 1000003) ^ 3;
-        if (e.pairedWith) h = Math.imul(h, 1000003) ^ 5;
-        if (e.blockedLasers && e.blockedLasers.length) h = Math.imul(h, 1000003) ^ e.blockedLasers.length;
+        if (e.pairedWith) h = _hashNum(h, e.pairedWith % 1e6);
+        if (e.blockedLasers && e.blockedLasers.length) {
+            for (const id of e.blockedLasers) h = _hashNum(h, id % 1e6);
+        }
+        if (e.type === 'custom') {
+            h = _hashStr(h, e.customBehavior || 'none');
+            if (e.customTransmission != null) h = _hashNum(h, e.customTransmission);
+            if (e.customPolAngle != null) h = _hashNum(h, e.customPolAngle);
+        }
     }
     return h;
 }
@@ -1737,6 +1760,7 @@ function drawCustom(el) {
             ctx.textBaseline = 'middle';
             ctx.fillText(text, 0, (topY + botY) / 2);
         }
+        drawCustomBehaviorIndicator(el, w, h, sc);
         return;
     }
 
@@ -1778,6 +1802,59 @@ function drawCustom(el) {
         ctx.textBaseline = 'middle';
         ctx.fillText(text, 0, 0);
     }
+
+    drawCustomBehaviorIndicator(el, w, h, sc);
+}
+
+/**
+ * Draw the optical-surface indicator for custom components with an
+ * active behavior, so the interaction plane is visible on the bench.
+ */
+function drawCustomBehaviorIndicator(el, w, h, sc) {
+    const behavior = el.customBehavior || 'none';
+    if (behavior === 'none') return;
+
+    ctx.save();
+    ctx.lineWidth = 1.5 / sc;
+    if (behavior === 'mirror') {
+        ctx.strokeStyle = 'rgba(34, 211, 238, 0.9)';
+        ctx.beginPath();
+        ctx.moveTo(-w / 2, 0);
+        ctx.lineTo(w / 2, 0);
+        ctx.stroke();
+    } else if (behavior === 'splitter') {
+        ctx.strokeStyle = 'rgba(250, 204, 21, 0.9)';
+        ctx.beginPath();
+        ctx.moveTo(-w / 2, -h / 2);
+        ctx.lineTo(w / 2, h / 2);
+        ctx.stroke();
+    } else if (behavior === 'polarizer') {
+        ctx.strokeStyle = 'rgba(74, 222, 128, 0.9)';
+        ctx.beginPath();
+        ctx.moveTo(0, -h / 2);
+        ctx.lineTo(0, h / 2);
+        ctx.stroke();
+        ctx.save();
+        ctx.rotate(toRad(el.customPolAngle || 0));
+        ctx.setLineDash([2, 2]);
+        ctx.beginPath();
+        ctx.moveTo(-w * 0.3, 0);
+        ctx.lineTo(w * 0.3, 0);
+        ctx.stroke();
+        ctx.restore();
+    } else if (behavior === 'attenuator') {
+        ctx.strokeStyle = 'rgba(148, 163, 184, 0.9)';
+        ctx.setLineDash([3, 2]);
+        ctx.beginPath();
+        ctx.moveTo(0, -h / 2);
+        ctx.lineTo(0, h / 2);
+        ctx.stroke();
+        ctx.setLineDash([]);
+    } else if (behavior === 'blocker') {
+        ctx.strokeStyle = 'rgba(248, 113, 113, 0.7)';
+        ctx.strokeRect(-w / 2, -h / 2, w, h);
+    }
+    ctx.restore();
 }
 
 /**
