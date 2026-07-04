@@ -660,6 +660,7 @@ function handleMouseMove(e) {
     if (view.isPanning) {
         view.x = m.x - view.startPanX;
         view.y = m.y - view.startPanY;
+        canvas.style.cursor = 'grabbing';
         draw();
         return;
     }
@@ -757,6 +758,7 @@ function handleMouseMove(e) {
     }
 
     if (isDragging) {
+        canvas.style.cursor = 'grabbing';
         let hasBoard = false;
         const selectedBoards = Array.from(selection).filter(el => el.type === 'board');
         if (selectedBoards.length > 0) {
@@ -900,11 +902,35 @@ function handleMouseMove(e) {
 
     // If pending board or measure mode, redraw to update preview
     if (pendingBoard || isMeasureMode) {
+        canvas.style.cursor = 'crosshair';
+        hoverTarget = null;
         draw();
         return;
     }
 
+    updateIdleCursor(m);
     draw();
+}
+
+/**
+ * Idle-state cursor feedback and hover highlight: pointer over interactive
+ * knobs/pins/buttons, grab over movable elements, default over empty space.
+ */
+function updateIdleCursor(m) {
+    let cursor = 'default';
+    let hover = null;
+
+    if (getWaveplateKnobHit(m) || getCellKnobHit(m) || getAomToggleHit(m) || getFiberConnectorPinHit(m)) {
+        cursor = 'pointer';
+    } else {
+        hover = findElementAtScreen(m);
+        // Unselected boards are selected via click, not dragged from body
+        if (hover && hover.type === 'board' && !selection.has(hover)) hover = null;
+        if (hover) cursor = hover.locked ? 'not-allowed' : 'grab';
+    }
+
+    hoverTarget = hover;
+    canvas.style.cursor = cursor;
 }
 
 /**
@@ -965,12 +991,42 @@ function completeFiberConnection(target) {
 }
 
 /**
+ * Cancel an in-progress drag/rotate/resize/axis-adjust by restoring the
+ * snapshot taken at interaction start. Returns true if something was canceled.
+ */
+function cancelActiveInteraction() {
+    const active = isDragging || isRotating || isResizing || isAdjustingAxis;
+    if (!active) return false;
+
+    if (undoHistory.length > 0) {
+        isUndoRedoAction = true;
+        const prev = JSON.parse(undoHistory.pop());
+        elements = prev.map(d => rehydrateElement(d));
+        selection.clear();
+        isUndoRedoAction = false;
+    }
+
+    isDragging = false;
+    isRotating = false;
+    isResizing = false;
+    isAdjustingAxis = false;
+    axisAdjustTarget = null;
+    groupRotateState = null;
+    draggedChildren.clear();
+    dragOffsets.clear();
+    invalidBoardPlacement = false;
+    originalBoardState = null;
+    canvas.style.cursor = 'default';
+    return true;
+}
+
+/**
  * Handle mouse up events
  */
 function handleMouseUp(e) {
     if (e?.button === 1) {
         view.isPanning = false;
-        if (!isDragging) canvas.style.cursor = 'crosshair';
+        if (!isDragging) canvas.style.cursor = (isMeasureMode || pendingBoard) ? 'crosshair' : 'default';
         return;
     }
     // Fiber connecting mode stays active until user clicks on another pin or elsewhere
@@ -1085,7 +1141,7 @@ function handleMouseUp(e) {
     fiberConnectSource = null;
     fiberConnectMousePos = null;
     view.isPanning = false;
-    canvas.style.cursor = 'crosshair';
+    canvas.style.cursor = (isMeasureMode || pendingBoard) ? 'crosshair' : 'default';
 
     if (wasDragging && selection.size === 1) {
         const el = Array.from(selection)[0];
@@ -1154,8 +1210,13 @@ function handleKeyDown(e) {
 
     if (e.repeat) return;
 
-    // Escape - cancel fiber connection, pending board, measure mode, or deselect all
+    // Escape - cancel active drag, fiber connection, pending board, measure mode, or deselect all
     if (e.key === 'Escape') {
+        if (cancelActiveInteraction()) {
+            updateUI();
+            draw();
+            return;
+        }
         if (isFiberConnecting) {
             isFiberConnecting = false;
             fiberConnectSource = null;

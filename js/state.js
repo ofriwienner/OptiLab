@@ -121,6 +121,11 @@ function rehydrateElement(data) {
         el.blockedLasers = data.blockedLasers;
     }
 
+    // Iris aperture
+    if (el.type === 'iris' && typeof data.aperture === 'number') {
+        el.aperture = data.aperture;
+    }
+
     // Laser polarization, color, and thickness
     if (el.type === 'laser') {
         if (typeof data.polAngle === 'number') el.polAngle = data.polAngle;

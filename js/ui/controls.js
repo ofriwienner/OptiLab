@@ -398,6 +398,52 @@ function updateUI() {
             btnContainer.appendChild(lensBox);
         }
 
+        // Iris Controls
+        if (p.type === 'iris') {
+            const irisBox = document.createElement('div');
+            irisBox.className = "mt-2 border-t border-gray-600 pt-2 space-y-2";
+
+            const title = document.createElement('div');
+            title.className = "text-[10px] uppercase text-gray-400";
+            title.innerText = "Iris Aperture";
+            irisBox.appendChild(title);
+
+            const apRow = document.createElement('div');
+            apRow.className = "flex items-center justify-between text-[10px] text-gray-300";
+            const apLabel = document.createElement('span');
+            apLabel.innerText = "Opening";
+            const apValue = document.createElement('span');
+            apValue.className = "font-mono";
+            const openingMM = a => (p.width * a * 0.8).toFixed(1);
+            apValue.innerText = `${openingMM(p.aperture ?? 0.5)} mm`;
+            apRow.appendChild(apLabel);
+            apRow.appendChild(apValue);
+            irisBox.appendChild(apRow);
+
+            const apSlider = document.createElement('input');
+            apSlider.type = 'range';
+            apSlider.min = '0.05';
+            apSlider.max = '1';
+            apSlider.step = '0.05';
+            apSlider.value = p.aperture ?? 0.5;
+            apSlider.className = "w-full accent-indigo-400 h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer";
+            apSlider.onmousedown = e => e.stopPropagation();
+            makeUndoable(apSlider);
+            apSlider.oninput = e => {
+                p.aperture = parseFloat(e.target.value);
+                apValue.innerText = `${openingMM(p.aperture)} mm`;
+                draw();
+            };
+            irisBox.appendChild(apSlider);
+
+            const hint = document.createElement('p');
+            hint.className = "text-[9px] text-gray-500";
+            hint.innerText = "Beams outside the opening are blocked.";
+            irisBox.appendChild(hint);
+
+            btnContainer.appendChild(irisBox);
+        }
+
         // Fiber Coupler Controls
         if (p.type === 'fiber-coupler') {
             const fiberBox = document.createElement('div');
@@ -465,6 +511,53 @@ function updateUI() {
             }
 
             btnContainer.appendChild(fiberBox);
+        }
+
+        // Amplifier Controls
+        if (p.type === 'amplifier') {
+            const ampBox = document.createElement('div');
+            ampBox.className = "mt-2 border-t border-gray-600 pt-2 space-y-2";
+
+            const title = document.createElement('div');
+            title.className = "text-[10px] uppercase text-gray-400";
+            title.innerText = "Amplifier";
+            ampBox.appendChild(title);
+
+            const gainRow = document.createElement('div');
+            gainRow.className = "flex items-center justify-between text-[10px] text-gray-300";
+            const gainLabel = document.createElement('span');
+            gainLabel.innerText = "Gain";
+            const gainValue = document.createElement('span');
+            gainValue.className = "font-mono";
+            gainValue.innerText = `${(p.gain ?? 2).toFixed(1)}×`;
+            gainRow.appendChild(gainLabel);
+            gainRow.appendChild(gainValue);
+            ampBox.appendChild(gainRow);
+
+            const gainSlider = document.createElement('input');
+            gainSlider.type = 'range';
+            gainSlider.min = '1';
+            gainSlider.max = '10';
+            gainSlider.step = '0.5';
+            gainSlider.value = p.gain ?? 2;
+            gainSlider.className = "w-full accent-red-400 h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer";
+            gainSlider.onmousedown = e => e.stopPropagation();
+            makeUndoable(gainSlider);
+            gainSlider.oninput = e => {
+                p.gain = parseFloat(e.target.value);
+                gainValue.innerText = `${p.gain.toFixed(1)}×`;
+                draw();
+            };
+            ampBox.appendChild(gainSlider);
+
+            const statusHint = document.createElement('p');
+            statusHint.className = "text-[9px] text-gray-500";
+            statusHint.innerText = p.pairedWith
+                ? "Amplifies the fiber input and emits from the right face."
+                : "Connect a fiber coupler to the left input pin.";
+            ampBox.appendChild(statusHint);
+
+            btnContainer.appendChild(ampBox);
         }
 
         // Cell Polarization Rotation Controls

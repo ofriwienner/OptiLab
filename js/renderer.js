@@ -65,6 +65,22 @@ function createDragImage(type) {
 }
 
 /**
+ * Stroke the selection/hover outline shape for an element
+ * (assumes ctx is already translated/rotated/scaled to the element)
+ */
+function strokeElementOutline(el) {
+    if (el.type === 'board') {
+        ctx.strokeRect(-el.width / 2, -el.height / 2, el.width, el.height);
+    } else if (el.type === 'measure') {
+        ctx.strokeRect(-el.width / 2 - 2, -5, el.width + 4, 10);
+    } else if (el.type.includes('mirror')) {
+        ctx.strokeRect(-el.width / 2 - 2, -2, el.width + 4, el.height + 4);
+    } else {
+        ctx.strokeRect(-el.width / 2 - 2, -el.height / 2 - 2, el.width + 4, el.height + 4);
+    }
+}
+
+/**
  * Draw a single element
  * @param {Object} el - Element to draw
  */
@@ -95,16 +111,12 @@ function drawElement(el) {
         ctx.shadowBlur = 10;
         ctx.strokeStyle = 'rgba(255,255,255,0.8)';
         ctx.lineWidth = 1;
-        if (el.type === 'board') {
-            ctx.strokeRect(-el.width / 2, -el.height / 2, el.width, el.height);
-        } else if (el.type === 'measure') {
-            ctx.strokeRect(-el.width / 2 - 2, -5, el.width + 4, 10);
-        } else if (el.type.includes('mirror')) {
-            ctx.strokeRect(-el.width / 2 - 2, -2, el.width + 4, el.height + 4);
-        } else {
-            ctx.strokeRect(-el.width / 2 - 2, -el.height / 2 - 2, el.width + 4, el.height + 4);
-        }
+        strokeElementOutline(el);
         ctx.shadowBlur = 0;
+    } else if (el === hoverTarget && !isDragging && !isRotating && !isResizing && !isSelecting && !view.isPanning) {
+        ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+        ctx.lineWidth = 1;
+        strokeElementOutline(el);
     }
 
     // Draw Component Graphics

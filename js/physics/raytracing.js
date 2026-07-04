@@ -392,14 +392,22 @@ function traceRay(ray, depth, results) {
             }, depth + 1, results);
 
         } else if (hitObject.type === 'iris') {
-            // Iris pass-through (visual only for now)
-            traceRay({
-                ...ray,
-                x: closestHit.x + inc.x * 0.1,
-                y: closestHit.y + inc.y * 0.1,
-                dx: inc.x,
-                dy: inc.y
-            }, depth + 1, results);
+            // Iris: pass only through the aperture opening, absorb on the blades.
+            // Opening radius matches the drawn aperture (80% of housing at full open).
+            const aperture = Math.max(0, Math.min(1, hitObject.aperture ?? 0.5));
+            const openingRadius = (hitObject.width / 2) * aperture * 0.8;
+            const offX = closestHit.x - hitObject.x;
+            const offY = closestHit.y - hitObject.y;
+            const offset = Math.sqrt(offX * offX + offY * offY);
+            if (offset <= openingRadius) {
+                traceRay({
+                    ...ray,
+                    x: closestHit.x + inc.x * 0.1,
+                    y: closestHit.y + inc.y * 0.1,
+                    dx: inc.x,
+                    dy: inc.y
+                }, depth + 1, results);
+            }
 
         } else if (hitObject.type === 'mirror-d' && hitSegment.type === 'blocker') {
             // D-mirror non-reflective part - transmit through

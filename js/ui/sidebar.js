@@ -108,6 +108,12 @@ function copySelected() {
         if (el.type === 'filter' && Array.isArray(el.blockedLasers)) {
             data.blockedLasers = el.blockedLasers;
         }
+        if (el.type === 'iris' && typeof el.aperture === 'number') {
+            data.aperture = el.aperture;
+        }
+        if (el.type === 'amplifier' && typeof el.gain === 'number') {
+            data.gain = el.gain;
+        }
         if (el.type === 'cell' && typeof el.cellAngle === 'number') {
             data.cellAngle = el.cellAngle;
         }
@@ -207,6 +213,12 @@ function pasteElements() {
         }
         if (el.type === 'filter' && Array.isArray(data.blockedLasers)) {
             el.blockedLasers = data.blockedLasers;
+        }
+        if (el.type === 'iris' && typeof data.aperture === 'number') {
+            el.aperture = data.aperture;
+        }
+        if (el.type === 'amplifier' && typeof data.gain === 'number') {
+            el.gain = data.gain;
         }
         if (el.type === 'cell' && typeof data.cellAngle === 'number') {
             el.cellAngle = data.cellAngle;
