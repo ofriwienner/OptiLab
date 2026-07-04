@@ -18,18 +18,9 @@ function startSidebarDrag(e, type) {
 
     // Board-Relative Snapping
     if (!shiftPressed && !ctrlPressed) {
-        const board = elements.find(el => el.type === 'board' &&
-            nx >= el.x - el.width / 2 && nx <= el.x + el.width / 2 &&
-            ny >= el.y - el.height / 2 && ny <= el.y + el.height / 2);
-        if (board) {
-            const snap = getClosestGridPoint({ x: nx, y: ny }, board);
-            nx = snap.x;
-            ny = snap.y;
-        } else {
-            // Global Fallback
-            nx = Math.round((nx - 12.5) / GRID_PITCH_MM) * GRID_PITCH_MM + 12.5;
-            ny = Math.round((ny - 12.5) / GRID_PITCH_MM) * GRID_PITCH_MM + 12.5;
-        }
+        const snap = snapComponentPoint(nx, ny);
+        nx = snap.x;
+        ny = snap.y;
     }
 
     const el = new Element(type, nx, ny);
@@ -401,17 +392,9 @@ function startCustomComponentDrag(e, template) {
     let ny = p.y;
 
     if (!shiftPressed && !ctrlPressed) {
-        const board = elements.find(el => el.type === 'board' &&
-            nx >= el.x - el.width / 2 && nx <= el.x + el.width / 2 &&
-            ny >= el.y - el.height / 2 && ny <= el.y + el.height / 2);
-        if (board) {
-            const snap = getClosestGridPoint({ x: nx, y: ny }, board);
-            nx = snap.x;
-            ny = snap.y;
-        } else {
-            nx = Math.round((nx - 12.5) / GRID_PITCH_MM) * GRID_PITCH_MM + 12.5;
-            ny = Math.round((ny - 12.5) / GRID_PITCH_MM) * GRID_PITCH_MM + 12.5;
-        }
+        const snap = snapComponentPoint(nx, ny);
+        nx = snap.x;
+        ny = snap.y;
     }
 
     const el = new Element('custom', nx, ny, template.width || 30, template.height || 30, template.name || '');

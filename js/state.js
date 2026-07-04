@@ -9,11 +9,17 @@
  * No-ops when the scene is identical to the last snapshot, so
  * focus/press events on controls never create empty undo steps.
  */
+let lastSavePushed = false;
+
 function saveToHistory() {
     if (isUndoRedoAction) return;
 
     const json = JSON.stringify(elements);
-    if (undoHistory.length > 0 && undoHistory[undoHistory.length - 1] === json) return;
+    if (undoHistory.length > 0 && undoHistory[undoHistory.length - 1] === json) {
+        lastSavePushed = false;
+        return;
+    }
+    lastSavePushed = true;
 
     undoHistory.push(json);
 

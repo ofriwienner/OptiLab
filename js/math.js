@@ -173,6 +173,25 @@ function normalizeAngleRad(angle) {
 }
 
 /**
+ * Snap a component position to the grid: board-relative if the point is
+ * over a board, otherwise to the global half-offset grid.
+ * @param {number} x - World X
+ * @param {number} y - World Y
+ * @param {Object|null} excludeEl - Element to skip when searching boards
+ * @returns {Object} Snapped point
+ */
+function snapComponentPoint(x, y, excludeEl = null) {
+    const board = elements.find(b => b.type === 'board' && b !== excludeEl &&
+        x >= b.x - b.width / 2 && x <= b.x + b.width / 2 &&
+        y >= b.y - b.height / 2 && y <= b.y + b.height / 2);
+    if (board) return getClosestGridPoint({ x, y }, board);
+    return {
+        x: Math.round((x - HALF_GRID_MM) / GRID_PITCH_MM) * GRID_PITCH_MM + HALF_GRID_MM,
+        y: Math.round((y - HALF_GRID_MM) / GRID_PITCH_MM) * GRID_PITCH_MM + HALF_GRID_MM
+    };
+}
+
+/**
  * Get closest grid point to a world coordinate on a board
  * @param {Object} w - World coordinate
  * @param {Object} b - Board element

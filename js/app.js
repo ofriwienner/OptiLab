@@ -25,6 +25,13 @@ function init() {
     // Initialize input handlers
     initInputHandlers();
 
+    // Keep canvas matched to its container when the window resizes
+    window.addEventListener('resize', () => {
+        canvas.width = container.clientWidth;
+        canvas.height = container.clientHeight;
+        draw();
+    });
+
     // Set up initial view
     updateTableSize();
     resetView();

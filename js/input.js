@@ -807,16 +807,8 @@ function handleMouseMove(e) {
                         snapX = Math.round(rawX / HALF_GRID_MM) * HALF_GRID_MM;
                         snapY = Math.round(rawY / HALF_GRID_MM) * HALF_GRID_MM;
                     } else {
-                        const board = elements.find(b => b.type === 'board' && b !== ref &&
-                            rawX >= b.x - b.width / 2 && rawX <= b.x + b.width / 2 &&
-                            rawY >= b.y - b.height / 2 && rawY <= b.y + b.height / 2);
-                        if (board) {
-                            const snap = getClosestGridPoint({ x: rawX, y: rawY }, board);
-                            snapX = snap.x; snapY = snap.y;
-                        } else {
-                            snapX = Math.round((rawX - 12.5) / GRID_PITCH_MM) * GRID_PITCH_MM + 12.5;
-                            snapY = Math.round((rawY - 12.5) / GRID_PITCH_MM) * GRID_PITCH_MM + 12.5;
-                        }
+                        const snap = snapComponentPoint(rawX, rawY, ref);
+                        snapX = snap.x; snapY = snap.y;
                     }
                     groupSnapDelta = { dx: snapX - rawX, dy: snapY - rawY };
                 }
@@ -863,16 +855,8 @@ function handleMouseMove(e) {
                         newX = Math.round(rawX / HALF_GRID_MM) * HALF_GRID_MM;
                         newY = Math.round(rawY / HALF_GRID_MM) * HALF_GRID_MM;
                     } else {
-                        const board = elements.find(b => b.type === 'board' && b !== el &&
-                            rawX >= b.x - b.width / 2 && rawX <= b.x + b.width / 2 &&
-                            rawY >= b.y - b.height / 2 && rawY <= b.y + b.height / 2);
-                        if (board) {
-                            const snap = getClosestGridPoint({ x: rawX, y: rawY }, board);
-                            newX = snap.x; newY = snap.y;
-                        } else {
-                            newX = Math.round((rawX - 12.5) / GRID_PITCH_MM) * GRID_PITCH_MM + 12.5;
-                            newY = Math.round((rawY - 12.5) / GRID_PITCH_MM) * GRID_PITCH_MM + 12.5;
-                        }
+                        const snap = snapComponentPoint(rawX, rawY, el);
+                        newX = snap.x; newY = snap.y;
                     }
                 }
 
@@ -1020,7 +1004,13 @@ function cancelActiveInteraction() {
 
     if (undoHistory.length > 0) {
         isUndoRedoAction = true;
-        const prev = JSON.parse(undoHistory.pop());
+        // Restore the snapshot taken at interaction start. Pop it only if this
+        // interaction actually pushed it (dedup may have skipped the push when
+        // the scene was already identical to the top of the stack).
+        const json = lastSavePushed
+            ? undoHistory.pop()
+            : undoHistory[undoHistory.length - 1];
+        const prev = JSON.parse(json);
         elements = prev.map(d => rehydrateElement(d));
         selection.clear();
         isUndoRedoAction = false;
