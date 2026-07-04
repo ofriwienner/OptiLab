@@ -1061,7 +1061,7 @@ function toggleShortcutOverlay() {
         ['Editing', [
             ['Ctrl/⌘ + Z / Shift+Z', 'Undo / Redo'],
             ['Ctrl/⌘ + C / V', 'Copy / Paste at cursor'],
-            ['Ctrl + Drag', 'Duplicate element'],
+            ['Ctrl/⌘ + D / Ctrl + Drag', 'Duplicate selection'],
             ['Ctrl/⌘ + A', 'Select all components'],
             ['Delete / Backspace', 'Delete selection'],
             ['Escape', 'Cancel drag / deselect'],
@@ -1489,6 +1489,44 @@ function updateBoardInputs() {
             document.getElementById('boardH').value = h;
         }
     }
+}
+
+/**
+ * Duplicate the selected components in place (offset by one grid pitch)
+ */
+function duplicateSelected() {
+    const items = Array.from(selection).filter(el => el.type !== 'board');
+    if (items.length === 0) return;
+    saveToHistory();
+    const clones = items.map(src => {
+        const clone = rehydrateElement(JSON.parse(JSON.stringify(src)));
+        clone.id = Date.now() + Math.random();
+        clone.x += GRID_PITCH_MM;
+        clone.y += GRID_PITCH_MM;
+        // Fiber pairings are 1:1 - the copy starts unconnected
+        if (clone.pairedWith) {
+            clone.pairedWith = null;
+            clone.fiberColor = null;
+        }
+        return clone;
+    });
+    elements.push(...clones);
+    selection.clear();
+    clones.forEach(c => selection.add(c));
+    updateUI();
+    draw();
+}
+
+/**
+ * Rotate all selected components 90° clockwise (around their own centers)
+ */
+function rotateSelected90() {
+    const items = Array.from(selection).filter(el => el.type !== 'board' && !el.locked);
+    if (items.length === 0) return;
+    saveToHistory();
+    items.forEach(el => { el.rotation += Math.PI / 2; });
+    updateUI();
+    draw();
 }
 
 /**

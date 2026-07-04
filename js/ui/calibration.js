@@ -11,10 +11,23 @@ function startCalibration() {
     if (p && p.type === 'board' && p.imgData) {
         calibrationState = 1;
         calibData.board = p;
-        calibrationMsg.innerText = "Step 1/6: Click Top-Left on Image";
+        calibrationMsg.innerText = "Step 1/6: Click Top-Left on Image (Esc to cancel)";
         calibrationMsg.style.display = 'block';
         document.body.style.cursor = 'crosshair';
     }
+}
+
+/**
+ * Cancel an in-progress calibration
+ * @returns {boolean} True if a calibration was canceled
+ */
+function cancelCalibration() {
+    if (calibrationState === 0) return false;
+    calibrationState = 0;
+    calibData.board = null;
+    calibrationMsg.style.display = 'none';
+    document.body.style.cursor = 'default';
+    return true;
 }
 
 /**
@@ -62,6 +75,7 @@ function handleCalibrationClick(m) {
  */
 function applyCalibration() {
     const b = calibData.board;
+    saveToHistory();
 
     const p1i = calibData.p1Img;
     const p1b = calibData.p1Board;

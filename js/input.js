@@ -1236,11 +1236,15 @@ function handleKeyDown(e) {
         return;
     }
 
-    // Escape - close overlay, cancel active drag, fiber connection, pending board, measure mode, or deselect all
+    // Escape - close overlay, cancel calibration, active drag, fiber connection, pending board, measure mode, or deselect all
     if (e.key === 'Escape') {
         const overlay = document.getElementById('shortcut-overlay');
         if (overlay) {
             overlay.remove();
+            return;
+        }
+        if (cancelCalibration()) {
+            draw();
             return;
         }
         if (cancelActiveInteraction()) {
@@ -1311,6 +1315,14 @@ function handleKeyDown(e) {
     if (isRedo) {
         e.preventDefault();
         redo();
+        return;
+    }
+
+    // Duplicate (Ctrl/Cmd + D)
+    const isDuplicate = (e.key === 'd' || e.key === 'D' || codeKey === 'd') && (e.metaKey || e.ctrlKey);
+    if (isDuplicate && selection.size > 0) {
+        e.preventDefault();
+        duplicateSelected();
         return;
     }
 

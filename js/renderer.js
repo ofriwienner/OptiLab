@@ -1512,6 +1512,41 @@ function draw() {
     drawPendingBoardPreview();
     drawMeasureOverlay();
     drawHints();
+    updateSelectionToolbarPosition();
+}
+
+/**
+ * Position the floating selection toolbar below the selected components,
+ * hiding it during any active interaction.
+ */
+function updateSelectionToolbarPosition() {
+    const bar = document.getElementById('selection-toolbar');
+    if (!bar) return;
+    const items = Array.from(selection).filter(el => el.type !== 'board');
+    const busy = isDragging || isRotating || isResizing || isSelecting || isAdjustingAxis ||
+                 view.isPanning || isFiberConnecting || isMeasureMode || pendingBoard ||
+                 calibrationState > 0;
+    if (items.length === 0 || busy) {
+        bar.classList.add('hidden');
+        return;
+    }
+
+    const sc = view.scale * PIXELS_PER_MM;
+    let minX = Infinity, maxX = -Infinity, maxY = -Infinity;
+    items.forEach(el => {
+        const s = worldToScreen(el.x, el.y);
+        const hw = Math.max(el.width, el.height) / 2 * sc;
+        minX = Math.min(minX, s.x - hw);
+        maxX = Math.max(maxX, s.x + hw);
+        maxY = Math.max(maxY, s.y + hw);
+    });
+
+    bar.classList.remove('hidden');
+    const barW = bar.offsetWidth || 90;
+    const left = Math.max(4, Math.min(canvas.width - barW - 4, (minX + maxX) / 2 - barW / 2));
+    const top = Math.min(canvas.height - 36, maxY + 14);
+    bar.style.left = left + 'px';
+    bar.style.top = top + 'px';
 }
 
 /**

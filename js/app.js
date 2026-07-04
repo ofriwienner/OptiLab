@@ -114,6 +114,8 @@ function exposeGlobalFunctions() {
     window.cycleSnapRotation = cycleSnapRotation;
     window.moveToBack = moveToBack;
     window.toggleShortcutOverlay = toggleShortcutOverlay;
+    window.duplicateSelected = duplicateSelected;
+    window.rotateSelected90 = rotateSelected90;
 }
 
 // Initialize when DOM is ready
