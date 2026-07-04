@@ -1230,13 +1230,13 @@ function rotateBoard(board) {
     board.y = snappedTop + board.height / 2;
 
     if (board.imgData) {
-        const temp = board.imgConfig.w;
-        board.imgConfig.w = board.imgConfig.h;
-        board.imgConfig.h = temp;
+        // Rotate the image with the board contents: turn the offset 90° and
+        // rotate the content itself (swapping w/h would distort, not rotate)
         const ix = board.imgConfig.x;
         const iy = board.imgConfig.y;
         board.imgConfig.x = -iy;
         board.imgConfig.y = ix;
+        board.imgConfig.rotation = (board.imgConfig.rotation || 0) + Math.PI / 2;
     }
 
     draw();
@@ -1601,6 +1601,7 @@ function resetView() {
     view.scale = 0.5;
     view.x = (canvas.width - tableConfig.widthMM * PIXELS_PER_MM * view.scale) / 2;
     view.y = (canvas.height - tableConfig.heightMM * PIXELS_PER_MM * view.scale) / 2;
+    if (debugInfo) debugInfo.innerText = `Scale: ${Math.round(view.scale * 100)}%`;
     draw();
 }
 

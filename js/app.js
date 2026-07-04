@@ -123,6 +123,7 @@ function exposeGlobalFunctions() {
     window.toggleShortcutOverlay = toggleShortcutOverlay;
     window.duplicateSelected = duplicateSelected;
     window.rotateSelected90 = rotateSelected90;
+    window.filterToolGrid = filterToolGrid;
 }
 
 // Initialize when DOM is ready

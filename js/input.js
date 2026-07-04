@@ -124,6 +124,8 @@ function initInputHandlers() {
     // Double-click handler
     canvas.addEventListener('dblclick', handleDoubleClick);
 
+    initTouchHandlers();
+
     // Image upload handler
     document.getElementById('imgUpload').addEventListener('change', (e) => handleImageUpload(e.target));
 
@@ -152,6 +154,71 @@ function initInputHandlers() {
             });
         });
     }
+}
+
+/**
+ * Touch input: one finger drives the normal mouse pipeline,
+ * two fingers pinch-zoom and pan the view.
+ */
+function initTouchHandlers() {
+    let touchState = null; // 'single' | { d, mid } for pinch | null
+
+    const synthMouse = t => ({
+        clientX: t.clientX,
+        clientY: t.clientY,
+        button: 0,
+        shiftKey: false,
+        ctrlKey: false,
+        metaKey: false,
+        preventDefault() {}
+    });
+    const dist = ts => Math.hypot(ts[0].clientX - ts[1].clientX, ts[0].clientY - ts[1].clientY);
+    const mid = ts => ({ x: (ts[0].clientX + ts[1].clientX) / 2, y: (ts[0].clientY + ts[1].clientY) / 2 });
+
+    canvas.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        if (e.touches.length === 1) {
+            touchState = 'single';
+            handleMouseDown(synthMouse(e.touches[0]));
+        } else if (e.touches.length === 2) {
+            if (touchState === 'single') handleMouseUp({ button: 0 });
+            touchState = { d: dist(e.touches), mid: mid(e.touches) };
+        }
+    }, { passive: false });
+
+    canvas.addEventListener('touchmove', (e) => {
+        e.preventDefault();
+        if (e.touches.length === 1 && touchState === 'single') {
+            handleMouseMove(synthMouse(e.touches[0]));
+        } else if (e.touches.length === 2 && touchState && touchState !== 'single') {
+            const rect = canvas.getBoundingClientRect();
+            const newMid = mid(e.touches);
+            const newD = dist(e.touches);
+            const m = { x: newMid.x - rect.left, y: newMid.y - rect.top };
+            const wB = screenToWorld(m.x, m.y);
+            view.scale = Math.max(0.1, Math.min(view.scale * (newD / touchState.d), 5));
+            const wA = screenToWorld(m.x, m.y);
+            view.x += (wA.x - wB.x) * PIXELS_PER_MM * view.scale;
+            view.y += (wA.y - wB.y) * PIXELS_PER_MM * view.scale;
+            view.x += newMid.x - touchState.mid.x;
+            view.y += newMid.y - touchState.mid.y;
+            touchState = { d: newD, mid: newMid };
+            debugInfo.innerText = `Scale: ${Math.round(view.scale * 100)}%`;
+            draw();
+        }
+    }, { passive: false });
+
+    const onTouchEnd = (e) => {
+        if (e.touches.length === 0) {
+            if (touchState === 'single') handleMouseUp({ button: 0 });
+            touchState = null;
+        } else if (touchState !== 'single') {
+            // Pinch ended with a finger still down: wait for a fresh touchstart
+            touchState = null;
+        }
+    };
+    canvas.addEventListener('touchend', onTouchEnd);
+    canvas.addEventListener('touchcancel', onTouchEnd);
 }
 
 /**

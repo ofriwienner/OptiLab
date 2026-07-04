@@ -35,6 +35,20 @@ function startSidebarDrag(e, type) {
 }
 
 /**
+ * Filter the sidebar component grid by label text
+ * @param {string} query - Filter text
+ */
+function filterToolGrid(query) {
+    const grid = document.getElementById('tools-grid');
+    if (!grid) return;
+    const q = query.trim().toLowerCase();
+    grid.querySelectorAll('.tool-item').forEach(item => {
+        const label = item.textContent.trim().toLowerCase();
+        item.style.display = (!q || label.includes(q)) ? '' : 'none';
+    });
+}
+
+/**
  * Allow drop on canvas (drag-over handler)
  * @param {Event} e - Drag event
  */
