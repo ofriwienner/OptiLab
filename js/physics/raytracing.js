@@ -53,7 +53,9 @@ function traceRay(ray, depth, results) {
             y2: closestHit.y,
             color: ray.color + ray.intensity + ')',
             thickness: ray.thickness ?? 1,
-            stokes: ray.stokes
+            stokes: ray.stokes,
+            laserId: ray.laserId,
+            hitId: hitObject.id
         });
 
         if (laserHitTracker && hitObject) {
@@ -431,7 +433,8 @@ function traceRay(ray, depth, results) {
             y2: ray.y + ray.dy * 2000,
             color: ray.color + ray.intensity + ')',
             thickness: ray.thickness ?? 1,
-            stokes: ray.stokes
+            stokes: ray.stokes,
+            laserId: ray.laserId
         });
     }
 }

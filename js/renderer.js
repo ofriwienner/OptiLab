@@ -1495,6 +1495,9 @@ function draw() {
     if (rayHash !== _lastRayHash) {
         _cachedRays = castRays();
         _lastRayHash = rayHash;
+        // Keep the detector readout live while beams change
+        const sel = Array.from(selection).pop();
+        if (sel && sel.type === 'detector') updateUI();
     }
     drawGrid();
     drawFiberCables();
@@ -1853,6 +1856,37 @@ function drawCustomBehaviorIndicator(el, w, h, sc) {
         ctx.moveTo(-w * 0.3, 0);
         ctx.lineTo(w * 0.3, 0);
         ctx.stroke();
+        ctx.restore();
+
+        // Transmission-axis knob above the shape (same interaction as waveplates)
+        ctx.save();
+        ctx.translate(0, -h / 2 - WAVEPLATE_KNOB_OFFSET_MM);
+        ctx.rotate(-el.rotation);
+        const knobRadius = WAVEPLATE_KNOB_RADIUS_MM;
+        const isSelected = selection.has(el);
+        ctx.beginPath();
+        ctx.arc(0, 0, knobRadius, 0, Math.PI * 2);
+        ctx.fillStyle = isAdjustingAxis && axisAdjustTarget === el ? '#166534' : '#111827';
+        ctx.strokeStyle = isSelected ? '#86efac' : '#4b5563';
+        ctx.lineWidth = 0.6;
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.save();
+        ctx.rotate(el.rotation + toRad(el.customPolAngle || 0));
+        ctx.strokeStyle = '#4ade80';
+        ctx.lineWidth = 0.6;
+        ctx.beginPath();
+        ctx.moveTo(-knobRadius * 0.8, 0);
+        ctx.lineTo(knobRadius * 0.8, 0);
+        ctx.stroke();
+        ctx.restore();
+
+        ctx.fillStyle = '#bbf7d0';
+        ctx.font = '8px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'bottom';
+        ctx.fillText(`${Math.round(el.customPolAngle || 0)}°`, 0, -knobRadius - 2);
         ctx.restore();
     } else if (behavior === 'attenuator') {
         ctx.strokeStyle = 'rgba(148, 163, 184, 0.9)';

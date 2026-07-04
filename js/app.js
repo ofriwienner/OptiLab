@@ -113,6 +113,7 @@ function exposeGlobalFunctions() {
     window.tryAutoAlign = tryAutoAlign;
     window.cycleSnapRotation = cycleSnapRotation;
     window.moveToBack = moveToBack;
+    window.toggleShortcutOverlay = toggleShortcutOverlay;
 }
 
 // Initialize when DOM is ready

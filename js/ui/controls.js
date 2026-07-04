@@ -66,6 +66,24 @@ function makeColorRow(label, value, onChange) {
 }
 
 /**
+ * Human-readable polarization state from a Stokes vector
+ * @param {Array} stokes - [I, Q, U, V]
+ * @returns {string}
+ */
+function describePolarization(stokes) {
+    const I = stokes[0];
+    if (!(I > 0)) return '—';
+    const q = stokes[1] / I, u = stokes[2] / I, v = stokes[3] / I;
+    if (Math.abs(v) > 0.9) return v > 0 ? 'Circular (R)' : 'Circular (L)';
+    if (Math.abs(v) > 0.15) return v > 0 ? 'Elliptical (R)' : 'Elliptical (L)';
+    let deg = Math.round(toDeg(0.5 * Math.atan2(u, q)));
+    if (deg < 0) deg += 180;
+    if (deg === 0 || deg === 180) return 'Linear H (0°)';
+    if (deg === 90) return 'Linear V (90°)';
+    return `Linear ${deg}°`;
+}
+
+/**
  * Get a laser's display name: custom title or "Laser N" by order
  * @param {Object} laser - Laser element
  * @returns {string}
@@ -396,6 +414,77 @@ function updateUI() {
             lensBox.appendChild(hint);
 
             btnContainer.appendChild(lensBox);
+        }
+
+        // Detector Readout
+        if (p.type === 'detector') {
+            const detBox = document.createElement('div');
+            detBox.className = "mt-2 border-t border-gray-600 pt-2 space-y-1";
+
+            const title = document.createElement('div');
+            title.className = "text-[10px] uppercase text-gray-400 mb-1";
+            title.innerText = "Detector Readout";
+            detBox.appendChild(title);
+
+            const rays = (typeof _cachedRays !== 'undefined' && _cachedRays) ? _cachedRays : castRays();
+            const perLaser = new Map();
+            rays.forEach(seg => {
+                if (seg.hitId !== p.id || !seg.stokes) return;
+                const prev = perLaser.get(seg.laserId) || { intensity: 0, stokes: [0, 0, 0, 0] };
+                prev.intensity += seg.stokes[0];
+                for (let i = 0; i < 4; i++) prev.stokes[i] += seg.stokes[i];
+                perLaser.set(seg.laserId, prev);
+            });
+
+            if (perLaser.size === 0) {
+                const empty = document.createElement('p');
+                empty.className = "text-[9px] text-gray-500";
+                empty.innerText = "No beam incident.";
+                detBox.appendChild(empty);
+            } else {
+                let total = 0;
+                perLaser.forEach((reading, laserId) => {
+                    total += reading.intensity;
+                    const laser = elements.find(el => el.id === laserId);
+                    const row = document.createElement('div');
+                    row.className = "flex items-center justify-between text-[10px] text-gray-300";
+                    const nameWrap = document.createElement('span');
+                    nameWrap.className = "flex items-center gap-1.5 truncate";
+                    const dot = document.createElement('span');
+                    dot.style.cssText = `width:8px;height:8px;border-radius:2px;flex-shrink:0;background:${laser?.beamColor || '#ff4444'}`;
+                    const name = document.createElement('span');
+                    name.className = "truncate";
+                    name.innerText = laser ? getLaserName(laser) : 'Laser';
+                    nameWrap.appendChild(dot);
+                    nameWrap.appendChild(name);
+                    const val = document.createElement('span');
+                    val.className = "font-mono text-amber-300";
+                    val.innerText = `${(reading.intensity * 100).toFixed(1)}%`;
+                    val.title = describePolarization(reading.stokes);
+                    row.appendChild(nameWrap);
+                    row.appendChild(val);
+                    detBox.appendChild(row);
+
+                    const polRow = document.createElement('div');
+                    polRow.className = "text-[9px] text-gray-500 text-right";
+                    polRow.innerText = describePolarization(reading.stokes);
+                    detBox.appendChild(polRow);
+                });
+
+                if (perLaser.size > 1) {
+                    const totalRow = document.createElement('div');
+                    totalRow.className = "flex items-center justify-between text-[10px] text-gray-200 border-t border-gray-700 pt-1 mt-1";
+                    totalRow.innerHTML = `<span>Total</span><span class="font-mono text-amber-200 font-bold">${(total * 100).toFixed(1)}%</span>`;
+                    detBox.appendChild(totalRow);
+                }
+            }
+
+            const hint = document.createElement('p');
+            hint.className = "text-[9px] text-gray-600 mt-1";
+            hint.innerText = "Power relative to laser source (100%).";
+            detBox.appendChild(hint);
+
+            btnContainer.appendChild(detBox);
         }
 
         // Iris Controls
@@ -955,6 +1044,94 @@ function updateUI() {
             }
         }
     }
+}
+
+/**
+ * Toggle the keyboard-shortcut cheatsheet overlay (bound to '?')
+ */
+function toggleShortcutOverlay() {
+    const existing = document.getElementById('shortcut-overlay');
+    if (existing) { existing.remove(); return; }
+
+    const SHORTCUTS = [
+        ['Navigation', [
+            ['Space + Drag / Middle Drag', 'Pan the view'],
+            ['Scroll Wheel', 'Zoom at cursor'],
+        ]],
+        ['Editing', [
+            ['Ctrl/⌘ + Z / Shift+Z', 'Undo / Redo'],
+            ['Ctrl/⌘ + C / V', 'Copy / Paste at cursor'],
+            ['Ctrl + Drag', 'Duplicate element'],
+            ['Ctrl/⌘ + A', 'Select all components'],
+            ['Delete / Backspace', 'Delete selection'],
+            ['Escape', 'Cancel drag / deselect'],
+            ['Double-click', 'Rename element'],
+        ]],
+        ['Movement', [
+            ['Arrow Keys', 'Nudge by grid (Shift: ½ grid, Ctrl: 1 mm)'],
+            ['Drag + Shift', 'Free movement (no snap)'],
+            ['Drag + Ctrl', 'Snap to half grid'],
+            ['M', 'Grab selection at cursor'],
+        ]],
+        ['Rotation & Optics', [
+            ['R / T', 'Rotate 90° / 45° (Shift: reverse)'],
+            ['S', 'Smart-align to nearest beam'],
+            ['Q', 'Cycle alignment target (mirrors)'],
+            ['X / Y', 'Flip horizontal / vertical'],
+            ['H / V', 'Laser polarization H / V'],
+            ['O', 'Toggle AOM on/off'],
+            ['Drag knob above element', 'Set waveplate/cell/polarizer axis'],
+        ]],
+        ['File', [
+            ['Ctrl/⌘ + S', 'Save to browser'],
+            ['Ctrl/⌘ + Shift + S', 'Export JSON file'],
+        ]],
+    ];
+
+    const overlay = document.createElement('div');
+    overlay.id = 'shortcut-overlay';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.72);display:flex;align-items:center;justify-content:center;z-index:1000;';
+    overlay.onclick = e => { if (e.target === overlay) overlay.remove(); };
+
+    const modal = document.createElement('div');
+    modal.className = 'bg-gray-900 border border-gray-700 rounded-xl shadow-2xl flex flex-col';
+    modal.style.cssText = 'width:min(560px,95vw);max-height:85vh;overflow-y:auto;';
+
+    const header = document.createElement('div');
+    header.className = 'flex items-center justify-between px-4 py-3 border-b border-gray-700 sticky top-0 bg-gray-900';
+    header.innerHTML = '<h2 class="text-sm font-bold text-white">Keyboard Shortcuts</h2>';
+    const closeBtn = document.createElement('button');
+    closeBtn.style.cssText = 'color:#9ca3af;font-size:1.25rem;line-height:1;cursor:pointer;background:none;border:none;';
+    closeBtn.textContent = '×';
+    closeBtn.onclick = () => overlay.remove();
+    header.appendChild(closeBtn);
+    modal.appendChild(header);
+
+    const body = document.createElement('div');
+    body.className = 'px-4 py-3';
+    SHORTCUTS.forEach(([section, rows]) => {
+        const h = document.createElement('div');
+        h.className = 'text-[10px] font-bold text-gray-400 uppercase tracking-wider mt-3 mb-1 first:mt-0';
+        h.textContent = section;
+        body.appendChild(h);
+        rows.forEach(([key, desc]) => {
+            const row = document.createElement('div');
+            row.className = 'flex items-center justify-between py-0.5 text-[11px]';
+            const k = document.createElement('span');
+            k.className = 'font-mono text-amber-300';
+            k.textContent = key;
+            const d = document.createElement('span');
+            d.className = 'text-gray-400 text-right ml-4';
+            d.textContent = desc;
+            row.appendChild(k);
+            row.appendChild(d);
+            body.appendChild(row);
+        });
+    });
+    modal.appendChild(body);
+
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
 }
 
 /**

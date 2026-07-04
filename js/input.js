@@ -261,6 +261,21 @@ function handleMouseDown(e) {
         return;
     }
 
+    // Custom polarizer knob hit test
+    const polKnobTarget = getCustomPolKnobHit(m);
+    if (polKnobTarget) {
+        saveToHistory();
+        selection.clear();
+        selection.add(polKnobTarget);
+        axisAdjustTarget = polKnobTarget;
+        isAdjustingAxis = true;
+        canvas.style.cursor = 'crosshair';
+        updateCustomPolAngleFromPoint(polKnobTarget, w);
+        updateUI();
+        draw();
+        return;
+    }
+
     // Waveplate knob hit test
     const knobTarget = getWaveplateKnobHit(m);
     if (knobTarget) {
@@ -666,9 +681,14 @@ function handleMouseMove(e) {
     }
 
     if (isAdjustingAxis && axisAdjustTarget) {
-        const changed = axisAdjustTarget.type === 'cell'
-            ? updateCellAngleFromPoint(axisAdjustTarget, w)
-            : updateWaveplateAxisFromPoint(axisAdjustTarget, w);
+        let changed;
+        if (axisAdjustTarget.type === 'cell') {
+            changed = updateCellAngleFromPoint(axisAdjustTarget, w);
+        } else if (axisAdjustTarget.type === 'custom') {
+            changed = updateCustomPolAngleFromPoint(axisAdjustTarget, w);
+        } else {
+            changed = updateWaveplateAxisFromPoint(axisAdjustTarget, w);
+        }
         if (changed) {
             draw();
             updateUI();
@@ -920,7 +940,7 @@ function updateIdleCursor(m) {
     let cursor = 'default';
     let hover = null;
 
-    if (getWaveplateKnobHit(m) || getCellKnobHit(m) || getAomToggleHit(m) || getFiberConnectorPinHit(m)) {
+    if (getWaveplateKnobHit(m) || getCellKnobHit(m) || getCustomPolKnobHit(m) || getAomToggleHit(m) || getFiberConnectorPinHit(m)) {
         cursor = 'pointer';
     } else {
         hover = findElementAtScreen(m);
@@ -1210,8 +1230,19 @@ function handleKeyDown(e) {
 
     if (e.repeat) return;
 
-    // Escape - cancel active drag, fiber connection, pending board, measure mode, or deselect all
+    // Shortcut cheatsheet
+    if (e.key === '?') {
+        toggleShortcutOverlay();
+        return;
+    }
+
+    // Escape - close overlay, cancel active drag, fiber connection, pending board, measure mode, or deselect all
     if (e.key === 'Escape') {
+        const overlay = document.getElementById('shortcut-overlay');
+        if (overlay) {
+            overlay.remove();
+            return;
+        }
         if (cancelActiveInteraction()) {
             updateUI();
             draw();
