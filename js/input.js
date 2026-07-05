@@ -101,8 +101,9 @@ function initInputHandlers() {
     // Mouse up handler (window-level)
     window.addEventListener('mouseup', handleMouseUp);
 
-    // Wheel handler
-    canvas.addEventListener('wheel', handleWheel);
+    // Wheel handler - bound to the container (not just the canvas) so zooming
+    // still works while the cursor is over the floating selection toolbar
+    document.getElementById('canvas-container').addEventListener('wheel', handleWheel);
 
     // Keyboard handlers
     window.addEventListener('keydown', handleKeyDown);
