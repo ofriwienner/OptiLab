@@ -1268,17 +1268,43 @@ function handleKeyDown(e) {
     // Arrow key nudging (allow key repeat for smooth continuous movement)
     if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key) && selection.size > 0) {
         e.preventDefault();
-        const primary = Array.from(selection).pop();
-        const usesHalfGrid = primary && (primary.type === 'measure' || primary.type === 'custom');
-        const defaultStep = usesHalfGrid ? HALF_GRID_MM : GRID_PITCH_MM;
-        const step = e.ctrlKey ? 1 : e.shiftKey ? HALF_GRID_MM : defaultStep;
-        const dx = e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0;
-        const dy = e.key === 'ArrowUp' ? -step : e.key === 'ArrowDown' ? step : 0;
         if (!e.repeat) saveToHistory();
+        const dirX = e.key === 'ArrowLeft' ? -1 : e.key === 'ArrowRight' ? 1 : 0;
+        const dirY = e.key === 'ArrowUp' ? -1 : e.key === 'ArrowDown' ? 1 : 0;
         selection.forEach(el => {
-            if (!el.locked) {
-                el.x += dx;
-                el.y += dy;
+            if (el.locked) return;
+            let newX, newY;
+            if (e.ctrlKey) {
+                newX = el.x + dirX;
+                newY = el.y + dirY;
+            } else if (e.shiftKey) {
+                newX = Math.round((el.x + dirX * HALF_GRID_MM) / HALF_GRID_MM) * HALF_GRID_MM;
+                newY = Math.round((el.y + dirY * HALF_GRID_MM) / HALF_GRID_MM) * HALF_GRID_MM;
+            } else if (el.type === 'board') {
+                const rawX = el.x + dirX * GRID_PITCH_MM;
+                const rawY = el.y + dirY * GRID_PITCH_MM;
+                const snappedLeft = Math.round((rawX - el.width / 2) / GRID_PITCH_MM) * GRID_PITCH_MM;
+                const snappedTop = Math.round((rawY - el.height / 2) / GRID_PITCH_MM) * GRID_PITCH_MM;
+                newX = snappedLeft + el.width / 2;
+                newY = snappedTop + el.height / 2;
+            } else if (el.type === 'measure' || el.type === 'custom') {
+                newX = Math.round((el.x + dirX * HALF_GRID_MM) / HALF_GRID_MM) * HALF_GRID_MM;
+                newY = Math.round((el.y + dirY * HALF_GRID_MM) / HALF_GRID_MM) * HALF_GRID_MM;
+            } else {
+                newX = Math.round((el.x + dirX * GRID_PITCH_MM - 12.5) / GRID_PITCH_MM) * GRID_PITCH_MM + 12.5;
+                newY = Math.round((el.y + dirY * GRID_PITCH_MM - 12.5) / GRID_PITCH_MM) * GRID_PITCH_MM + 12.5;
+            }
+            const actualDx = newX - el.x;
+            const actualDy = newY - el.y;
+            el.x = newX;
+            el.y = newY;
+            if (el.type === 'board') {
+                elements.forEach(child => {
+                    if (!selection.has(child) && getParentBoard(child) === el) {
+                        child.x += actualDx;
+                        child.y += actualDy;
+                    }
+                });
             }
         });
         updateUI();
