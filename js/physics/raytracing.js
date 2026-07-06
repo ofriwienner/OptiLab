@@ -300,6 +300,10 @@ function traceRay(ray, depth, results) {
             if (hitObject.pairedWith) {
                 const pairedElement = elements.find(el => el.id === hitObject.pairedWith);
                 if (pairedElement) {
+                    if (laserColorTracker && !laserColorTracker.has(pairedElement.id)) {
+                        const litColor = laserColorTracker.get(hitObject.id);
+                        if (litColor) laserColorTracker.set(pairedElement.id, litColor);
+                    }
                     if (pairedElement.type === 'amplifier') {
                         // Paired with amplifier: amplify and output direct beam from amplifier
                         const gain = pairedElement.gain || 2.0;
