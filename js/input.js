@@ -286,6 +286,7 @@ function handleMouseDown(e) {
                 const el = new Element('border', cx, cy, Math.max(maxX - minX, 10), Math.max(maxY - minY, 10), '');
                 el.borderShape = 'polygon';
                 el.borderPoints = pts.map(p => ({ x: p.x - cx, y: p.y - cy }));
+                el.locked = true;
                 elements.push(el);
                 selection.clear();
                 selection.add(el);

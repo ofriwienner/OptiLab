@@ -92,8 +92,21 @@ function drawElement(el) {
         ctx.shadowBlur = 10;
         ctx.strokeStyle = 'rgba(255,255,255,0.8)';
         ctx.lineWidth = 1;
-        if (el.type === 'board' || el.type === 'border') {
+        if (el.type === 'board') {
             ctx.strokeRect(-el.width / 2, -el.height / 2, el.width, el.height);
+        } else if (el.type === 'border') {
+            if (el.borderShape === 'polygon') {
+                const pts = el.borderPoints || [];
+                if (pts.length >= 2) {
+                    ctx.beginPath();
+                    ctx.moveTo(pts[0].x, pts[0].y);
+                    for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+                    ctx.closePath();
+                    ctx.stroke();
+                }
+            } else {
+                ctx.strokeRect(-el.width / 2, -el.height / 2, el.width, el.height);
+            }
         } else if (el.type === 'measure') {
             ctx.strokeRect(-el.width / 2 - 2, -5, el.width + 4, 10);
         } else if (el.type.includes('mirror')) {
