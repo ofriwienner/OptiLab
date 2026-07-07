@@ -186,6 +186,13 @@ function synthMouse(t) {
  * events keep targeting their origin element for the whole gesture rather
  * than following the finger, so touchmove/touchend are relayed from window
  * for the duration of the drag instead of relying on canvas-bound listeners.
+ *
+ * The panel this element lives in (#ui-sidebar) is also a scrollable list,
+ * so a touch starting on a tool item is ambiguous: is it "scroll the list"
+ * or "pick this component up"? Resolved by bounding-box: as long as the
+ * finger stays inside the panel it's a scroll and we don't touch it at all
+ * (no preventDefault, so the browser scrolls natively); only once the touch
+ * point leaves the panel - onto the canvas - do we commit to a drag.
  * @param {Element} el - element that starts the drag on touchstart
  * @param {(synthEvent: object) => void} onStart - creates the element and starts the drag (e.g. startSidebarDrag)
  * @param {(e: TouchEvent) => boolean} [shouldIgnore] - skip the gesture (e.g. touch landed on a delete button)
@@ -194,16 +201,27 @@ function bindToolbarTouchDrag(el, onStart, shouldIgnore) {
     el.addEventListener('touchstart', (e) => {
         if (e.touches.length !== 1) return;
         if (shouldIgnore && shouldIgnore(e)) return;
-        e.preventDefault();
-        onStart(synthMouse(e.touches[0]));
+
+        const panel = document.getElementById('ui-sidebar');
+        const panelRect = panel.getBoundingClientRect();
+        let dragging = false;
+
+        const insidePanel = (t) => t.clientX >= panelRect.left && t.clientX <= panelRect.right &&
+            t.clientY >= panelRect.top && t.clientY <= panelRect.bottom;
 
         const onMove = (ev) => {
             if (ev.touches.length !== 1) return;
+            const t = ev.touches[0];
+            if (!dragging) {
+                if (insidePanel(t)) return; // still just scrolling the panel
+                dragging = true;
+                onStart(synthMouse(t));
+            }
             ev.preventDefault();
-            handleMouseMove(synthMouse(ev.touches[0]));
+            handleMouseMove(synthMouse(t));
         };
         const onEnd = () => {
-            handleMouseUp({ button: 0 });
+            if (dragging) handleMouseUp({ button: 0 });
             window.removeEventListener('touchmove', onMove);
             window.removeEventListener('touchend', onEnd);
             window.removeEventListener('touchcancel', onEnd);
@@ -211,7 +229,7 @@ function bindToolbarTouchDrag(el, onStart, shouldIgnore) {
         window.addEventListener('touchmove', onMove, { passive: false });
         window.addEventListener('touchend', onEnd);
         window.addEventListener('touchcancel', onEnd);
-    }, { passive: false });
+    }, { passive: true });
 }
 
 /**

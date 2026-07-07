@@ -71,12 +71,13 @@ canvas {
 }
 
 /* Component Tool Items - Modern Card Style */
-.tool-item { 
+.tool-item {
     cursor: grab;
     transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     border-radius: 8px;
     position: relative;
     overflow: hidden;
+    -webkit-tap-highlight-color: transparent;
 }
 
 .tool-item::before {
