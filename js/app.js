@@ -36,6 +36,14 @@ function init() {
     updateTableSize();
     resetView();
 
+    // On the mobile bottom-toolbar layout, the panel opens scrolled to the
+    // top (logo/save/board controls) - jump straight to the draggable
+    // component grid, which is the part of the panel that matters there.
+    if (window.matchMedia('(max-width: 767px)').matches) {
+        const addComponents = document.getElementById('add-components-section');
+        if (addComponents) addComponents.scrollIntoView({ block: 'start' });
+    }
+
     // Load custom component library (always runs regardless of saved state)
     loadCustomLibrary();
     renderCustomLibrary();

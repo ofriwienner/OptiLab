@@ -387,6 +387,7 @@ function renderCustomLibrary() {
         item.addEventListener('mouseenter', () => { delBtn.style.opacity = '1'; });
         item.addEventListener('mouseleave', () => { delBtn.style.opacity = '0'; });
         item.onmousedown = e => { if (e.target !== delBtn) startCustomComponentDrag(e, template); };
+        bindToolbarTouchDrag(item, (se) => startCustomComponentDrag(se, template), e => e.target === delBtn);
 
         grid.appendChild(item);
     });

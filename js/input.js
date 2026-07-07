@@ -127,6 +127,13 @@ function initInputHandlers() {
 
     initTouchHandlers();
 
+    // Sidebar/bottom-toolbar component drag: onmousedown already handles the
+    // desktop case inline; touch needs its own wiring since dragging off a
+    // non-canvas element isn't covered by initTouchHandlers().
+    document.querySelectorAll('#tools-grid .tool-item[data-type]').forEach(item => {
+        bindToolbarTouchDrag(item, (se) => startSidebarDrag(se, item.dataset.type));
+    });
+
     // Image upload handler
     document.getElementById('imgUpload').addEventListener('change', (e) => handleImageUpload(e.target));
 
@@ -158,13 +165,11 @@ function initInputHandlers() {
 }
 
 /**
- * Touch input: one finger drives the normal mouse pipeline,
- * two fingers pinch-zoom and pan the view.
+ * Convert a Touch into a plain object shaped like the mouse events the
+ * rest of the input pipeline expects (clientX/Y, button, no-op preventDefault).
  */
-function initTouchHandlers() {
-    let touchState = null; // 'single' | { d, mid } for pinch | null
-
-    const synthMouse = t => ({
+function synthMouse(t) {
+    return {
         clientX: t.clientX,
         clientY: t.clientY,
         button: 0,
@@ -172,7 +177,50 @@ function initTouchHandlers() {
         ctrlKey: false,
         metaKey: false,
         preventDefault() {}
-    });
+    };
+}
+
+/**
+ * Wire a touchstart on an off-canvas draggable element (sidebar tool item,
+ * library item) into the same mouse-drag pipeline the canvas uses. Touch
+ * events keep targeting their origin element for the whole gesture rather
+ * than following the finger, so touchmove/touchend are relayed from window
+ * for the duration of the drag instead of relying on canvas-bound listeners.
+ * @param {Element} el - element that starts the drag on touchstart
+ * @param {(synthEvent: object) => void} onStart - creates the element and starts the drag (e.g. startSidebarDrag)
+ * @param {(e: TouchEvent) => boolean} [shouldIgnore] - skip the gesture (e.g. touch landed on a delete button)
+ */
+function bindToolbarTouchDrag(el, onStart, shouldIgnore) {
+    el.addEventListener('touchstart', (e) => {
+        if (e.touches.length !== 1) return;
+        if (shouldIgnore && shouldIgnore(e)) return;
+        e.preventDefault();
+        onStart(synthMouse(e.touches[0]));
+
+        const onMove = (ev) => {
+            if (ev.touches.length !== 1) return;
+            ev.preventDefault();
+            handleMouseMove(synthMouse(ev.touches[0]));
+        };
+        const onEnd = () => {
+            handleMouseUp({ button: 0 });
+            window.removeEventListener('touchmove', onMove);
+            window.removeEventListener('touchend', onEnd);
+            window.removeEventListener('touchcancel', onEnd);
+        };
+        window.addEventListener('touchmove', onMove, { passive: false });
+        window.addEventListener('touchend', onEnd);
+        window.addEventListener('touchcancel', onEnd);
+    }, { passive: false });
+}
+
+/**
+ * Touch input: one finger drives the normal mouse pipeline,
+ * two fingers pinch-zoom and pan the view.
+ */
+function initTouchHandlers() {
+    let touchState = null; // 'single' | { d, mid } for pinch | null
+
     const dist = ts => Math.hypot(ts[0].clientX - ts[1].clientX, ts[0].clientY - ts[1].clientY);
     const mid = ts => ({ x: (ts[0].clientX + ts[1].clientX) / 2, y: (ts[0].clientY + ts[1].clientY) / 2 });
 

@@ -7,14 +7,14 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="styles/main.css">
 </head>
-<body class="bg-[#0a0e1a] text-gray-100 flex h-screen w-screen font-sans text-sm">
+<body class="bg-[#0a0e1a] text-gray-100 flex flex-col-reverse md:flex-row h-screen w-screen font-sans text-sm">
 
     <div id="calibration-msg" class="calibration-modal">Calibration: Click Point 1 on Image</div>
     <input type="file" id="imgUpload" accept="image/*" style="display: none;">
     <input type="file" id="fileInput" class="hidden" onchange="importState(this)">
 
     <!-- Sidebar -->
-<div id="ui-sidebar" class="w-72 flex-shrink-0 bg-gray-900 border-r border-gray-800 flex flex-col shadow-2xl z-10 select-none flex h-full z-50 backdrop-blur-sm bg-opacity-95">
+<div id="ui-sidebar" class="w-full md:w-72 h-[45vh] md:h-full flex-shrink-0 bg-gray-900 border-t md:border-t-0 md:border-r border-gray-800 flex flex-col shadow-2xl z-10 select-none z-50 backdrop-blur-sm bg-opacity-95">
         <div class="p-4 border-b border-gray-800 bg-gradient-to-r from-gray-900 to-gray-800">
             <div class="flex items-center justify-between">
                 <h1 class="text-xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent flex items-center gap-2">
@@ -74,7 +74,7 @@
                 </div>
             </div>
 
-            <div class="flex items-center mb-2">
+            <div id="add-components-section" class="flex items-center mb-2">
                 <h2 class="text-[11px] font-bold text-gray-300 uppercase tracking-wider flex items-center gap-2">
                     <svg class="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
                     Add Components
@@ -85,59 +85,59 @@
                    oninput="filterToolGrid(this.value)"
                    class="w-full mb-1.5 bg-gray-800/70 border border-gray-700/50 rounded px-2 py-1 text-[10px] text-gray-200 placeholder-gray-500 focus:border-blue-500/50 focus:outline-none">
 
-            <div id="tools-grid" class="grid grid-cols-3 gap-1.5">
-                <div onmousedown="startSidebarDrag(event, 'laser')" class="tool-item flex flex-col items-center p-1.5 bg-gray-800/50 rounded-lg border border-gray-700/50 text-[9px] hover:border-red-500/50">
+            <div id="tools-grid" class="grid grid-cols-4 md:grid-cols-3 gap-1.5">
+                <div data-type="laser" onmousedown="startSidebarDrag(event, 'laser')" class="tool-item flex flex-col items-center p-1.5 bg-gray-800/50 rounded-lg border border-gray-700/50 text-[9px] hover:border-red-500/50">
                     <div class="icon-container"><div class="icon-laser"></div></div> <span class="mt-0.5 text-gray-300">Laser</span>
                 </div>
-                <div onmousedown="startSidebarDrag(event, 'mirror')" class="tool-item flex flex-col items-center p-1.5 bg-gray-800/50 rounded-lg border border-gray-700/50 text-[9px] hover:border-cyan-500/50">
+                <div data-type="mirror" onmousedown="startSidebarDrag(event, 'mirror')" class="tool-item flex flex-col items-center p-1.5 bg-gray-800/50 rounded-lg border border-gray-700/50 text-[9px] hover:border-cyan-500/50">
                     <div class="icon-container"><div class="icon-mirror"></div></div> <span class="mt-0.5 text-gray-300">Mirror</span>
                 </div>
-                <div onmousedown="startSidebarDrag(event, 'mirror-d')" class="tool-item flex flex-col items-center p-1.5 bg-gray-800/50 rounded-lg border border-gray-700/50 text-[9px] hover:border-cyan-500/50">
+                <div data-type="mirror-d" onmousedown="startSidebarDrag(event, 'mirror-d')" class="tool-item flex flex-col items-center p-1.5 bg-gray-800/50 rounded-lg border border-gray-700/50 text-[9px] hover:border-cyan-500/50">
                     <div class="icon-container"><div class="icon-mirror-d"></div></div> <span class="mt-0.5 text-gray-300">D-Mirror</span>
                 </div>
-                <div onmousedown="startSidebarDrag(event, 'splitter')" class="tool-item flex flex-col items-center p-1.5 bg-gray-800/50 rounded-lg border border-gray-700/50 text-[9px] hover:border-yellow-500/50">
+                <div data-type="splitter" onmousedown="startSidebarDrag(event, 'splitter')" class="tool-item flex flex-col items-center p-1.5 bg-gray-800/50 rounded-lg border border-gray-700/50 text-[9px] hover:border-yellow-500/50">
                     <div class="icon-container"><div class="icon-splitter"></div></div> <span class="mt-0.5 text-gray-300">Splitter</span>
                 </div>
-                <div onmousedown="startSidebarDrag(event, 'pbs')" class="tool-item flex flex-col items-center p-1.5 bg-gray-800/50 rounded-lg border border-gray-700/50 text-[9px] hover:border-purple-500/50">
+                <div data-type="pbs" onmousedown="startSidebarDrag(event, 'pbs')" class="tool-item flex flex-col items-center p-1.5 bg-gray-800/50 rounded-lg border border-gray-700/50 text-[9px] hover:border-purple-500/50">
                     <div class="icon-container"><div class="icon-pbs"></div></div> <span class="mt-0.5 text-gray-300">PBS</span>
                 </div>
-                <div onmousedown="startSidebarDrag(event, 'aom')" class="tool-item flex flex-col items-center p-1.5 bg-gray-800/50 rounded-lg border border-gray-700/50 text-[9px] hover:border-red-500/50">
+                <div data-type="aom" onmousedown="startSidebarDrag(event, 'aom')" class="tool-item flex flex-col items-center p-1.5 bg-gray-800/50 rounded-lg border border-gray-700/50 text-[9px] hover:border-red-500/50">
                     <div class="icon-container"><div class="icon-aom"></div></div> <span class="mt-0.5 text-gray-300">AOM</span>
                 </div>
-                <div onmousedown="startSidebarDrag(event, 'lens')" class="tool-item flex flex-col items-center p-1.5 bg-gray-800/50 rounded-lg border border-gray-700/50 text-[9px] hover:border-blue-500/50">
+                <div data-type="lens" onmousedown="startSidebarDrag(event, 'lens')" class="tool-item flex flex-col items-center p-1.5 bg-gray-800/50 rounded-lg border border-gray-700/50 text-[9px] hover:border-blue-500/50">
                     <div class="icon-container"><div class="icon-lens"></div></div> <span class="mt-0.5 text-gray-300">Lens</span>
                 </div>
-                <div onmousedown="startSidebarDrag(event, 'hwp')" class="tool-item flex flex-col items-center p-1.5 bg-gray-800/50 rounded-lg border border-gray-700/50 text-[9px] hover:border-green-500/50">
+                <div data-type="hwp" onmousedown="startSidebarDrag(event, 'hwp')" class="tool-item flex flex-col items-center p-1.5 bg-gray-800/50 rounded-lg border border-gray-700/50 text-[9px] hover:border-green-500/50">
                     <div class="icon-container"><div class="icon-hwp"></div></div> <span class="mt-0.5 text-gray-300">λ/2 WP</span>
                 </div>
-                <div onmousedown="startSidebarDrag(event, 'qwp')" class="tool-item flex flex-col items-center p-1.5 bg-gray-800/50 rounded-lg border border-gray-700/50 text-[9px] hover:border-orange-500/50">
+                <div data-type="qwp" onmousedown="startSidebarDrag(event, 'qwp')" class="tool-item flex flex-col items-center p-1.5 bg-gray-800/50 rounded-lg border border-gray-700/50 text-[9px] hover:border-orange-500/50">
                     <div class="icon-container"><div class="icon-qwp"></div></div> <span class="mt-0.5 text-gray-300">λ/4 WP</span>
                 </div>
-                <div onmousedown="startSidebarDrag(event, 'blocker')" class="tool-item flex flex-col items-center p-1.5 bg-gray-800/50 rounded-lg border border-gray-700/50 text-[9px] hover:border-gray-500/50">
+                <div data-type="blocker" onmousedown="startSidebarDrag(event, 'blocker')" class="tool-item flex flex-col items-center p-1.5 bg-gray-800/50 rounded-lg border border-gray-700/50 text-[9px] hover:border-gray-500/50">
                     <div class="icon-container"><div class="icon-blocker"></div></div> <span class="mt-0.5 text-gray-300">Blocker</span>
                 </div>
-                <div onmousedown="startSidebarDrag(event, 'detector')" class="tool-item flex flex-col items-center p-1.5 bg-gray-800/50 rounded-lg border border-gray-700/50 text-[9px] hover:border-pink-500/50">
+                <div data-type="detector" onmousedown="startSidebarDrag(event, 'detector')" class="tool-item flex flex-col items-center p-1.5 bg-gray-800/50 rounded-lg border border-gray-700/50 text-[9px] hover:border-pink-500/50">
                     <div class="icon-container"><div class="icon-detector"></div></div> <span class="mt-0.5 text-gray-300">Detector</span>
                 </div>
-                <div onmousedown="startSidebarDrag(event, 'fiber-coupler')" class="tool-item flex flex-col items-center p-1.5 bg-gray-800/50 rounded-lg border border-gray-700/50 text-[9px] hover:border-orange-500/50">
+                <div data-type="fiber-coupler" onmousedown="startSidebarDrag(event, 'fiber-coupler')" class="tool-item flex flex-col items-center p-1.5 bg-gray-800/50 rounded-lg border border-gray-700/50 text-[9px] hover:border-orange-500/50">
                     <div class="icon-container"><div class="icon-fiber-coupler"></div></div> <span class="mt-0.5 text-gray-300">Fiber</span>
                 </div>
-                <div onmousedown="startSidebarDrag(event, 'amplifier')" class="tool-item flex flex-col items-center p-1.5 bg-gray-800/50 rounded-lg border border-gray-700/50 text-[9px] hover:border-red-500/50">
+                <div data-type="amplifier" onmousedown="startSidebarDrag(event, 'amplifier')" class="tool-item flex flex-col items-center p-1.5 bg-gray-800/50 rounded-lg border border-gray-700/50 text-[9px] hover:border-red-500/50">
                     <div class="icon-container"><div class="icon-amplifier"></div></div> <span class="mt-0.5 text-gray-300">Amplifier</span>
                 </div>
-                <div onmousedown="startSidebarDrag(event, 'iris')" class="tool-item flex flex-col items-center p-1.5 bg-gray-800/50 rounded-lg border border-gray-700/50 text-[9px] hover:border-purple-500/50">
+                <div data-type="iris" onmousedown="startSidebarDrag(event, 'iris')" class="tool-item flex flex-col items-center p-1.5 bg-gray-800/50 rounded-lg border border-gray-700/50 text-[9px] hover:border-purple-500/50">
                     <div class="icon-container"><div class="icon-iris"></div></div> <span class="mt-0.5 text-gray-300">Iris <span class="text-orange-400">*</span></span>
                 </div>
-                <div onmousedown="startSidebarDrag(event, 'twinleaf')" class="tool-item flex flex-col items-center p-1.5 bg-gray-800/50 rounded-lg border border-gray-700/50 text-[9px] hover:border-gray-400/50">
+                <div data-type="twinleaf" onmousedown="startSidebarDrag(event, 'twinleaf')" class="tool-item flex flex-col items-center p-1.5 bg-gray-800/50 rounded-lg border border-gray-700/50 text-[9px] hover:border-gray-400/50">
                     <div class="icon-container"><div class="icon-twinleaf"></div></div> <span class="mt-0.5 text-gray-300">Twinleaf</span>
                 </div>
-                <div onmousedown="startSidebarDrag(event, 'cell')" class="tool-item flex flex-col items-center p-1.5 bg-gray-800/50 rounded-lg border border-gray-700/50 text-[9px] hover:border-cyan-400/50">
+                <div data-type="cell" onmousedown="startSidebarDrag(event, 'cell')" class="tool-item flex flex-col items-center p-1.5 bg-gray-800/50 rounded-lg border border-gray-700/50 text-[9px] hover:border-cyan-400/50">
                     <div class="icon-container"><div class="icon-cell"></div></div> <span class="mt-0.5 text-gray-300">Cell</span>
                 </div>
-                <div onmousedown="startSidebarDrag(event, 'filter')" class="tool-item flex flex-col items-center p-1.5 bg-gray-800/50 rounded-lg border border-gray-700/50 text-[9px] hover:border-yellow-400/50">
+                <div data-type="filter" onmousedown="startSidebarDrag(event, 'filter')" class="tool-item flex flex-col items-center p-1.5 bg-gray-800/50 rounded-lg border border-gray-700/50 text-[9px] hover:border-yellow-400/50">
                     <div class="icon-container"><div class="icon-filter"></div></div> <span class="mt-0.5 text-gray-300">Filter</span>
                 </div>
-                <div onmousedown="startSidebarDrag(event, 'custom')" class="tool-item flex flex-col items-center p-1.5 bg-gray-800/50 rounded-lg border border-gray-700/50 text-[9px] hover:border-blue-500/50">
+                <div data-type="custom" onmousedown="startSidebarDrag(event, 'custom')" class="tool-item flex flex-col items-center p-1.5 bg-gray-800/50 rounded-lg border border-gray-700/50 text-[9px] hover:border-blue-500/50">
                     <div class="icon-container"><div class="icon-custom"></div></div> <span class="mt-0.5 text-gray-300">Custom</span>
                 </div>
             </div>
