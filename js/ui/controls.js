@@ -960,6 +960,17 @@ function updateUI() {
             btnContainer.appendChild(customBox);
         }
 
+        // Save as Template button (for all resizable components)
+        const saveTemplateTypes = ['laser', 'mirror', 'splitter', 'pbs', 'aom', 'lens', 'blocker',
+            'detector', 'fiber-coupler', 'amplifier', 'iris', 'cell', 'filter'];
+        if (saveTemplateTypes.includes(p.type)) {
+            const saveTemplateBtn = document.createElement('button');
+            saveTemplateBtn.className = "w-full py-1 mt-1 mb-1 bg-indigo-700/50 border border-indigo-600 rounded text-[10px] text-indigo-100 hover:bg-indigo-700 cursor-pointer transition";
+            saveTemplateBtn.innerText = "Save Size as Template";
+            saveTemplateBtn.onclick = () => saveComponentToLibrary(p);
+            btnContainer.appendChild(saveTemplateBtn);
+        }
+
         // Future Plan Toggle
         if (p.type !== 'board') {
             const fpRow = document.createElement('div');

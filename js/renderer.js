@@ -927,6 +927,27 @@ function drawComponentHandles(el, sc) {
         ctx.textBaseline = 'middle';
         ctx.fillText('↻', snapLocal.x, snapLocal.y);
     }
+
+    // Corner resize handles for resizable components (not boards, not measures, not mirror-d/waveplate)
+    const resizableTypes = ['laser', 'mirror', 'splitter', 'pbs', 'aom', 'lens', 'blocker',
+        'detector', 'fiber-coupler', 'amplifier', 'iris', 'twinleaf', 'cell', 'filter', 'custom'];
+    if (resizableTypes.includes(el.type)) {
+        const corners = [
+            { key: 'br', x: el.width / 2, y: el.height / 2 },
+            { key: 'bl', x: -el.width / 2, y: el.height / 2 },
+            { key: 'tr', x: el.width / 2, y: -el.height / 2 },
+            { key: 'tl', x: -el.width / 2, y: -el.height / 2 },
+        ];
+        corners.forEach(c => {
+            ctx.beginPath();
+            ctx.rect(c.x - 4 / sc, c.y - 4 / sc, 8 / sc, 8 / sc);
+            ctx.fillStyle = isResizing && resizeCorner === c.key ? '#f87171' : '#6b7280';
+            ctx.fill();
+            ctx.strokeStyle = 'rgba(255,255,255,0.6)';
+            ctx.lineWidth = 0.5 / sc;
+            ctx.stroke();
+        });
+    }
 }
 
 /**

@@ -522,6 +522,38 @@ function handleMouseDown(e) {
                 return;
             }
         } else if (primary.type !== 'board') {
+            // Component corner resize handles
+            const resizableTypes = ['laser', 'mirror', 'splitter', 'pbs', 'aom', 'lens', 'blocker',
+                'detector', 'fiber-coupler', 'amplifier', 'iris', 'twinleaf', 'cell', 'filter', 'custom'];
+            if (resizableTypes.includes(primary.type)) {
+                const r = primary.rotation;
+                const cos = Math.cos(r), sin = Math.sin(r);
+                const compCorners = [
+                    { key: 'br', lx: primary.width / 2, ly: primary.height / 2 },
+                    { key: 'bl', lx: -primary.width / 2, ly: primary.height / 2 },
+                    { key: 'tr', lx: primary.width / 2, ly: -primary.height / 2 },
+                    { key: 'tl', lx: -primary.width / 2, ly: -primary.height / 2 },
+                ];
+                let hitCompCornerKey = null;
+                for (const c of compCorners) {
+                    const wx2 = primary.x + c.lx * cos - c.ly * sin;
+                    const wy2 = primary.y + c.lx * sin + c.ly * cos;
+                    const cs = worldToScreen(wx2, wy2);
+                    if ((m.x - cs.x) ** 2 + (m.y - cs.y) ** 2 < 100) {
+                        hitCompCornerKey = c.key;
+                        break;
+                    }
+                }
+                if (hitCompCornerKey) {
+                    saveToHistory();
+                    isResizing = true;
+                    resizeCorner = hitCompCornerKey;
+                    originalBoardState = { w: primary.width, h: primary.height, x: primary.x, y: primary.y };
+                    draw();
+                    return;
+                }
+            }
+
             // Component rotate handle
             const hl = primary.getHandlePosition();
             const hs = worldToScreen(primary.x + hl.x, primary.y + hl.y);
@@ -840,6 +872,25 @@ function handleMouseMove(e) {
             newH = Math.max(minH, newH);
             invalidBoardPlacement = checkBoardOverlap(p, newCx, newCy, newW, newH);
             p.width = newW; p.height = newH; p.x = newCx; p.y = newCy;
+            draw();
+        } else if (p && p.type !== 'board') {
+            // Component resize: keep center fixed, adjust width/height in local frame
+            const r = p.rotation;
+            const dx = w.x - p.x;
+            const dy = w.y - p.y;
+            const localX = dx * Math.cos(-r) - dy * Math.sin(-r);
+            const localY = dx * Math.sin(-r) + dy * Math.cos(-r);
+            const minDim = 5;
+            if (resizeCorner === 'br' || resizeCorner === 'tr') {
+                p.width = Math.max(minDim * 2, localX * 2);
+            } else if (resizeCorner === 'bl' || resizeCorner === 'tl') {
+                p.width = Math.max(minDim * 2, -localX * 2);
+            }
+            if (resizeCorner === 'br' || resizeCorner === 'bl') {
+                p.height = Math.max(minDim * 2, localY * 2);
+            } else if (resizeCorner === 'tr' || resizeCorner === 'tl') {
+                p.height = Math.max(minDim * 2, -localY * 2);
+            }
             draw();
         }
         return;

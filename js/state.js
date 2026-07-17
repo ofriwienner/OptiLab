@@ -306,6 +306,27 @@ function saveCustomComponentToLibrary(el) {
     showToast(`"${template.name}" saved to library`);
 }
 
+function saveComponentToLibrary(el) {
+    const TYPE_NAMES = {
+        'laser': 'Laser', 'mirror': 'Mirror', 'mirror-d': 'D-Mirror',
+        'splitter': 'Splitter', 'pbs': 'PBS', 'aom': 'AOM', 'lens': 'Lens',
+        'blocker': 'Blocker', 'detector': 'Detector', 'fiber-coupler': 'Fiber',
+        'amplifier': 'Amplifier', 'iris': 'Iris', 'cell': 'Cell', 'filter': 'Filter',
+    };
+    const template = {
+        id: Date.now() + Math.random(),
+        name: el.title || (TYPE_NAMES[el.type] || el.type),
+        elementType: el.type,
+        width: el.width,
+        height: el.height,
+    };
+    if (el.type === 'lens' && el.optics) template.optics = { focalLength: el.optics.focalLength };
+    customComponentLibrary.push(template);
+    saveCustomLibrary();
+    renderCustomLibrary();
+    showToast(`"${template.name}" saved to library`);
+}
+
 function deleteCustomComponent(id) {
     customComponentLibrary = customComponentLibrary.filter(c => c.id !== id);
     saveCustomLibrary();
