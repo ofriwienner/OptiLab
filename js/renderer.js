@@ -428,8 +428,13 @@ function drawDetector(el) {
  * Draw fiber coupler element
  */
 function drawFiberCoupler(el) {
-    // Use laser color when illuminated, else fiber pair color, else gray
-    const fiberColor = elementLaserColor.get(el.id) || (el.pairedWith ? (el.fiberColor || '#ffa500') : '#6b7280');
+    // Use laser color when illuminated, else check paired partner's laser color, else fiber pair color, else gray
+    let fiberColor = elementLaserColor.get(el.id);
+    if (!fiberColor && el.pairedWith) {
+        const partner = elements.find(e => e.id === el.pairedWith);
+        if (partner) fiberColor = elementLaserColor.get(partner.id);
+    }
+    fiberColor = fiberColor || (el.pairedWith ? (el.fiberColor || '#ffa500') : '#6b7280');
     const hexToRgba = (hex, alpha) => {
         const r = parseInt(hex.slice(1, 3), 16);
         const g = parseInt(hex.slice(3, 5), 16);
@@ -478,8 +483,14 @@ function drawFiberCoupler(el) {
  * Fiber input on left, direct laser output on right
  */
 function drawAmplifier(el) {
-    // Use gray for unconnected amplifier, otherwise use the assigned fiber color
-    const fiberColor = el.pairedWith ? (el.fiberColor || '#ffa500') : '#6b7280';
+    // Use gray for unconnected amplifier, laser color from paired coupler if illuminated, else assigned fiber color
+    let fiberColor;
+    if (el.pairedWith) {
+        const pairedCoupler = elements.find(e => e.id === el.pairedWith);
+        fiberColor = (pairedCoupler && elementLaserColor.get(pairedCoupler.id)) || el.fiberColor || '#ffa500';
+    } else {
+        fiberColor = '#6b7280';
+    }
     const hexToRgba = (hex, alpha) => {
         const r = parseInt(hex.slice(1, 3), 16);
         const g = parseInt(hex.slice(3, 5), 16);
@@ -1295,7 +1306,8 @@ function drawFiberCables() {
         if (!paired) return;
         if (!showFuturePlans && (coupler.isFuturePlan || paired.isFuturePlan)) return;
 
-        const fiberColor = coupler.fiberColor || '#ffa500';
+        const laserColor = elementLaserColor.get(coupler.id) || elementLaserColor.get(paired.id);
+        const fiberColor = laserColor || coupler.fiberColor || '#ffa500';
         const p1 = worldToScreen(coupler.x, coupler.y);
         const p2 = worldToScreen(paired.x, paired.y);
 
