@@ -49,7 +49,8 @@ _ref_tmpdir = None
 def gh_run(*args, check=True):
     result = subprocess.run(
         ["gh", *args],
-        capture_output=True, text=True, cwd=REPO_ROOT,
+        capture_output=True, text=True, encoding='utf-8', errors='replace',
+        cwd=REPO_ROOT,
     )
     if check and result.returncode != 0:
         print(f"  gh error: {result.stderr.strip()}")
@@ -60,7 +61,8 @@ def gh_run(*args, check=True):
 def git_run(*args, cwd=None):
     return subprocess.run(
         ["git", *args],
-        capture_output=True, text=True, cwd=str(cwd or REPO_ROOT),
+        capture_output=True, text=True, encoding='utf-8', errors='replace',
+        cwd=str(cwd or REPO_ROOT),
     )
 
 
@@ -85,20 +87,28 @@ def parse_issue_number(body):
 
 
 _FIX_PREFIX = "**Fix requested:** "
+_FIX_APPLIED_PREFIX = "**Fix applied:** "
 
-def get_fix_note(pr_number):
+
+def get_fix_history(pr_number):
+    """Return (fix_requested, fix_applied) from PR comments (most recent of each)."""
+    requested = applied = None
     raw = gh_run("pr", "view", str(pr_number), "--json", "comments", check=False)
     if raw:
         for comment in reversed(json.loads(raw).get("comments", [])):
             body = comment.get("body", "")
-            if body.startswith(_FIX_PREFIX):
-                return body[len(_FIX_PREFIX):].strip() or None
-    raw = gh_run("pr", "view", str(pr_number), "--json", "reviews", check=False)
-    if raw:
-        for review in reversed(json.loads(raw).get("reviews", [])):
-            if review.get("state") == "CHANGES_REQUESTED":
-                return review.get("body", "").strip() or None
-    return None
+            if applied is None and body.startswith(_FIX_APPLIED_PREFIX):
+                applied = body[len(_FIX_APPLIED_PREFIX):].strip() or None
+            if requested is None and body.startswith(_FIX_PREFIX):
+                requested = body[len(_FIX_PREFIX):].strip() or None
+    if requested is None:
+        raw = gh_run("pr", "view", str(pr_number), "--json", "reviews", check=False)
+        if raw:
+            for review in reversed(json.loads(raw).get("reviews", [])):
+                if review.get("state") == "CHANGES_REQUESTED":
+                    requested = review.get("body", "").strip() or None
+                    break
+    return requested, applied
 
 
 def load():
@@ -111,6 +121,7 @@ def load():
     for pr in json.loads(raw):
         label_names = {l["name"] for l in pr["labels"]}
         is_fix = "fix-requested" in label_names
+        fix_requested, fix_applied = get_fix_history(pr["number"])
         features.append({
             "pr_number": pr["number"],
             "issue_number": parse_issue_number(pr["body"]),
@@ -118,7 +129,8 @@ def load():
             "branch": pr["headRefName"],
             "description": parse_description(pr["body"]),
             "status": "fix-requested" if is_fix else "pending",
-            "fix_notes": get_fix_note(pr["number"]) if is_fix else None,
+            "fix_notes": fix_requested,
+            "fix_applied": fix_applied,
         })
     features.sort(key=lambda f: (0 if f["status"] == "fix-requested" else 1))
     return features
@@ -261,29 +273,6 @@ def launch(feature):
     return wt_path
 
 
-def run_claude_fix(feature, fix_desc, worktree_path):
-    prompt = (
-        f"You are fixing a bug in a git worktree for OptiLab (a static HTML/JS optical bench simulator). "
-        f"OptiLab is plain JS/HTML with no build step - all source is in js/ and styles/. "
-        f"Key files: js/config.js (globals), js/element.js (Element class), js/input.js (mouse/keyboard), "
-        f"js/renderer.js (canvas drawing), js/state.js (save/load/undo), js/ui/controls.js (sidebar UI), "
-        f"js/physics/raytracing.js (ray casting), js/physics/optics.js (Mueller matrices).\n\n"
-        f"Feature being fixed: {feature['name']}\n"
-        f"Feature description: {feature['description']}\n\n"
-        f"Bug to fix: {fix_desc}\n\n"
-        f"Read the relevant source files, locate the bug, fix it, commit with a descriptive message, "
-        f"then push: git push origin HEAD:{feature['branch']}"
-    )
-    print(f"\n  Running Claude in worktree to apply fix...")
-    print(f"  Fix: {fix_desc}\n")
-    result = subprocess.run(
-        ["claude", "--dangerously-skip-permissions"],
-        input=prompt, text=True,
-        cwd=worktree_path,
-    )
-    return result.returncode == 0
-
-
 def pr_label(pr_number, add=None, remove=None):
     if add:
         gh_run("pr", "edit", str(pr_number), "--add-label", add)
@@ -306,79 +295,40 @@ def header(text, width=62):
     print(f"{'=' * width}")
 
 
-def handle_fix_requested(feature, worktree_path):
+def handle_fix_requested(feature):
     if feature["fix_notes"]:
-        print("\n  Stored fix:")
+        print("\n  Fix requested:")
         wrap(feature["fix_notes"], "    ")
-        print("\n  Options:")
-        print("    [R] Run Claude now to apply this fix")
-        print("    [E] Edit the fix description first")
-        print("    [S] Skip for now")
-    else:
-        print("\n  (No fix note was stored - the previous session lost it.)")
-        print("\n  Options:")
-        print("    [E] Describe the fix and run Claude")
-        print("    [S] Skip for now")
+
+    print("\n  The cloud fix workflow was triggered automatically when this was labeled.")
+    print("  It may still be running, or it may have failed.")
+    print("  Check the Actions tab on GitHub for status.")
+    print("\n  [S] Skip - come back after the workflow completes")
+    print("  [T] Re-trigger - remove and re-add the label to retry the cloud fix")
 
     while True:
         choice = input("\n  Choice: ").strip().upper()
-
-        if choice == "R" and not feature["fix_notes"]:
-            print("  No fix note stored. Use E to describe the fix.")
-            continue
-
-        if choice == "R":
-            ok = run_claude_fix(feature, feature["fix_notes"], worktree_path)
-            if ok:
-                pr_label(feature["pr_number"], remove="fix-requested")
-                print("  Fix applied. Re-launching browser for re-test...")
-                wt = launch(feature)
-                print("\n  Test the fix, then decide:")
-                print("    [A] Approve      [R] Reject      [F] Still needs fixing      [B] Accept + fix note      [S] Skip")
-                handle_normal_decision(feature, wt)
-            else:
-                print("  Claude exited with errors. Still marked fix-requested.")
+        if choice == "S":
+            print("  Skipped.")
             break
-
-        elif choice == "E":
-            new_desc = input("  New fix description: ").strip()
-            if new_desc:
-                feature["fix_notes"] = new_desc
-                gh_run("pr", "comment", str(feature["pr_number"]),
-                       "--body", f"{_FIX_PREFIX}{new_desc}")
-                print("  Fix note saved.")
-                auto = input("  Run Claude now to apply fix? [y/N]: ").strip().upper()
-                if auto == "Y":
-                    ok = run_claude_fix(feature, new_desc, worktree_path)
-                    if ok:
-                        pr_label(feature["pr_number"], remove="fix-requested")
-                        print("  Fix applied. Re-launching browser for re-test...")
-                        wt = launch(feature)
-                        print("\n  Test the fix, then decide:")
-                        print("    [A] Approve      [R] Reject      [F] Still needs fixing      [B] Accept + fix note      [S] Skip")
-                        handle_normal_decision(feature, wt)
-                    else:
-                        print("  Claude exited with errors. Still marked fix-requested.")
-                else:
-                    print("  Fix saved. Run review_features.py again when ready.")
+        elif choice == "T":
+            pr_label(feature["pr_number"], remove="fix-requested")
+            pr_label(feature["pr_number"], add="fix-requested")
+            print("  Re-triggered. Check GitHub Actions in a few minutes.")
             break
-
-        elif choice == "S":
-            print("  Skipped (will appear again next session).")
-            break
-
         else:
-            print("  Enter R, E, or S.")
+            print("  Enter S or T.")
 
 
 def handle_normal_decision(feature, worktree_path):
+    """Returns True if the PR was approved (A or B), False otherwise."""
     while True:
         choice = input("\n  Decision: ").strip().upper()
 
         if choice == "A":
             pr_label(feature["pr_number"], add="approved", remove="ready-for-review")
             print("  Approved - queued for merge.")
-            break
+            return True
 
         elif choice == "R":
             reason = input("  Reason (optional): ").strip()
@@ -387,7 +337,7 @@ def handle_normal_decision(feature, worktree_path):
                 body = f"Rejected. {reason}" if reason else "Rejected."
                 gh_run("issue", "close", str(feature["issue_number"]), "--comment", body)
             print("  Rejected.")
-            break
+            return False
 
         elif choice == "F":
             fix_desc = input("  Describe the fix: ").strip()
@@ -397,26 +347,9 @@ def handle_normal_decision(feature, worktree_path):
             gh_run("pr", "comment", str(feature["pr_number"]),
                    "--body", f"{_FIX_PREFIX}{fix_desc}")
             pr_label(feature["pr_number"], add="fix-requested")
-            feature["fix_notes"] = fix_desc
-            print("  Fix requested on PR.")
-
-            auto = input("  Run Claude now to apply fix? [y/N]: ").strip().upper()
-            if auto == "Y":
-                if not worktree_path:
-                    worktree_path = checkout_worktree(feature["branch"])
-                ok = run_claude_fix(feature, fix_desc, worktree_path)
-                if ok:
-                    pr_label(feature["pr_number"], remove="fix-requested")
-                    print("  Fix applied. Re-launching browser for re-test...")
-                    wt = launch(feature)
-                    print("\n  Test the fix, then decide:")
-                    print("    [A] Approve      [R] Reject      [F] Still needs fixing      [B] Accept + fix note      [S] Skip")
-                    return handle_normal_decision(feature, wt)
-                else:
-                    print("  Claude exited with errors. Marked fix-requested.")
-            else:
-                print("  Fix saved. Run review_features.py again when ready.")
-            break
+            print("  Fix queued. Cloud workflow will apply it automatically (~5 min).")
+            print("  Come back and run review_features.py again to re-review.")
+            return False
 
         elif choice == "B":
             fix_desc = input("  Describe the fix (a follow-up issue will be created): ").strip()
@@ -429,11 +362,11 @@ def handle_normal_decision(feature, worktree_path):
                              "--body", fix_desc,
                              "--label", "pending")
             print(f"  Approved - queued for merge. Follow-up issue: {new_url.strip()}")
-            break
+            return True
 
         elif choice == "S":
             print("  Skipped (will appear again next session).")
-            break
+            return False
 
         else:
             print("  Enter A, R, F, B, or S.")
@@ -467,11 +400,89 @@ def do_merges(approved_prs):
             print(f"  Merge failed: {err}")
 
 
+def process_inbox():
+    inbox = REPO_ROOT / "INBOX.md"
+    if not inbox.exists():
+        print("  INBOX.md not found.")
+        return
+
+    lines = inbox.read_text(encoding="utf-8").splitlines()
+    in_items = False
+    items = []
+    for line in lines:
+        if line.strip() == "---":
+            in_items = True
+            continue
+        if in_items and re.match(r'^[-*]\s', line):
+            item = re.sub(r'^[-*]\s+', '', line).strip()
+            if item and not item.upper().startswith("TBD"):
+                items.append(item)
+
+    if not items:
+        print("  INBOX.md has no pending items.")
+        return
+
+    print(f"\n  {len(items)} item(s) to create as GitHub issues:")
+    for item in items:
+        print(f"    - {item}")
+
+    if input("\n  Create issues? [y/N]: ").strip().upper() != "Y":
+        print("  Cancelled.")
+        return
+
+    created = failed = 0
+    for item in items:
+        url = gh_run("issue", "create", "--title", item, "--body", item, "--label", "pending")
+        if url:
+            print(f"  Created #{url.split('/')[-1]}: {item}")
+            created += 1
+        else:
+            print(f"  Failed: {item}")
+            failed += 1
+
+    if created > 0 and failed == 0:
+        inbox.write_text(
+            "# Feature Inbox\n\n"
+            "Add feature requests below as bullet points. "
+            "Claude reads this during bulk features runs, converts each item to a GitHub Issue, "
+            "and clears the list.\n\n---\n\n",
+            encoding="utf-8",
+        )
+        git_run("add", "INBOX.md")
+        r = git_run("commit", "-m", f"Clear INBOX.md after creating {created} issue(s) [skip ci]")
+        if r.returncode == 0:
+            git_run("push", "origin", "main")
+            print(f"  {created} issue(s) created. INBOX.md cleared and pushed.")
+        else:
+            print(f"  {created} issue(s) created. Commit failed: {r.stderr.strip()}")
+    elif failed > 0:
+        print(f"  {created} created, {failed} failed. INBOX.md not cleared.")
+
+
+def ensure_labels():
+    for name, color, desc in [
+        ("pending",          "0075ca", "Ready for implementation"),
+        ("claimed",          "e4e669", "Being implemented"),
+        ("ready-for-review", "0e8a16", "Implementation done, awaiting review"),
+        ("fix-requested",    "e11d48", "Cloud fix queued/running"),
+        ("approved",         "1a7f37", "Approved, queued for merge"),
+    ]:
+        subprocess.run(
+            ["gh", "label", "create", name, "--color", color, "--description", desc, "--force"],
+            capture_output=True, cwd=REPO_ROOT,
+        )
+
+
 def review():
     git_run("pull", "--ff-only")
+    ensure_labels()
+
+    if input("  [I] Process INBOX.md   [Enter] Skip: ").strip().upper() == "I":
+        process_inbox()
 
     features = load()
     approved_prs = load_approved()
+    session_approved = []
 
     if approved_prs:
         print(f"\n  Note: {len(approved_prs)} PR(s) from a previous session are approved and waiting to merge.")
@@ -506,23 +517,37 @@ def review():
             print("  Description:")
             wrap(feature["description"], "    ")
 
-            worktree_path = launch(feature)
+            if feature.get("fix_applied"):
+                print("\n  Previous fix applied:")
+                wrap(feature["fix_applied"], "    ")
+
             if is_fix:
-                handle_fix_requested(feature, worktree_path)
+                handle_fix_requested(feature)
             else:
+                worktree_path = launch(feature)
                 print("\n  Take your time to test. When ready:")
                 print("    [A] Approve      [R] Reject      [B] Accept + fix note")
                 print("    [F] Fix needed   [S] Skip (decide later)")
-                handle_normal_decision(feature, worktree_path)
+                if handle_normal_decision(feature, worktree_path):
+                    session_approved.append({"number": feature["pr_number"], "title": feature["name"]})
 
         close_browser()
 
+    # Combine re-fetched approvals (prior sessions) with this session's, deduped.
     approved_prs = load_approved()
+    seen_approved = {p["number"] for p in approved_prs}
+    for p in session_approved:
+        if p["number"] not in seen_approved:
+            approved_prs.append(p)
+            seen_approved.add(p["number"])
+
+    session_approved_numbers = {p["number"] for p in session_approved}
 
     header("Summary")
     remaining = load()
     for status, group in [
-        ("pending",      [f for f in remaining if f["status"] == "pending"]),
+        ("pending",      [f for f in remaining if f["status"] == "pending"
+                          and f["pr_number"] not in session_approved_numbers]),
         ("fix-requested",[f for f in remaining if f["status"] == "fix-requested"]),
         ("approved",     [{"name": p["title"], "pr_number": p["number"]} for p in approved_prs]),
     ]:

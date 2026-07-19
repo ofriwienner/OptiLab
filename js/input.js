@@ -154,11 +154,9 @@ function initInputHandlers() {
     // Mouse up handler (window-level)
     window.addEventListener('mouseup', handleMouseUp);
 
-    // Wheel handler
-    canvas.addEventListener('wheel', handleWheel);
-
-    // Context menu prevention
-    canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+    // Wheel handler - bound to the container (not just the canvas) so zooming
+    // still works while the cursor is over the floating selection toolbar
+    document.getElementById('canvas-container').addEventListener('wheel', handleWheel);
 
     // Keyboard handlers
     window.addEventListener('keydown', handleKeyDown);
@@ -166,25 +164,29 @@ function initInputHandlers() {
 
     // Reset modifier keys when the window loses focus so the app never gets
     // stuck in multi-select / shift-rotate mode after an alt-tab.
-    window.addEventListener('blur', () => {
+    const resetModifierKeys = () => {
         shiftPressed = false;
         ctrlPressed = false;
-    });
+        for (const k in keys) keys[k] = false;
+    };
+    window.addEventListener('blur', resetModifierKeys);
 
     window.addEventListener('visibilitychange', () => {
-        if (document.hidden) {
-            shiftPressed = false;
-            ctrlPressed = false;
-        }
+        if (document.hidden) resetModifierKeys();
     });
 
     // Double-click handler
     canvas.addEventListener('dblclick', handleDoubleClick);
 
+    initTouchHandlers();
+
     // Image upload handler
     document.getElementById('imgUpload').addEventListener('change', (e) => handleImageUpload(e.target));
 
-    // Rotation slider handler
+    // Rotation slider handler (snapshot once at drag start so it's undoable)
+    rotationSlider.addEventListener('pointerdown', () => {
+        if (selection.size > 0) saveToHistory();
+    });
     rotationSlider.addEventListener('input', (e) => {
         const p = Array.from(selection).pop();
         if (p) {
@@ -206,6 +208,71 @@ function initInputHandlers() {
             });
         });
     }
+}
+
+/**
+ * Touch input: one finger drives the normal mouse pipeline,
+ * two fingers pinch-zoom and pan the view.
+ */
+function initTouchHandlers() {
+    let touchState = null; // 'single' | { d, mid } for pinch | null
+
+    const synthMouse = t => ({
+        clientX: t.clientX,
+        clientY: t.clientY,
+        button: 0,
+        shiftKey: false,
+        ctrlKey: false,
+        metaKey: false,
+        preventDefault() {}
+    });
+    const dist = ts => Math.hypot(ts[0].clientX - ts[1].clientX, ts[0].clientY - ts[1].clientY);
+    const mid = ts => ({ x: (ts[0].clientX + ts[1].clientX) / 2, y: (ts[0].clientY + ts[1].clientY) / 2 });
+
+    canvas.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        if (e.touches.length === 1) {
+            touchState = 'single';
+            handleMouseDown(synthMouse(e.touches[0]));
+        } else if (e.touches.length === 2) {
+            if (touchState === 'single') handleMouseUp({ button: 0 });
+            touchState = { d: dist(e.touches), mid: mid(e.touches) };
+        }
+    }, { passive: false });
+
+    canvas.addEventListener('touchmove', (e) => {
+        e.preventDefault();
+        if (e.touches.length === 1 && touchState === 'single') {
+            handleMouseMove(synthMouse(e.touches[0]));
+        } else if (e.touches.length === 2 && touchState && touchState !== 'single') {
+            const rect = canvas.getBoundingClientRect();
+            const newMid = mid(e.touches);
+            const newD = dist(e.touches);
+            const m = { x: newMid.x - rect.left, y: newMid.y - rect.top };
+            const wB = screenToWorld(m.x, m.y);
+            view.scale = Math.max(0.1, Math.min(view.scale * (newD / touchState.d), 5));
+            const wA = screenToWorld(m.x, m.y);
+            view.x += (wA.x - wB.x) * PIXELS_PER_MM * view.scale;
+            view.y += (wA.y - wB.y) * PIXELS_PER_MM * view.scale;
+            view.x += newMid.x - touchState.mid.x;
+            view.y += newMid.y - touchState.mid.y;
+            touchState = { d: newD, mid: newMid };
+            debugInfo.innerText = `Scale: ${Math.round(view.scale * 100)}%`;
+            draw();
+        }
+    }, { passive: false });
+
+    const onTouchEnd = (e) => {
+        if (e.touches.length === 0) {
+            if (touchState === 'single') handleMouseUp({ button: 0 });
+            touchState = null;
+        } else if (touchState !== 'single') {
+            // Pinch ended with a finger still down: wait for a fresh touchstart
+            touchState = null;
+        }
+    };
+    canvas.addEventListener('touchend', onTouchEnd);
+    canvas.addEventListener('touchcancel', onTouchEnd);
 }
 
 /**
@@ -311,7 +378,6 @@ function handleMouseDown(e) {
         view.isPanning = true;
         view.startPanX = m.x - view.x;
         view.startPanY = m.y - view.y;
-        if (!isDragging) canvas.style.cursor = 'grabbing';
         return;
     }
 
@@ -343,7 +409,6 @@ function handleMouseDown(e) {
         dragOffsets.set(b, { dx: b.x - w.x, dy: b.y - w.y });
         
         pendingBoard = null;
-        canvas.style.cursor = 'grabbing';
         updateUI();
         draw();
         return;
@@ -357,8 +422,23 @@ function handleMouseDown(e) {
         selection.add(cellKnobTarget);
         axisAdjustTarget = cellKnobTarget;
         isAdjustingAxis = true;
-        canvas.style.cursor = 'grabbing';
+        canvas.style.cursor = 'crosshair';
         updateCellAngleFromPoint(cellKnobTarget, w);
+        updateUI();
+        draw();
+        return;
+    }
+
+    // Custom polarizer knob hit test
+    const polKnobTarget = getCustomPolKnobHit(m);
+    if (polKnobTarget) {
+        saveToHistory();
+        selection.clear();
+        selection.add(polKnobTarget);
+        axisAdjustTarget = polKnobTarget;
+        isAdjustingAxis = true;
+        canvas.style.cursor = 'crosshair';
+        updateCustomPolAngleFromPoint(polKnobTarget, w);
         updateUI();
         draw();
         return;
@@ -372,7 +452,7 @@ function handleMouseDown(e) {
         selection.add(knobTarget);
         axisAdjustTarget = knobTarget;
         isAdjustingAxis = true;
-        canvas.style.cursor = 'grabbing';
+        canvas.style.cursor = 'crosshair';
         updateWaveplateAxisFromPoint(knobTarget, w);
         updateUI();
         draw();
@@ -455,7 +535,7 @@ function handleMouseDown(e) {
             ];
             groupRotateState = { centroid: { x: gx, y: gy }, startAngle: Math.atan2(ady, adx), initials, initBoxWorld, currentDelta: 0 };
             isRotating = true;
-            canvas.style.cursor = 'grabbing';
+            canvas.style.cursor = 'crosshair';
             draw();
             return;
         }
@@ -807,14 +887,20 @@ function handleMouseMove(e) {
     if (view.isPanning) {
         view.x = m.x - view.startPanX;
         view.y = m.y - view.startPanY;
+        canvas.style.cursor = 'grabbing';
         draw();
         return;
     }
 
     if (isAdjustingAxis && axisAdjustTarget) {
-        const changed = axisAdjustTarget.type === 'cell'
-            ? updateCellAngleFromPoint(axisAdjustTarget, w)
-            : updateWaveplateAxisFromPoint(axisAdjustTarget, w);
+        let changed;
+        if (axisAdjustTarget.type === 'cell') {
+            changed = updateCellAngleFromPoint(axisAdjustTarget, w);
+        } else if (axisAdjustTarget.type === 'custom') {
+            changed = updateCustomPolAngleFromPoint(axisAdjustTarget, w);
+        } else {
+            changed = updateWaveplateAxisFromPoint(axisAdjustTarget, w);
+        }
         if (changed) {
             draw();
             updateUI();
@@ -941,11 +1027,41 @@ function handleMouseMove(e) {
     }
 
     if (isDragging) {
+        canvas.style.cursor = 'grabbing';
         let hasBoard = false;
         const selectedBoards = Array.from(selection).filter(el => el.type === 'board');
         if (selectedBoards.length > 0) {
             hasBoard = true;
             invalidBoardPlacement = false;
+        }
+
+        // For multi-element groups without boards, snap the reference element and
+        // move all others by the same delta so the group moves as a rigid body.
+        let groupSnapDelta = null;
+        if (selection.size > 1 && selectedBoards.length === 0) {
+            let ref = null;
+            for (const el of selection) { if (!el.locked) { ref = el; break; } }
+            if (ref) {
+                const off = dragOffsets.get(ref);
+                if (off) {
+                    const rawX = w.x + off.dx;
+                    const rawY = w.y + off.dy;
+                    let snapX = rawX, snapY = rawY;
+                    if (ref.type === 'measure') {
+                        snapX = Math.round(rawX / HALF_GRID_MM) * HALF_GRID_MM;
+                        snapY = Math.round(rawY / HALF_GRID_MM) * HALF_GRID_MM;
+                    } else if (shiftPressed) {
+                        snapX = rawX; snapY = rawY;
+                    } else if (ctrlPressed) {
+                        snapX = Math.round(rawX / HALF_GRID_MM) * HALF_GRID_MM;
+                        snapY = Math.round(rawY / HALF_GRID_MM) * HALF_GRID_MM;
+                    } else {
+                        const snap = snapComponentPoint(rawX, rawY, ref);
+                        snapX = snap.x; snapY = snap.y;
+                    }
+                    groupSnapDelta = { dx: snapX - rawX, dy: snapY - rawY };
+                }
+            }
         }
 
         // First, move all selected elements
@@ -955,36 +1071,24 @@ function handleMouseMove(e) {
             if (off) {
                 const rawX = w.x + off.dx;
                 const rawY = w.y + off.dy;
-                let newX = rawX;
-                let newY = rawY;
+                let newX, newY;
 
-                // Board-Relative Snapping
-                // No modifier = full grid snap
-                // Ctrl/Cmd = half grid snap (fine movement)
-                // Shift = free movement (no snap)
-                if (el.type === 'board') {
-                    // For boards, snap edges to be between grid points
+                if (groupSnapDelta !== null) {
+                    // Rigid group: all elements get same snap delta from reference
+                    newX = rawX + groupSnapDelta.dx;
+                    newY = rawY + groupSnapDelta.dy;
+                } else if (el.type === 'board') {
                     if (shiftPressed) {
-                        // Free movement - no snapping
-                        newX = rawX;
-                        newY = rawY;
+                        newX = rawX; newY = rawY;
                     } else {
-                        // Calculate left and top edges
                         const leftEdge = rawX - el.width / 2;
                         const topEdge = rawY - el.height / 2;
-
                         if (ctrlPressed) {
-                            // Half grid snap - snap edges to half-grid positions
-                            const snappedLeft = Math.round(leftEdge / HALF_GRID_MM) * HALF_GRID_MM;
-                            const snappedTop = Math.round(topEdge / HALF_GRID_MM) * HALF_GRID_MM;
-                            newX = snappedLeft + el.width / 2;
-                            newY = snappedTop + el.height / 2;
+                            newX = Math.round(leftEdge / HALF_GRID_MM) * HALF_GRID_MM + el.width / 2;
+                            newY = Math.round(topEdge / HALF_GRID_MM) * HALF_GRID_MM + el.height / 2;
                         } else {
-                            // Full grid snap - snap edges to be between grid points (at multiples of GRID_PITCH_MM)
-                            const snappedLeft = Math.round(leftEdge / GRID_PITCH_MM) * GRID_PITCH_MM;
-                            const snappedTop = Math.round(topEdge / GRID_PITCH_MM) * GRID_PITCH_MM;
-                            newX = snappedLeft + el.width / 2;
-                            newY = snappedTop + el.height / 2;
+                            newX = Math.round(leftEdge / GRID_PITCH_MM) * GRID_PITCH_MM + el.width / 2;
+                            newY = Math.round(topEdge / GRID_PITCH_MM) * GRID_PITCH_MM + el.height / 2;
                         }
                     }
                 } else if (el.type === 'border') {
@@ -996,37 +1100,20 @@ function handleMouseMove(e) {
                         newY = Math.round(rawY / HALF_GRID_MM) * HALF_GRID_MM;
                     }
                 } else {
-                    // For components, use existing snapping logic
                     if (el.type === 'measure') {
-                        // Measurement always snaps to half grid
                         newX = Math.round(rawX / HALF_GRID_MM) * HALF_GRID_MM;
                         newY = Math.round(rawY / HALF_GRID_MM) * HALF_GRID_MM;
                     } else if (el.type === 'custom' && !shiftPressed && !ctrlPressed) {
-                        // Custom components snap to half grid by default
                         newX = Math.round(rawX / HALF_GRID_MM) * HALF_GRID_MM;
                         newY = Math.round(rawY / HALF_GRID_MM) * HALF_GRID_MM;
                     } else if (shiftPressed) {
-                        // Free movement - no snapping
-                        newX = rawX;
-                        newY = rawY;
+                        newX = rawX; newY = rawY;
                     } else if (ctrlPressed) {
-                        // Half grid snap
                         newX = Math.round(rawX / HALF_GRID_MM) * HALF_GRID_MM;
                         newY = Math.round(rawY / HALF_GRID_MM) * HALF_GRID_MM;
                     } else {
-                        // Full grid snap
-                        const board = elements.find(b => b.type === 'board' && b !== el &&
-                            rawX >= b.x - b.width / 2 && rawX <= b.x + b.width / 2 &&
-                            rawY >= b.y - b.height / 2 && rawY <= b.y + b.height / 2);
-
-                        if (board) {
-                            const snap = getClosestGridPoint({ x: rawX, y: rawY }, board);
-                            newX = snap.x;
-                            newY = snap.y;
-                        } else {
-                            newX = Math.round((rawX - 12.5) / GRID_PITCH_MM) * GRID_PITCH_MM + 12.5;
-                            newY = Math.round((rawY - 12.5) / GRID_PITCH_MM) * GRID_PITCH_MM + 12.5;
-                        }
+                        const snap = snapComponentPoint(rawX, rawY, el);
+                        newX = snap.x; newY = snap.y;
                     }
                 }
 
@@ -1037,7 +1124,6 @@ function handleMouseMove(e) {
                 el.y = newY;
 
                 if (el.type === 'board') {
-                    // Move all children of this board
                     draggedChildren.forEach((rel, child) => {
                         if (rel.parentBoard === el) {
                             child.x = el.x + rel.dx;
@@ -1051,9 +1137,8 @@ function handleMouseMove(e) {
                 }
             }
         });
-        
+
         // Move all components on selected boards that aren't already selected
-        // (selected components were already moved above)
         if (selectedBoards.length > 0) {
             draggedChildren.forEach((rel, child) => {
                 if (!selection.has(child) && selectedBoards.includes(rel.parentBoard)) {
@@ -1062,7 +1147,7 @@ function handleMouseMove(e) {
                 }
             });
         }
-        
+
         draw();
         return;
     }
@@ -1078,11 +1163,35 @@ function handleMouseMove(e) {
 
     // If pending board, measure mode, or border mode, redraw to update preview
     if (pendingBoard || isMeasureMode || isBorderMode) {
+        canvas.style.cursor = 'crosshair';
+        hoverTarget = null;
         draw();
         return;
     }
 
+    updateIdleCursor(m);
     draw();
+}
+
+/**
+ * Idle-state cursor feedback and hover highlight: pointer over interactive
+ * knobs/pins/buttons, grab over movable elements, default over empty space.
+ */
+function updateIdleCursor(m) {
+    let cursor = 'default';
+    let hover = null;
+
+    if (getWaveplateKnobHit(m) || getCellKnobHit(m) || getCustomPolKnobHit(m) || getAomToggleHit(m) || getFiberConnectorPinHit(m)) {
+        cursor = 'pointer';
+    } else {
+        hover = findElementAtScreen(m);
+        // Unselected boards are selected via click, not dragged from body
+        if (hover && hover.type === 'board' && !selection.has(hover)) hover = null;
+        if (hover) cursor = hover.locked ? 'not-allowed' : 'grab';
+    }
+
+    hoverTarget = hover;
+    canvas.style.cursor = cursor;
 }
 
 /**
@@ -1143,12 +1252,48 @@ function completeFiberConnection(target) {
 }
 
 /**
+ * Cancel an in-progress drag/rotate/resize/axis-adjust by restoring the
+ * snapshot taken at interaction start. Returns true if something was canceled.
+ */
+function cancelActiveInteraction() {
+    const active = isDragging || isRotating || isResizing || isAdjustingAxis;
+    if (!active) return false;
+
+    if (undoHistory.length > 0) {
+        isUndoRedoAction = true;
+        // Restore the snapshot taken at interaction start. Pop it only if this
+        // interaction actually pushed it (dedup may have skipped the push when
+        // the scene was already identical to the top of the stack).
+        const json = lastSavePushed
+            ? undoHistory.pop()
+            : undoHistory[undoHistory.length - 1];
+        const prev = JSON.parse(json);
+        elements = prev.map(d => rehydrateElement(d));
+        selection.clear();
+        isUndoRedoAction = false;
+    }
+
+    isDragging = false;
+    isRotating = false;
+    isResizing = false;
+    isAdjustingAxis = false;
+    axisAdjustTarget = null;
+    groupRotateState = null;
+    draggedChildren.clear();
+    dragOffsets.clear();
+    invalidBoardPlacement = false;
+    originalBoardState = null;
+    canvas.style.cursor = 'default';
+    return true;
+}
+
+/**
  * Handle mouse up events
  */
 function handleMouseUp(e) {
     if (e?.button === 1) {
         view.isPanning = false;
-        if (!isDragging) canvas.style.cursor = 'crosshair';
+        if (!isDragging) canvas.style.cursor = (isMeasureMode || pendingBoard) ? 'crosshair' : 'default';
         return;
     }
     // Fiber connecting mode stays active until user clicks on another pin or elsewhere
@@ -1263,7 +1408,7 @@ function handleMouseUp(e) {
     fiberConnectSource = null;
     fiberConnectMousePos = null;
     view.isPanning = false;
-    canvas.style.cursor = 'crosshair';
+    canvas.style.cursor = (isMeasureMode || pendingBoard) ? 'crosshair' : 'default';
 
     if (wasDragging && selection.size === 1) {
         const el = Array.from(selection)[0];
@@ -1299,17 +1444,87 @@ function handleWheel(e) {
  * @param {KeyboardEvent} e - Keyboard event
  */
 function handleKeyDown(e) {
-    if (e.repeat) return;
-    keys[e.key] = true;
-    if (e.key === 'Shift') shiftPressed = true;
-    if (e.key === 'Control' || e.key === 'Meta') ctrlPressed = true;
+    if (!e.repeat) {
+        keys[e.key] = true;
+        if (e.key === 'Shift') shiftPressed = true;
+        if (e.key === 'Control' || e.key === 'Meta') ctrlPressed = true;
+    }
     const codeKey = e.code?.startsWith('Key') ? e.code.slice(3).toLowerCase() : null;
 
     const activeTag = document.activeElement?.tagName;
-    if (activeTag === 'INPUT' || activeTag === 'TEXTAREA') return;
+    if (activeTag === 'INPUT' || activeTag === 'TEXTAREA' || activeTag === 'SELECT') return;
 
-    // Escape - cancel fiber connection, pending board, measure mode, or deselect all
+    // Arrow key nudging (allow key repeat for smooth continuous movement)
+    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key) && selection.size > 0) {
+        e.preventDefault();
+        if (!e.repeat) saveToHistory();
+        const dirX = e.key === 'ArrowLeft' ? -1 : e.key === 'ArrowRight' ? 1 : 0;
+        const dirY = e.key === 'ArrowUp' ? -1 : e.key === 'ArrowDown' ? 1 : 0;
+        selection.forEach(el => {
+            if (el.locked) return;
+            let newX, newY;
+            if (e.ctrlKey) {
+                newX = el.x + dirX;
+                newY = el.y + dirY;
+            } else if (e.shiftKey) {
+                newX = Math.round((el.x + dirX * HALF_GRID_MM) / HALF_GRID_MM) * HALF_GRID_MM;
+                newY = Math.round((el.y + dirY * HALF_GRID_MM) / HALF_GRID_MM) * HALF_GRID_MM;
+            } else if (el.type === 'board') {
+                const rawX = el.x + dirX * GRID_PITCH_MM;
+                const rawY = el.y + dirY * GRID_PITCH_MM;
+                const snappedLeft = Math.round((rawX - el.width / 2) / GRID_PITCH_MM) * GRID_PITCH_MM;
+                const snappedTop = Math.round((rawY - el.height / 2) / GRID_PITCH_MM) * GRID_PITCH_MM;
+                newX = snappedLeft + el.width / 2;
+                newY = snappedTop + el.height / 2;
+            } else if (el.type === 'measure' || el.type === 'custom') {
+                newX = Math.round((el.x + dirX * HALF_GRID_MM) / HALF_GRID_MM) * HALF_GRID_MM;
+                newY = Math.round((el.y + dirY * HALF_GRID_MM) / HALF_GRID_MM) * HALF_GRID_MM;
+            } else {
+                newX = Math.round((el.x + dirX * GRID_PITCH_MM - 12.5) / GRID_PITCH_MM) * GRID_PITCH_MM + 12.5;
+                newY = Math.round((el.y + dirY * GRID_PITCH_MM - 12.5) / GRID_PITCH_MM) * GRID_PITCH_MM + 12.5;
+            }
+            const actualDx = newX - el.x;
+            const actualDy = newY - el.y;
+            el.x = newX;
+            el.y = newY;
+            if (el.type === 'board') {
+                elements.forEach(child => {
+                    if (!selection.has(child) && getParentBoard(child) === el) {
+                        child.x += actualDx;
+                        child.y += actualDy;
+                    }
+                });
+            }
+        });
+        updateUI();
+        draw();
+        return;
+    }
+
+    if (e.repeat) return;
+
+    // Shortcut cheatsheet
+    if (e.key === '?') {
+        toggleShortcutOverlay();
+        return;
+    }
+
+    // Escape - close overlay, cancel calibration, active drag, fiber connection, pending board, measure mode, or deselect all
     if (e.key === 'Escape') {
+        const overlay = document.getElementById('shortcut-overlay');
+        if (overlay) {
+            overlay.remove();
+            return;
+        }
+        if (cancelCalibration()) {
+            draw();
+            return;
+        }
+        if (cancelActiveInteraction()) {
+            updateUI();
+            draw();
+            return;
+        }
         if (isFiberConnecting) {
             isFiberConnecting = false;
             fiberConnectSource = null;
@@ -1385,6 +1600,14 @@ function handleKeyDown(e) {
         return;
     }
 
+    // Duplicate (Ctrl/Cmd + D)
+    const isDuplicate = (e.key === 'd' || e.key === 'D' || codeKey === 'd') && (e.metaKey || e.ctrlKey);
+    if (isDuplicate && selection.size > 0) {
+        e.preventDefault();
+        duplicateSelected();
+        return;
+    }
+
     // Copy/Paste
     const isCopy = (e.key === 'c' || e.key === 'C' || codeKey === 'c') && (e.metaKey || e.ctrlKey);
     const isPaste = (e.key === 'v' || e.key === 'V' || codeKey === 'v') && (e.metaKey || e.ctrlKey);
@@ -1440,7 +1663,7 @@ function handleKeyDown(e) {
             // Set drag offsets for all selected elements
             selection.forEach(el => dragOffsets.set(el, { dx: el.x - w.x, dy: el.y - w.y }));
             
-            canvas.style.cursor = 'grabbing';
+            canvas.style.cursor = 'crosshair';
             updateUI();
             draw();
             return;
@@ -1608,6 +1831,51 @@ function handleKeyUp(e) {
     if (e.key === 'Control' || e.key === 'Meta') ctrlPressed = false;
 }
 
+function startInlineTitleEdit(el) {
+    const input = document.getElementById('inline-title-input');
+    const sc = view.scale * PIXELS_PER_MM;
+    const pos = worldToScreen(el.x, el.y);
+    const textX = el.type === 'board' ? (-el.width / 2 + 5) : (-el.width / 2);
+    const textY = el.type === 'board' ? (-el.height / 2 - 5) : (-el.height / 2 - 8);
+    const cosR = Math.cos(el.rotation);
+    const sinR = Math.sin(el.rotation);
+    const sx = pos.x + sc * (textX * cosR - textY * sinR);
+    const sy = pos.y + sc * (textX * sinR + textY * cosR);
+
+    input.value = el.title || '';
+    input.style.left = sx + 'px';
+    input.style.top = (sy - 11) + 'px';
+    input.style.display = 'block';
+    input.focus();
+    input.select();
+
+    let done = false;
+
+    function finish(save) {
+        if (done) return;
+        done = true;
+        input.style.display = 'none';
+        input.removeEventListener('keydown', onKeydown);
+        input.removeEventListener('blur', onBlur);
+        if (save && input.value !== el.title) {
+            saveToHistory();
+            el.title = input.value;
+            draw();
+        }
+    }
+
+    function onKeydown(e) {
+        e.stopPropagation();
+        if (e.key === 'Enter') { e.preventDefault(); finish(true); }
+        else if (e.key === 'Escape') { finish(false); }
+    }
+
+    function onBlur() { finish(true); }
+
+    input.addEventListener('keydown', onKeydown);
+    input.addEventListener('blur', onBlur);
+}
+
 /**
  * Handle double-click events
  * @param {MouseEvent} e - Mouse event
@@ -1641,13 +1909,7 @@ function handleDoubleClick(e) {
     }
 
     if (hit && isTitle) {
-        const label = hit.type === 'board' ? "Enter Board Title:" : "Enter Component Label:";
-        const newTitle = prompt(label, hit.title);
-        if (newTitle !== null) {
-            saveToHistory();
-            hit.title = newTitle;
-            draw();
-        }
+        startInlineTitleEdit(hit);
     } else {
         if (selection.size > 0) {
             saveToHistory();
@@ -1661,5 +1923,29 @@ function handleDoubleClick(e) {
         draw();
     }
 }
+
+// ── Helper: find topmost element under a screen coordinate ────────────────────
+
+function findElementAtScreen(screenPos) {
+    const w = screenToWorld(screenPos.x, screenPos.y);
+    const components = elements.filter(el => el.type !== 'board');
+    const hit = components.slice().reverse().find(el => {
+        if (el.type === 'measure') return measureLineHit(el, w);
+        const cosR = Math.cos(-el.rotation);
+        const sinR = Math.sin(-el.rotation);
+        const dx = w.x - el.x;
+        const dy = w.y - el.y;
+        const localX = dx * cosR - dy * sinR;
+        const localY = dx * sinR + dy * cosR;
+        return Math.abs(localX) <= Math.max(el.width / 2, 10) && Math.abs(localY) <= Math.max(el.height / 2, 10);
+    });
+    if (hit) return hit;
+    const boards = elements.filter(el => el.type === 'board');
+    return boards.slice().reverse().find(el =>
+        w.x > el.x - el.width / 2 && w.x < el.x + el.width / 2 &&
+        w.y > el.y - el.height / 2 && w.y < el.y + el.height / 2
+    ) || null;
+}
+
 
 

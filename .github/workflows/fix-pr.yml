@@ -13,48 +13,68 @@ jobs:
       pull-requests: write
       issues: write
       id-token: write
+    env:
+      GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
 
-      - uses: anthropics/claude-code-action@v1
+      - name: Configure git
+        run: |
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+
+      - name: Run Claude fix
+        id: claude
+        uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          claude_args: |
+            --max-turns 30
+            --dangerously-skip-permissions
           prompt: |
             You are fixing a pull request for OptiLab, a static HTML/JS optical bench simulator.
             No build step - open `index.html` directly in a browser. All source is in `js/` and `styles/`.
 
             Key files:
-            - `js/config.js` - all global state variables and constants
-            - `js/element.js` - Element class, component types, ray-tracing segments
-            - `js/input.js` - all mouse/keyboard event handlers
-            - `js/renderer.js` - all canvas drawing functions
-            - `js/state.js` - save/load/undo/redo
-            - `js/ui/controls.js` - dynamic sidebar UI panel
-            - `js/physics/raytracing.js` - ray casting and beam physics
-            - `js/physics/optics.js` - Mueller matrix optics
+            - js/config.js - all global state variables and constants
+            - js/element.js - Element class, component types, ray-tracing segments
+            - js/input.js - all mouse/keyboard event handlers
+            - js/renderer.js - all canvas drawing functions
+            - js/state.js - save/load/undo/redo
+            - js/ui/controls.js - dynamic sidebar UI panel
+            - js/physics/raytracing.js - ray casting and beam physics
+            - js/physics/optics.js - Mueller matrix optics
 
             Coding conventions:
             - No comments unless the why is non-obvious
-            - No build tools - plain JS, no imports, everything is global
+            - No build tools, plain JS, no imports, everything global
             - Tailwind CSS classes for UI (loaded via CDN)
-            - All state lives in `config.js` as `let` globals
-            - Canvas coordinate system: world coords in mm, `worldToScreen`/`screenToWorld` for conversion
-            - `saveToHistory()` before any mutation that should be undoable
-            - `draw()` after any state change that affects visuals
-            - `updateUI()` after selection changes
-            - Always use `rehydrateElement(JSON.parse(JSON.stringify(el)))` to deep-copy an Element - never a plain JSON clone
+            - State lives in config.js as let globals
+            - saveToHistory() before any mutation that should be undoable
+            - draw() after any state change that affects visuals
+            - updateUI() after selection changes
+            - Clone elements: rehydrateElement(JSON.parse(JSON.stringify(el)))
 
             PR #${{ github.event.pull_request.number }}: ${{ github.event.pull_request.title }}
             Branch: ${{ github.event.pull_request.head.ref }}
 
-            You are on the PR branch already. Your task:
-            1. Read the PR reviews to find the latest fix request (look for CHANGES_REQUESTED reviews)
-            2. Read the relevant source files
-            3. Apply the fix described in the review
-            4. Commit the changes with a descriptive message
-            5. Push to the current branch: `git push origin HEAD:${{ github.event.pull_request.head.ref }}`
-            6. After pushing, remove the `fix-requested` label from PR #${{ github.event.pull_request.number }} so it re-enters the review queue
-          claude_args: |
-            --max-turns 30
+            You are already on the PR branch. Steps:
+            1. Find the fix request - look for comments starting with "**Fix requested:**":
+               gh pr view ${{ github.event.pull_request.number }} --json comments,reviews
+            2. Read the relevant source files.
+            3. Apply the fix.
+            4. Commit with a descriptive message. NEVER amend, NEVER force-push.
+            5. Push: git push origin HEAD:${{ github.event.pull_request.head.ref }}
+            6. Comment with what you changed:
+               gh pr comment ${{ github.event.pull_request.number }} --body "**Fix applied:** <one-sentence summary>"
+            7. Remove the label:
+               gh pr edit ${{ github.event.pull_request.number }} --remove-label fix-requested
+
+      - name: Notify on failure
+        if: failure()
+        run: |
+          gh pr comment ${{ github.event.pull_request.number }} \
+            --body "**Cloud fix failed.** The automated fix workflow encountered an error. Check the [Actions run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for details, then re-add the \`fix-requested\` label to retry."

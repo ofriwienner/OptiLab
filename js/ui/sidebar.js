@@ -18,18 +18,9 @@ function startSidebarDrag(e, type) {
 
     // Board-Relative Snapping
     if (!shiftPressed && !ctrlPressed) {
-        const board = elements.find(el => el.type === 'board' &&
-            nx >= el.x - el.width / 2 && nx <= el.x + el.width / 2 &&
-            ny >= el.y - el.height / 2 && ny <= el.y + el.height / 2);
-        if (board) {
-            const snap = getClosestGridPoint({ x: nx, y: ny }, board);
-            nx = snap.x;
-            ny = snap.y;
-        } else {
-            // Global Fallback
-            nx = Math.round((nx - 12.5) / GRID_PITCH_MM) * GRID_PITCH_MM + 12.5;
-            ny = Math.round((ny - 12.5) / GRID_PITCH_MM) * GRID_PITCH_MM + 12.5;
-        }
+        const snap = snapComponentPoint(nx, ny);
+        nx = snap.x;
+        ny = snap.y;
     }
 
     const el = new Element(type, nx, ny);
@@ -41,6 +32,20 @@ function startSidebarDrag(e, type) {
     dragOffsets.set(el, { dx: 0, dy: 0 });
     updateUI();
     draw();
+}
+
+/**
+ * Filter the sidebar component grid by label text
+ * @param {string} query - Filter text
+ */
+function filterToolGrid(query) {
+    const grid = document.getElementById('tools-grid');
+    if (!grid) return;
+    const q = query.trim().toLowerCase();
+    grid.querySelectorAll('.tool-item').forEach(item => {
+        const label = item.textContent.trim().toLowerCase();
+        item.style.display = (!q || label.includes(q)) ? '' : 'none';
+    });
 }
 
 /**
@@ -108,6 +113,12 @@ function copySelected() {
         if (el.type === 'filter' && Array.isArray(el.blockedLasers)) {
             data.blockedLasers = el.blockedLasers;
         }
+        if (el.type === 'iris' && typeof el.aperture === 'number') {
+            data.aperture = el.aperture;
+        }
+        if (el.type === 'amplifier' && typeof el.gain === 'number') {
+            data.gain = el.gain;
+        }
         if (el.type === 'cell' && typeof el.cellAngle === 'number') {
             data.cellAngle = el.cellAngle;
         }
@@ -119,7 +130,14 @@ function copySelected() {
             data.customTextColor = el.customTextColor;
             data.customFontSize = el.customFontSize;
             data.customFontBold = el.customFontBold;
+            data.customNoBorder = !!el.customNoBorder;
             if (typeof el.customOpacity === 'number') data.customOpacity = el.customOpacity;
+            if (el.customBehavior) data.customBehavior = el.customBehavior;
+            if (typeof el.customTransmission === 'number') data.customTransmission = el.customTransmission;
+            if (typeof el.customPolAngle === 'number') data.customPolAngle = el.customPolAngle;
+        }
+        if (el.type === 'board' && el.imgSrc) {
+            data.imgSrc = el.imgSrc;
         }
         if (el.type === 'border') {
             data.borderShape = el.borderShape;
@@ -209,6 +227,12 @@ function pasteElements() {
         if (el.type === 'filter' && Array.isArray(data.blockedLasers)) {
             el.blockedLasers = data.blockedLasers;
         }
+        if (el.type === 'iris' && typeof data.aperture === 'number') {
+            el.aperture = data.aperture;
+        }
+        if (el.type === 'amplifier' && typeof data.gain === 'number') {
+            el.gain = data.gain;
+        }
         if (el.type === 'cell' && typeof data.cellAngle === 'number') {
             el.cellAngle = data.cellAngle;
         }
@@ -220,7 +244,11 @@ function pasteElements() {
             if (data.customTextColor) el.customTextColor = data.customTextColor;
             if (typeof data.customFontSize === 'number') el.customFontSize = data.customFontSize;
             if (typeof data.customFontBold === 'boolean') el.customFontBold = data.customFontBold;
+            el.customNoBorder = !!data.customNoBorder;
             if (typeof data.customOpacity === 'number') el.customOpacity = data.customOpacity;
+            if (typeof data.customBehavior === 'string') el.customBehavior = data.customBehavior;
+            if (typeof data.customTransmission === 'number') el.customTransmission = data.customTransmission;
+            if (typeof data.customPolAngle === 'number') el.customPolAngle = data.customPolAngle;
             el.width = data.width;
             el.height = data.height;
         }
@@ -233,6 +261,12 @@ function pasteElements() {
             if (typeof data.borderLineWidth === 'number') el.borderLineWidth = data.borderLineWidth;
             el.width = data.width;
             el.height = data.height;
+        }
+        if (el.type === 'board' && typeof data.imgSrc === 'string' && data.imgSrc) {
+            el.imgSrc = data.imgSrc;
+            const img = new Image();
+            img.onload = () => { el.imgData = img; draw(); };
+            img.src = data.imgSrc;
         }
 
         elements.push(el);
@@ -305,6 +339,23 @@ function drawCustomPreview(pctx, template) {
         pctx.textBaseline = 'middle';
         pctx.fillText(text.substring(0, 5), 0, 0);
     }
+
+    // Optical behavior marker (matches on-canvas indicator colors)
+    const behavior = template.customBehavior || 'none';
+    if (behavior !== 'none') {
+        const BEHAVIOR_COLORS = {
+            'blocker': '#f87171', 'mirror': '#22d3ee', 'splitter': '#facc15',
+            'polarizer': '#4ade80', 'attenuator': '#94a3b8'
+        };
+        pctx.strokeStyle = BEHAVIOR_COLORS[behavior] || '#ffffff';
+        pctx.lineWidth = 1.5;
+        pctx.beginPath();
+        if (behavior === 'mirror') { pctx.moveTo(-w / 2, 0); pctx.lineTo(w / 2, 0); }
+        else if (behavior === 'splitter') { pctx.moveTo(-w / 2, -h / 2); pctx.lineTo(w / 2, h / 2); }
+        else if (behavior === 'blocker') { pctx.rect(-w / 2, -h / 2, w, h); }
+        else { pctx.moveTo(0, -h / 2); pctx.lineTo(0, h / 2); }
+        pctx.stroke();
+    }
     pctx.restore();
 }
 
@@ -373,17 +424,9 @@ function startCustomComponentDrag(e, template) {
     let ny = p.y;
 
     if (!shiftPressed && !ctrlPressed) {
-        const board = elements.find(el => el.type === 'board' &&
-            nx >= el.x - el.width / 2 && nx <= el.x + el.width / 2 &&
-            ny >= el.y - el.height / 2 && ny <= el.y + el.height / 2);
-        if (board) {
-            const snap = getClosestGridPoint({ x: nx, y: ny }, board);
-            nx = snap.x;
-            ny = snap.y;
-        } else {
-            nx = Math.round((nx - 12.5) / GRID_PITCH_MM) * GRID_PITCH_MM + 12.5;
-            ny = Math.round((ny - 12.5) / GRID_PITCH_MM) * GRID_PITCH_MM + 12.5;
-        }
+        const snap = snapComponentPoint(nx, ny);
+        nx = snap.x;
+        ny = snap.y;
     }
 
     const el = new Element('custom', nx, ny, template.width || 30, template.height || 30, template.name || '');
@@ -396,7 +439,11 @@ function startCustomComponentDrag(e, template) {
     el.customTextColor = template.customTextColor || '#ffffff';
     el.customFontSize = template.customFontSize || 10;
     el.customFontBold = !!template.customFontBold;
+    el.customNoBorder = !!template.customNoBorder;
     el.customOpacity = template.customOpacity ?? 1;
+    el.customBehavior = template.customBehavior || 'none';
+    el.customTransmission = template.customTransmission ?? 0.5;
+    el.customPolAngle = template.customPolAngle ?? 0;
 
     elements.push(el);
     selection.clear();

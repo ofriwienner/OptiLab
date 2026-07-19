@@ -4,28 +4,30 @@
  */
 
 /**
- * Deep clone elements array for history
- * @returns {Array} Deep cloned elements array
- */
-function cloneElements() {
-    return JSON.parse(JSON.stringify(elements));
-}
-
-/**
  * Save current state to undo history
  * Call this before making changes that should be undoable
+ * No-ops when the scene is identical to the last snapshot, so
+ * focus/press events on controls never create empty undo steps.
  */
+let lastSavePushed = false;
+
 function saveToHistory() {
     if (isUndoRedoAction) return;
-    
-    const snapshot = cloneElements();
-    undoHistory.push(snapshot);
-    
+
+    const json = JSON.stringify(elements);
+    if (undoHistory.length > 0 && undoHistory[undoHistory.length - 1] === json) {
+        lastSavePushed = false;
+        return;
+    }
+    lastSavePushed = true;
+
+    undoHistory.push(json);
+
     // Limit history size
     if (undoHistory.length > MAX_HISTORY_SIZE) {
         undoHistory.shift();
     }
-    
+
     // Clear redo history when new action is performed
     redoHistory = [];
 }
@@ -35,19 +37,19 @@ function saveToHistory() {
  */
 function undo() {
     if (undoHistory.length === 0) return;
-    
+
     isUndoRedoAction = true;
-    
+
     // Save current state to redo history
-    redoHistory.push(cloneElements());
-    
+    redoHistory.push(JSON.stringify(elements));
+
     // Restore previous state
-    const previousState = undoHistory.pop();
+    const previousState = JSON.parse(undoHistory.pop());
     elements = previousState.map(d => rehydrateElement(d));
-    
+
     // Clear selection (selected elements may no longer exist)
     selection.clear();
-    
+
     isUndoRedoAction = false;
     updateUI();
     draw();
@@ -58,19 +60,19 @@ function undo() {
  */
 function redo() {
     if (redoHistory.length === 0) return;
-    
+
     isUndoRedoAction = true;
-    
+
     // Save current state to undo history
-    undoHistory.push(cloneElements());
-    
+    undoHistory.push(JSON.stringify(elements));
+
     // Restore redo state
-    const nextState = redoHistory.pop();
+    const nextState = JSON.parse(redoHistory.pop());
     elements = nextState.map(d => rehydrateElement(d));
-    
+
     // Clear selection
     selection.clear();
-    
+
     isUndoRedoAction = false;
     updateUI();
     draw();
@@ -125,6 +127,11 @@ function rehydrateElement(data) {
         el.blockedLasers = data.blockedLasers;
     }
 
+    // Iris aperture
+    if (el.type === 'iris' && typeof data.aperture === 'number') {
+        el.aperture = data.aperture;
+    }
+
     // Laser polarization, color, and thickness
     if (el.type === 'laser') {
         if (typeof data.polAngle === 'number') el.polAngle = data.polAngle;
@@ -152,6 +159,17 @@ function rehydrateElement(data) {
         if (typeof data.customFontBold === 'boolean') el.customFontBold = data.customFontBold;
         el.customNoBorder = data.customNoBorder || false;
         if (typeof data.customOpacity === 'number') el.customOpacity = data.customOpacity;
+        if (typeof data.customBehavior === 'string') el.customBehavior = data.customBehavior;
+        if (typeof data.customTransmission === 'number') el.customTransmission = data.customTransmission;
+        if (typeof data.customPolAngle === 'number') el.customPolAngle = data.customPolAngle;
+    }
+
+    // Restore board reference image from its saved data URL
+    if (typeof data.imgSrc === 'string' && data.imgSrc) {
+        el.imgSrc = data.imgSrc;
+        const img = new Image();
+        img.onload = () => { el.imgData = img; draw(); };
+        img.src = data.imgSrc;
     }
 
     // Border/area annotation properties
@@ -172,14 +190,30 @@ function rehydrateElement(data) {
  * Save current state to localStorage
  */
 function saveState() {
-    const data = JSON.stringify(elements);
-    localStorage.setItem('opticalBenchState', data);
-    // Brief toast notification
+    let message = 'Saved';
+    let isError = false;
+    try {
+        localStorage.setItem('opticalBenchState', JSON.stringify(elements));
+    } catch (e) {
+        message = 'Save failed (storage full?)';
+        isError = true;
+    }
+    showToast(message, isError);
+}
+
+/**
+ * Show a brief toast notification at the bottom of the screen
+ * @param {string} message - Text to display
+ * @param {boolean} isError - Use error styling
+ */
+function showToast(message, isError = false) {
     const toast = document.createElement('div');
-    toast.textContent = 'Saved';
-    toast.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#1e293b;color:#94a3b8;border:1px solid #334155;padding:6px 16px;border-radius:6px;font-size:12px;z-index:9999;pointer-events:none;transition:opacity 0.5s';
+    toast.textContent = message;
+    const color = isError ? '#fca5a5' : '#94a3b8';
+    const border = isError ? '#7f1d1d' : '#334155';
+    toast.style.cssText = `position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#1e293b;color:${color};border:1px solid ${border};padding:6px 16px;border-radius:6px;font-size:12px;z-index:9999;pointer-events:none;transition:opacity 0.5s`;
     document.body.appendChild(toast);
-    setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 500); }, 1000);
+    setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 500); }, 1400);
 }
 
 /**
@@ -188,11 +222,19 @@ function saveState() {
 function loadState() {
     const data = localStorage.getItem('opticalBenchState');
     if (data) {
-        const parsed = JSON.parse(data);
-        elements = parsed.map(d => rehydrateElement(d));
-        draw();
+        try {
+            const parsed = JSON.parse(data);
+            if (!Array.isArray(parsed)) throw new Error('bad state');
+            saveToHistory();
+            elements = parsed.map(d => rehydrateElement(d));
+            selection.clear();
+            updateUI();
+            draw();
+        } catch (e) {
+            showToast('Saved state is corrupted', true);
+        }
     } else {
-        alert('No saved state found');
+        showToast('No saved state found', true);
     }
 }
 
@@ -221,13 +263,18 @@ function importState(input) {
     reader.onload = (e) => {
         try {
             const data = JSON.parse(e.target.result);
+            if (!Array.isArray(data)) throw new Error('bad file');
+            saveToHistory();
             elements = data.map(d => rehydrateElement(d));
+            selection.clear();
+            updateUI();
             draw();
         } catch (err) {
-            alert('Error importing file');
+            showToast('Error importing file', true);
         }
     };
     reader.readAsText(file);
+    input.value = '';
 }
 
 // ── Custom Component Library ──────────────────────────────────────────────────
@@ -259,11 +306,15 @@ function saveCustomComponentToLibrary(el) {
         customFontSize: el.customFontSize || 10,
         customFontBold: !!el.customFontBold,
         customNoBorder: !!el.customNoBorder,
-        customOpacity: el.customOpacity ?? 1
+        customOpacity: el.customOpacity ?? 1,
+        customBehavior: el.customBehavior || 'none',
+        customTransmission: el.customTransmission ?? 0.5,
+        customPolAngle: el.customPolAngle ?? 0
     };
     customComponentLibrary.push(template);
     saveCustomLibrary();
     renderCustomLibrary();
+    showToast(`"${template.name}" saved to library`);
 }
 
 function deleteCustomComponent(id) {
@@ -291,14 +342,15 @@ function uploadCustomLibrary(input) {
         try {
             const data = JSON.parse(e.target.result);
             if (Array.isArray(data)) {
-                customComponentLibrary = data;
+                customComponentLibrary = data.filter(t => t && typeof t === 'object');
                 saveCustomLibrary();
                 renderCustomLibrary();
+                showToast('Custom component library imported');
             } else {
-                alert('Invalid custom components file');
+                showToast('Invalid custom components file', true);
             }
         } catch (err) {
-            alert('Error reading custom components file');
+            showToast('Error reading custom components file', true);
         }
     };
     reader.readAsText(file);

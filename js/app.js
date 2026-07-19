@@ -25,6 +25,13 @@ function init() {
     // Initialize input handlers
     initInputHandlers();
 
+    // Keep canvas matched to its container when the window resizes
+    window.addEventListener('resize', () => {
+        canvas.width = container.clientWidth;
+        canvas.height = container.clientHeight;
+        draw();
+    });
+
     // Set up initial view
     updateTableSize();
     resetView();
@@ -115,6 +122,10 @@ function exposeGlobalFunctions() {
     window.tryAutoAlign = tryAutoAlign;
     window.cycleSnapRotation = cycleSnapRotation;
     window.moveToBack = moveToBack;
+    window.toggleShortcutOverlay = toggleShortcutOverlay;
+    window.duplicateSelected = duplicateSelected;
+    window.rotateSelected90 = rotateSelected90;
+    window.filterToolGrid = filterToolGrid;
 }
 
 // Initialize when DOM is ready

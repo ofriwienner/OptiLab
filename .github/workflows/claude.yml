@@ -19,58 +19,83 @@ jobs:
       (github.event_name == 'issues' && (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude')))
     runs-on: ubuntu-latest
     permissions:
-      contents: read
-      pull-requests: read
-      issues: read
+      contents: write
+      pull-requests: write
+      issues: write
       id-token: write
-      actions: read # Required for Claude to read CI results on PRs
+      actions: read
+    env:
+      GH_TOKEN: ${{ github.token }}
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
-          fetch-depth: 1
+          fetch-depth: 0
 
-      - name: Run Claude Code
-        id: claude
-        uses: anthropics/claude-code-action@v1
+      - name: Configure git
+        run: |
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+
+      - uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-
-          # This is an optional setting that allows Claude to read CI results on PRs
-          additional_permissions: |
-            actions: read
-
-          # Custom prompt with strict formatting rules
-          prompt: |
-            **IMPORTANT - WHEN WORKING ON ISSUES:**
-            After you finish implementing the code changes and committing them, create a pull request:
-            ```
-            gh pr create --title "Your descriptive title" --label "ready-for-review" --body "## Summary
-            Your summary of what was implemented.
-             
-            Closes #${{ github.event.issue.number }}"
-            ```
-            Always include a summary of changes AND "Closes #${{ github.event.issue.number }}" in the body.
-            For the branch name, use descriptive name including the issue number and also a very short description of the implemented feature or fix (2-3 words).
-                       
-            **WHEN WORKING ON PR FEEDBACK:**
-            Make the requested changes and commit. The PR will automatically update - do NOT create a new PR.
-           
-            **WHEN FIXING CI FAILURES:**
-            Fix the issues, commit the fix. The CI will automatically re-run.
-           
-            **OUTPUT RULES:**
-          
-            ## Commit Message Requirements (max 72 chars)
-            - Imperative mood: "Add" not "Added"
-            - Action verbs: Add, Update, Fix, Remove, Refactor, Implement
-            - No articles (a, an, the)
-            - No punctuation at end
-            - Single line only
-
-          # Enable progress tracking
           track_progress: true
-
-          # Claude CLI arguments
           claude_args: |
-            --allowedTools "Bash(git:*),Bash(gh issue:*),Bash(gh pr:*),Bash(gh repo:*),Bash(npm:*),Bash(npx:*),Edit,Write,Read,Glob,Grep,LS,WebSearch,WebFetch"
+            --max-turns 40
+            --dangerously-skip-permissions
+          prompt: |
+            You are working on OptiLab, a static HTML/JS optical bench simulator.
+            No build step - open index.html directly in a browser. All source is in js/ and styles/.
+
+            Key files:
+            - js/config.js - all global state variables and constants
+            - js/element.js - Element class, component types, ray-tracing segments
+            - js/input.js - all mouse/keyboard event handlers
+            - js/renderer.js - all canvas drawing functions
+            - js/state.js - save/load/undo/redo
+            - js/ui/controls.js - dynamic sidebar UI panel
+            - js/physics/raytracing.js - ray casting and beam physics
+            - js/physics/optics.js - Mueller matrix optics
+
+            Coding rules:
+            - No comments unless the why is non-obvious
+            - No build tools, plain JS, no imports, everything global
+            - Tailwind CSS classes for UI (loaded via CDN)
+            - State lives in config.js as let globals
+            - saveToHistory() before any mutation that should be undoable
+            - draw() after any state change that affects visuals
+            - updateUI() after selection changes
+            - Clone elements: rehydrateElement(JSON.parse(JSON.stringify(el)))
+
+            Commit messages (max 72 chars, imperative mood, no articles, no trailing period).
+            Example: "Add inline name editing on double-click"
+
+            ---
+
+            **IF YOU ARE WORKING ON A GITHUB ISSUE** (someone tagged @claude on an issue to implement it):
+
+            1. Mark it as claimed: gh issue edit ${{ github.event.issue.number }} --add-label claimed --remove-label pending
+            2. Read CLAUDE.md for full context.
+            3. Read the relevant source files.
+            4. Create a feature branch: git checkout -b feat/${{ github.event.issue.number }}-<2-3-word-slug>
+            5. Implement the feature.
+            6. Commit your changes.
+            7. Push: git push origin feat/${{ github.event.issue.number }}-<slug>
+            8. Create a PR:
+               gh pr create \
+                 --title "<feature title>" \
+                 --label "ready-for-review" \
+                 --head "feat/${{ github.event.issue.number }}-<slug>" \
+                 --body "## Description
+
+            <what to test and what correct behavior looks like>
+
+            Closes #${{ github.event.issue.number }}"
+
+            **IF YOU ARE WORKING ON A PR** (someone tagged @claude on a PR comment or review):
+
+            1. Read the comment/review to understand what's being asked.
+            2. Read the relevant source files.
+            3. Make the requested changes and commit. NEVER amend, NEVER force-push.
+            4. Push to the existing PR branch - do NOT create a new PR.
+            5. Reply with a brief summary of what you changed.

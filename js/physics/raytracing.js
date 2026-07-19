@@ -3,14 +3,22 @@
  * Core ray tracing and physics simulation
  */
 
+// When set to a Map, records which lasers hit each element: elementId -> Set<laserId>
+let laserHitTracker = null;
+
+// Records the beam color of the first laser hitting each element: elementId -> hex string
+let laserColorTracker = null;
+
 /**
  * Trace a single ray through the optical system
  * @param {Object} ray - Ray object with x, y, dx, dy, intensity, stokes, color
  * @param {number} depth - Current bounce depth
  * @param {Array} results - Array to collect ray segments
  */
+const MIN_RAY_INTENSITY = 0.001;
+
 function traceRay(ray, depth, results) {
-    if (depth > MAX_BOUNCES || ray.intensity == 0) return;
+    if (depth > MAX_BOUNCES || !(ray.intensity > MIN_RAY_INTENSITY)) return;
 
     let closestHit = null;
     let closestDist = Infinity;
@@ -20,6 +28,7 @@ function traceRay(ray, depth, results) {
     // Find intersection with all elements
     elements.forEach(el => {
         if (el.type === 'laser' || el.type === 'board') return;
+        if (el.isFuturePlan && !showFuturePlans) return;
         el.getSegments().forEach(seg => {
             const hit = getIntersection(
                 { x: ray.x, y: ray.y },
@@ -44,8 +53,20 @@ function traceRay(ray, depth, results) {
             y2: closestHit.y,
             color: ray.color + ray.intensity + ')',
             thickness: ray.thickness ?? 1,
-            stokes: ray.stokes
+            stokes: ray.stokes,
+            laserId: ray.laserId,
+            hitId: hitObject.id
         });
+
+        if (laserHitTracker && hitObject) {
+            if (!laserHitTracker.has(hitObject.id)) laserHitTracker.set(hitObject.id, new Set());
+            laserHitTracker.get(hitObject.id).add(ray.laserId);
+        }
+        if (laserColorTracker && hitObject && !laserColorTracker.has(hitObject.id)) {
+            const m = ray.color.match(/rgba\((\d+),\s*(\d+),\s*(\d+)/);
+            if (m) laserColorTracker.set(hitObject.id,
+                '#' + [m[1], m[2], m[3]].map(v => parseInt(v).toString(16).padStart(2, '0')).join(''));
+        }
 
         const segVec = closestHit.segVector;
         let nx = -segVec.y;
@@ -279,6 +300,10 @@ function traceRay(ray, depth, results) {
             if (hitObject.pairedWith) {
                 const pairedElement = elements.find(el => el.id === hitObject.pairedWith);
                 if (pairedElement) {
+                    if (laserColorTracker && !laserColorTracker.has(pairedElement.id)) {
+                        const litColor = laserColorTracker.get(hitObject.id);
+                        if (litColor) laserColorTracker.set(pairedElement.id, litColor);
+                    }
                     if (pairedElement.type === 'amplifier') {
                         // Paired with amplifier: amplify and output direct beam from amplifier
                         const gain = pairedElement.gain || 2.0;
@@ -328,15 +353,67 @@ function traceRay(ray, depth, results) {
                 }, depth + 1, results);
             }
 
-        } else if (hitObject.type === 'iris') {
-            // Iris pass-through (visual only for now)
+        } else if (hitSegment.type === 'custom-mirror') {
+            // Custom double-sided mirror: reflects from either face
+            const newStokes = MuellerMath.interact(ray.stokes, MuellerMath.MATRICES.MIRROR);
+            const rx = inc.x - 2 * dp * nx;
+            const ry = inc.y - 2 * dp * ny;
+            traceRay({
+                ...ray,
+                x: closestHit.x,
+                y: closestHit.y,
+                dx: rx,
+                dy: ry,
+                intensity: newStokes[0],
+                stokes: newStokes
+            }, depth + 1, results);
+
+        } else if (hitSegment.type === 'custom-polarizer') {
+            // Custom linear polarizer: transmission axis = body rotation + user angle
+            const axis = hitObject.rotation + toRad(hitObject.customPolAngle || 0);
+            const mat = MuellerMath.rotateComponent(MuellerMath.MATRICES.POLARIZER_H, axis);
+            const newStokes = MuellerMath.interact(ray.stokes, mat);
             traceRay({
                 ...ray,
                 x: closestHit.x + inc.x * 0.1,
                 y: closestHit.y + inc.y * 0.1,
                 dx: inc.x,
-                dy: inc.y
+                dy: inc.y,
+                intensity: newStokes[0],
+                stokes: newStokes
             }, depth + 1, results);
+
+        } else if (hitSegment.type === 'custom-attenuator') {
+            // Custom attenuator: scales intensity by transmission factor
+            const t = Math.max(0, Math.min(1, hitObject.customTransmission ?? 0.5));
+            const newStokes = ray.stokes.map(v => v * t);
+            traceRay({
+                ...ray,
+                x: closestHit.x + inc.x * 0.1,
+                y: closestHit.y + inc.y * 0.1,
+                dx: inc.x,
+                dy: inc.y,
+                intensity: newStokes[0],
+                stokes: newStokes
+            }, depth + 1, results);
+
+        } else if (hitObject.type === 'iris') {
+            // Iris: pass only through the aperture opening, absorb on the blades.
+            // Opening radius matches the drawn aperture (80% of housing at full open).
+            const aperture = Math.max(0, Math.min(1, hitObject.aperture ?? 0.5));
+            const openingRadius = (hitObject.width / 2) * aperture * 0.8;
+            const offX = closestHit.x - hitObject.x;
+            const offY = closestHit.y - hitObject.y;
+            const offset = Math.sqrt(offX * offX + offY * offY);
+            if (offset <= openingRadius) {
+                traceRay({
+                    ...ray,
+                    x: closestHit.x + inc.x * 0.1,
+                    y: closestHit.y + inc.y * 0.1,
+                    dx: inc.x,
+                    dy: inc.y
+                }, depth + 1, results);
+            }
 
         } else if (hitObject.type === 'mirror-d' && hitSegment.type === 'blocker') {
             // D-mirror non-reflective part - transmit through
@@ -360,7 +437,8 @@ function traceRay(ray, depth, results) {
             y2: ray.y + ray.dy * 2000,
             color: ray.color + ray.intensity + ')',
             thickness: ray.thickness ?? 1,
-            stokes: ray.stokes
+            stokes: ray.stokes,
+            laserId: ray.laserId
         });
     }
 }
@@ -371,8 +449,9 @@ function traceRay(ray, depth, results) {
  */
 function castRays() {
     lastHitOnSelected = null;
+    laserColorTracker = new Map();
     let raysToDraw = [];
-    const lasers = elements.filter(e => e.type === 'laser');
+    const lasers = elements.filter(e => e.type === 'laser' && (!e.isFuturePlan || showFuturePlans));
 
     lasers.forEach(laser => {
         const dir = rotatePoint({ x: 1, y: 0 }, laser.rotation);
@@ -401,6 +480,8 @@ function castRays() {
         traceRay(ray, 0, raysToDraw);
     });
 
+    elementLaserColor = laserColorTracker;
+    laserColorTracker = null;
     return raysToDraw;
 }
 

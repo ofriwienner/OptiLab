@@ -24,16 +24,19 @@ function drawGrid() {
     const endX = bottomRight.x + gridStep;
     const endY = bottomRight.y + gridStep;
 
-    ctx.fillStyle = 'rgba(50, 50, 70, 0.6)';
+    const dotRadius = 1.2 * view.scale;
+    if (dotRadius < 0.3) return;
 
+    ctx.fillStyle = 'rgba(50, 50, 70, 0.6)';
+    ctx.beginPath();
     for (let wx = startX; wx < endX; wx += gridStep) {
         for (let wy = startY; wy < endY; wy += gridStep) {
             const sp = worldToScreen(wx, wy);
-            ctx.beginPath();
-            ctx.arc(sp.x, sp.y, 1.2 * view.scale, 0, Math.PI * 2);
-            ctx.fill();
+            ctx.moveTo(sp.x + dotRadius, sp.y);
+            ctx.arc(sp.x, sp.y, dotRadius, 0, Math.PI * 2);
         }
     }
+    ctx.fill();
 }
 
 /**
@@ -59,6 +62,35 @@ function createDragImage(type) {
     const img = new Image();
     img.src = c.toDataURL();
     return img;
+}
+
+/**
+ * Stroke the selection/hover outline shape for an element
+ * (assumes ctx is already translated/rotated/scaled to the element)
+ */
+function strokeElementOutline(el) {
+    if (el.type === 'board') {
+        ctx.strokeRect(-el.width / 2, -el.height / 2, el.width, el.height);
+    } else if (el.type === 'border') {
+        if (el.borderShape === 'polygon') {
+            const pts = el.borderPoints || [];
+            if (pts.length >= 2) {
+                ctx.beginPath();
+                ctx.moveTo(pts[0].x, pts[0].y);
+                for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+                ctx.closePath();
+                ctx.stroke();
+            }
+        } else {
+            ctx.strokeRect(-el.width / 2, -el.height / 2, el.width, el.height);
+        }
+    } else if (el.type === 'measure') {
+        ctx.strokeRect(-el.width / 2 - 2, -5, el.width + 4, 10);
+    } else if (el.type.includes('mirror')) {
+        ctx.strokeRect(-el.width / 2 - 2, -2, el.width + 4, el.height + 4);
+    } else {
+        ctx.strokeRect(-el.width / 2 - 2, -el.height / 2 - 2, el.width + 4, el.height + 4);
+    }
 }
 
 /**
@@ -92,29 +124,12 @@ function drawElement(el) {
         ctx.shadowBlur = 10;
         ctx.strokeStyle = 'rgba(255,255,255,0.8)';
         ctx.lineWidth = 1;
-        if (el.type === 'board') {
-            ctx.strokeRect(-el.width / 2, -el.height / 2, el.width, el.height);
-        } else if (el.type === 'border') {
-            if (el.borderShape === 'polygon') {
-                const pts = el.borderPoints || [];
-                if (pts.length >= 2) {
-                    ctx.beginPath();
-                    ctx.moveTo(pts[0].x, pts[0].y);
-                    for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
-                    ctx.closePath();
-                    ctx.stroke();
-                }
-            } else {
-                ctx.strokeRect(-el.width / 2, -el.height / 2, el.width, el.height);
-            }
-        } else if (el.type === 'measure') {
-            ctx.strokeRect(-el.width / 2 - 2, -5, el.width + 4, 10);
-        } else if (el.type.includes('mirror')) {
-            ctx.strokeRect(-el.width / 2 - 2, -2, el.width + 4, el.height + 4);
-        } else {
-            ctx.strokeRect(-el.width / 2 - 2, -el.height / 2 - 2, el.width + 4, el.height + 4);
-        }
+        strokeElementOutline(el);
         ctx.shadowBlur = 0;
+    } else if (el === hoverTarget && !isDragging && !isRotating && !isResizing && !isSelecting && !view.isPanning) {
+        ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+        ctx.lineWidth = 1;
+        strokeElementOutline(el);
     }
 
     // Draw Component Graphics
@@ -228,15 +243,18 @@ function drawBoard(el, sc) {
     const startWX = Math.ceil((boardLeft - gridOffset) / gx) * gx + gridOffset;
     const startWY = Math.ceil((boardTop - gridOffset) / gx) * gx + gridOffset;
 
-    ctx.fillStyle = '#111';
-    for (let wx = startWX; wx < boardRight; wx += gx) {
-        for (let wy = startWY; wy < boardBottom; wy += gx) {
-            const lx = wx - el.x;
-            const ly = wy - el.y;
-            ctx.beginPath();
-            ctx.arc(lx, ly, 1.2, 0, Math.PI * 2);
-            ctx.fill();
+    if (sc >= 0.25) {
+        ctx.fillStyle = '#111';
+        ctx.beginPath();
+        for (let wx = startWX; wx < boardRight; wx += gx) {
+            for (let wy = startWY; wy < boardBottom; wy += gx) {
+                const lx = wx - el.x;
+                const ly = wy - el.y;
+                ctx.moveTo(lx + 1.2, ly);
+                ctx.arc(lx, ly, 1.2, 0, Math.PI * 2);
+            }
         }
+        ctx.fill();
     }
     ctx.restore();
 }
@@ -427,8 +445,13 @@ function drawDetector(el) {
  * Draw fiber coupler element
  */
 function drawFiberCoupler(el) {
-    // Use gray for unpaired fiber couplers, otherwise use the assigned fiber color
-    const fiberColor = el.pairedWith ? (el.fiberColor || '#ffa500') : '#6b7280';
+    // Use laser color when illuminated, else check paired partner's laser color, else fiber pair color, else gray
+    let fiberColor = elementLaserColor.get(el.id);
+    if (!fiberColor && el.pairedWith) {
+        const partner = elements.find(e => e.id === el.pairedWith);
+        if (partner) fiberColor = elementLaserColor.get(partner.id);
+    }
+    fiberColor = fiberColor || (el.pairedWith ? (el.fiberColor || '#ffa500') : '#6b7280');
     const hexToRgba = (hex, alpha) => {
         const r = parseInt(hex.slice(1, 3), 16);
         const g = parseInt(hex.slice(3, 5), 16);
@@ -477,8 +500,14 @@ function drawFiberCoupler(el) {
  * Fiber input on left, direct laser output on right
  */
 function drawAmplifier(el) {
-    // Use gray for unconnected amplifier, otherwise use the assigned fiber color
-    const fiberColor = el.pairedWith ? (el.fiberColor || '#ffa500') : '#6b7280';
+    // Use gray for unconnected amplifier, laser color from paired coupler if illuminated, else assigned fiber color
+    let fiberColor;
+    if (el.pairedWith) {
+        const pairedCoupler = elements.find(e => e.id === el.pairedWith);
+        fiberColor = (pairedCoupler && elementLaserColor.get(pairedCoupler.id)) || el.fiberColor || '#ffa500';
+    } else {
+        fiberColor = '#6b7280';
+    }
     const hexToRgba = (hex, alpha) => {
         const r = parseInt(hex.slice(1, 3), 16);
         const g = parseInt(hex.slice(3, 5), 16);
@@ -1031,6 +1060,13 @@ function drawRays(rays) {
         const p1 = worldToScreen(seg.x1, seg.y1);
         const p2 = worldToScreen(seg.x2, seg.y2);
 
+        // Viewport culling — skip segments entirely outside the visible area
+        const m = 10;
+        if ((p1.x < -m && p2.x < -m) ||
+            (p1.x > canvas.width + m && p2.x > canvas.width + m) ||
+            (p1.y < -m && p2.y < -m) ||
+            (p1.y > canvas.height + m && p2.y > canvas.height + m)) return;
+
         // Apply intensity override if intensity display is disabled
         let beamColor = seg.color;
         if (!showIntensity) {
@@ -1068,7 +1104,7 @@ function drawRays(rays) {
         const isCircular = Math.abs(seg.stokes[3]) > (seg.stokes[0] * 0.1);
         const isVertical = !isCircular && seg.stokes[0] > 0 && seg.stokes[1] < -0.9 * seg.stokes[0];
 
-        const step = 40 * view.scale;
+        const step = Math.max(40 * view.scale, 15);
         for (let d = step; d < dist - step / 2; d += step) {
             const t = d / dist;
             const px = p1.x + dx * t;
@@ -1322,8 +1358,10 @@ function drawFiberCables() {
 
         const paired = elements.find(el => el.id === coupler.pairedWith);
         if (!paired) return;
+        if (!showFuturePlans && (coupler.isFuturePlan || paired.isFuturePlan)) return;
 
-        const fiberColor = coupler.fiberColor || '#ffa500';
+        const laserColor = elementLaserColor.get(coupler.id) || elementLaserColor.get(paired.id);
+        const fiberColor = laserColor || coupler.fiberColor || '#ffa500';
         const p1 = worldToScreen(coupler.x, coupler.y);
         const p2 = worldToScreen(paired.x, paired.y);
 
@@ -1460,20 +1498,82 @@ function drawFiberConnectingLine() {
     fiberConnectAnimationId = requestAnimationFrame(() => draw());
 }
 
+let _cachedRays = null;
+let _lastRayHash = null;
+
+function _hashNum(h, n) {
+    return Math.imul(h, 1000003) ^ ((n * 1000 + 0.5) | 0);
+}
+
+function _hashStr(h, s) {
+    for (let i = 0; i < s.length; i++) h = Math.imul(h, 1000003) ^ s.charCodeAt(i);
+    return h;
+}
+
+function _computeRayHash() {
+    let h = elements.length;
+    h = Math.imul(h, 1000003) ^ (showFuturePlans ? 7 : 11);
+    for (let i = 0; i < elements.length; i++) {
+        const e = elements[i];
+        h = _hashStr(h, e.type);
+        h = _hashNum(h, e.x);
+        h = _hashNum(h, e.y);
+        h = _hashNum(h, e.rotation * 10);
+        h = _hashNum(h, e.width);
+        h = _hashNum(h, e.height);
+        if (e.isFuturePlan) h = Math.imul(h, 1000003) ^ 13;
+        if (e.aomEnabled !== undefined) h = Math.imul(h, 1000003) ^ (e.aomEnabled ? 1 : 2);
+        if (e.cellAngle != null)  h = _hashNum(h, e.cellAngle);
+        if (e.polAngle  != null)  h = _hashNum(h, e.polAngle);
+        if (e.aperture  != null)  h = _hashNum(h, e.aperture);
+        if (e.gain      != null)  h = _hashNum(h, e.gain);
+        if (e.axisAngle != null)  h = _hashNum(h, e.axisAngle * 10);
+        if (e.optics && e.optics.focalLength != null) h = _hashNum(h, e.optics.focalLength);
+        if (e.beamColor) h = _hashStr(h, e.beamColor);
+        if (e.beamThickness != null) h = _hashNum(h, e.beamThickness);
+        if (e.isFlipped) h = Math.imul(h, 1000003) ^ 3;
+        if (e.pairedWith) h = _hashNum(h, e.pairedWith % 1e6);
+        if (e.blockedLasers && e.blockedLasers.length) {
+            for (const id of e.blockedLasers) h = _hashNum(h, id % 1e6);
+        }
+        if (e.type === 'custom') {
+            h = _hashStr(h, e.customBehavior || 'none');
+            if (e.customTransmission != null) h = _hashNum(h, e.customTransmission);
+            if (e.customPolAngle != null) h = _hashNum(h, e.customPolAngle);
+        }
+    }
+    return h;
+}
+
+function isElementOnScreen(el) {
+    const pos = worldToScreen(el.x, el.y);
+    const sc = view.scale * PIXELS_PER_MM;
+    const r = (Math.max(el.width, el.height) * 0.75 + 30) * sc;
+    return pos.x + r > 0 && pos.x - r < canvas.width &&
+           pos.y + r > 0 && pos.y - r < canvas.height;
+}
+
 /**
  * Main draw function - renders the entire scene
  */
 function draw() {
+    const rayHash = _computeRayHash();
+    if (rayHash !== _lastRayHash) {
+        _cachedRays = castRays();
+        _lastRayHash = rayHash;
+        // Keep the detector readout live while beams change
+        const sel = Array.from(selection).pop();
+        if (sel && sel.type === 'detector') updateUI();
+    }
     drawGrid();
     // Borders are rendered first so they appear behind everything
     elements.forEach(el => { if (el.type === 'border' && !selection.has(el)) drawElement(el); });
     elements.forEach(el => { if (el.type === 'border' && selection.has(el)) drawElement(el); });
     drawFiberCables();
-    elements.forEach(el => { if (el.type === 'board') drawElement(el); });
-    elements.forEach(el => { if (el.type !== 'board' && el.type !== 'border' && !selection.has(el)) drawElement(el); });
+    elements.forEach(el => { if (el.type === 'board' && isElementOnScreen(el)) drawElement(el); });
+    elements.forEach(el => { if (el.type !== 'board' && el.type !== 'border' && !selection.has(el) && isElementOnScreen(el)) drawElement(el); });
     elements.forEach(el => { if (el.type !== 'board' && el.type !== 'border' && selection.has(el)) drawElement(el); });
-    const rays = castRays();
-    drawRays(rays);
+    drawRays(_cachedRays);
     drawGroupSelectionBox();
     drawLensFocusDots();
     drawMarquee();
@@ -1482,6 +1582,41 @@ function draw() {
     drawMeasureOverlay();
     drawBorderOverlay();
     drawHints();
+    updateSelectionToolbarPosition();
+}
+
+/**
+ * Position the floating selection toolbar below the selected components,
+ * hiding it during any active interaction.
+ */
+function updateSelectionToolbarPosition() {
+    const bar = document.getElementById('selection-toolbar');
+    if (!bar) return;
+    const items = Array.from(selection).filter(el => el.type !== 'board');
+    const busy = isDragging || isRotating || isResizing || isSelecting || isAdjustingAxis ||
+                 view.isPanning || isFiberConnecting || isMeasureMode || pendingBoard ||
+                 calibrationState > 0;
+    if (items.length === 0 || busy) {
+        bar.classList.add('hidden');
+        return;
+    }
+
+    const sc = view.scale * PIXELS_PER_MM;
+    let minX = Infinity, maxX = -Infinity, maxY = -Infinity;
+    items.forEach(el => {
+        const s = worldToScreen(el.x, el.y);
+        const hw = Math.max(el.width, el.height) / 2 * sc;
+        minX = Math.min(minX, s.x - hw);
+        maxX = Math.max(maxX, s.x + hw);
+        maxY = Math.max(maxY, s.y + hw);
+    });
+
+    bar.classList.remove('hidden');
+    const barW = bar.offsetWidth || 90;
+    const left = Math.max(4, Math.min(canvas.width - barW - 4, (minX + maxX) / 2 - barW / 2));
+    const top = Math.min(canvas.height - 36, maxY + 14);
+    bar.style.left = left + 'px';
+    bar.style.top = top + 'px';
 }
 
 /**
@@ -1964,6 +2099,64 @@ function drawCustom(el) {
     const opacity = el.customOpacity ?? 1;
     const sc = view.scale * PIXELS_PER_MM;
 
+    if (shape === 'cylinder') {
+        const ry = Math.min(h * 0.18, w * 0.35);
+        const topY = -h / 2 + ry;
+        const botY = h / 2 - ry;
+        const fillColor = el.customColor || '#3b82f6';
+        const borderColor = el.customBorderColor || '#93c5fd';
+        const lw = 2.5 / sc;
+
+        ctx.globalAlpha = opacity;
+        ctx.fillStyle = fillColor;
+
+        ctx.beginPath();
+        ctx.rect(-w / 2, topY, w, botY - topY);
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.ellipse(0, botY, w / 2, ry, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.ellipse(0, topY, w / 2, ry, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.globalAlpha = 1;
+
+        if (!el.customNoBorder) {
+            ctx.strokeStyle = borderColor;
+            ctx.lineWidth = lw;
+
+            ctx.beginPath();
+            ctx.moveTo(-w / 2, topY);
+            ctx.lineTo(-w / 2, botY);
+            ctx.moveTo(w / 2, topY);
+            ctx.lineTo(w / 2, botY);
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.ellipse(0, botY, w / 2, ry, 0, 0, Math.PI);
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.ellipse(0, topY, w / 2, ry, 0, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+
+        const text = el.customText || '';
+        if (text) {
+            const bold = el.customFontBold ? 'bold ' : '';
+            ctx.fillStyle = el.customTextColor || '#ffffff';
+            ctx.font = `${bold}${el.customFontSize || 10}px sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(text, 0, (topY + botY) / 2);
+        }
+        drawCustomBehaviorIndicator(el, w, h, sc);
+        return;
+    }
+
     ctx.beginPath();
     if (shape === 'circle') {
         ctx.arc(0, 0, Math.min(w, h) / 2, 0, Math.PI * 2);
@@ -2002,6 +2195,153 @@ function drawCustom(el) {
         ctx.textBaseline = 'middle';
         ctx.fillText(text, 0, 0);
     }
+
+    drawCustomBehaviorIndicator(el, w, h, sc);
 }
 
+/**
+ * Draw the optical-surface indicator for custom components with an
+ * active behavior, so the interaction plane is visible on the bench.
+ */
+function drawCustomBehaviorIndicator(el, w, h, sc) {
+    const behavior = el.customBehavior || 'none';
+    if (behavior === 'none') return;
+
+    ctx.save();
+    ctx.lineWidth = 1.5 / sc;
+    if (behavior === 'mirror') {
+        ctx.strokeStyle = 'rgba(34, 211, 238, 0.9)';
+        ctx.beginPath();
+        ctx.moveTo(-w / 2, 0);
+        ctx.lineTo(w / 2, 0);
+        ctx.stroke();
+    } else if (behavior === 'splitter') {
+        ctx.strokeStyle = 'rgba(250, 204, 21, 0.9)';
+        ctx.beginPath();
+        ctx.moveTo(-w / 2, -h / 2);
+        ctx.lineTo(w / 2, h / 2);
+        ctx.stroke();
+    } else if (behavior === 'polarizer') {
+        ctx.strokeStyle = 'rgba(74, 222, 128, 0.9)';
+        ctx.beginPath();
+        ctx.moveTo(0, -h / 2);
+        ctx.lineTo(0, h / 2);
+        ctx.stroke();
+        ctx.save();
+        ctx.rotate(toRad(el.customPolAngle || 0));
+        ctx.setLineDash([2, 2]);
+        ctx.beginPath();
+        ctx.moveTo(-w * 0.3, 0);
+        ctx.lineTo(w * 0.3, 0);
+        ctx.stroke();
+        ctx.restore();
+
+        // Transmission-axis knob above the shape (same interaction as waveplates)
+        ctx.save();
+        ctx.translate(0, -h / 2 - WAVEPLATE_KNOB_OFFSET_MM);
+        ctx.rotate(-el.rotation);
+        const knobRadius = WAVEPLATE_KNOB_RADIUS_MM;
+        const isSelected = selection.has(el);
+        ctx.beginPath();
+        ctx.arc(0, 0, knobRadius, 0, Math.PI * 2);
+        ctx.fillStyle = isAdjustingAxis && axisAdjustTarget === el ? '#166534' : '#111827';
+        ctx.strokeStyle = isSelected ? '#86efac' : '#4b5563';
+        ctx.lineWidth = 0.6;
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.save();
+        ctx.rotate(el.rotation + toRad(el.customPolAngle || 0));
+        ctx.strokeStyle = '#4ade80';
+        ctx.lineWidth = 0.6;
+        ctx.beginPath();
+        ctx.moveTo(-knobRadius * 0.8, 0);
+        ctx.lineTo(knobRadius * 0.8, 0);
+        ctx.stroke();
+        ctx.restore();
+
+        ctx.fillStyle = '#bbf7d0';
+        ctx.font = '8px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'bottom';
+        ctx.fillText(`${Math.round(el.customPolAngle || 0)}°`, 0, -knobRadius - 2);
+        ctx.restore();
+    } else if (behavior === 'attenuator') {
+        ctx.strokeStyle = 'rgba(148, 163, 184, 0.9)';
+        ctx.setLineDash([3, 2]);
+        ctx.beginPath();
+        ctx.moveTo(0, -h / 2);
+        ctx.lineTo(0, h / 2);
+        ctx.stroke();
+        ctx.setLineDash([]);
+    } else if (behavior === 'blocker') {
+        ctx.strokeStyle = 'rgba(248, 113, 113, 0.7)';
+        ctx.strokeRect(-w / 2, -h / 2, w, h);
+    }
+    ctx.restore();
+}
+
+/**
+ * Render scene to offscreen canvas and download as PNG.
+ * @param {boolean} wholeScene - true = fit all elements; false = current viewport at 3x
+ */
+function captureScreenshot(wholeScene) {
+    const SCALE = 3;
+    const PAD_MM = 50;
+    const PAD_PX = 60;
+
+    const savedCanvas = canvas;
+    const savedCtx = ctx;
+    const savedVX = view.x, savedVY = view.y, savedVS = view.scale;
+
+    const off = document.createElement('canvas');
+
+    if (!wholeScene) {
+        off.width  = savedCanvas.width  * SCALE;
+        off.height = savedCanvas.height * SCALE;
+        canvas = off;
+        ctx    = off.getContext('2d');
+        view.x     = savedVX * SCALE;
+        view.y     = savedVY * SCALE;
+        view.scale = savedVS * SCALE;
+    } else {
+        if (elements.length === 0) { canvas = savedCanvas; ctx = savedCtx; return; }
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        elements.forEach(el => {
+            const r = Math.max(el.width, el.height) / 2;
+            minX = Math.min(minX, el.x - r);
+            minY = Math.min(minY, el.y - r);
+            maxX = Math.max(maxX, el.x + r);
+            maxY = Math.max(maxY, el.y + r);
+        });
+        minX -= PAD_MM; minY -= PAD_MM; maxX += PAD_MM; maxY += PAD_MM;
+        const sceneW = maxX - minX;
+        const sceneH = maxY - minY;
+        const ppmEff = Math.min(4000 / sceneW, 3000 / sceneH);
+        off.width  = Math.ceil(sceneW * ppmEff + 2 * PAD_PX);
+        off.height = Math.ceil(sceneH * ppmEff + 2 * PAD_PX);
+        canvas = off;
+        ctx    = off.getContext('2d');
+        view.scale = ppmEff / PIXELS_PER_MM;
+        view.x = PAD_PX - minX * ppmEff;
+        view.y = PAD_PX - minY * ppmEff;
+    }
+
+    drawGrid();
+    drawFiberCables();
+    elements.forEach(el => { if (el.type === 'board')   drawElement(el); });
+    elements.forEach(el => { if (el.type !== 'board' && !selection.has(el)) drawElement(el); });
+    elements.forEach(el => { if (el.type !== 'board' &&  selection.has(el)) drawElement(el); });
+    drawRays(castRays());
+    drawLensFocusDots();
+
+    canvas = savedCanvas;
+    ctx    = savedCtx;
+    view.x = savedVX; view.y = savedVY; view.scale = savedVS;
+
+    const link = document.createElement('a');
+    link.download = wholeScene ? 'optilab-scene.png' : 'optilab-view.png';
+    link.href = off.toDataURL('image/png');
+    link.click();
+}
 

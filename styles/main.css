@@ -476,6 +476,58 @@ canvas {
     line-height: 1;
 }
 
+/* Inline Title Editor */
+#inline-title-input {
+    display: none;
+    position: absolute;
+    background: rgba(17, 24, 39, 0.95);
+    border: 1px solid #4b5563;
+    border-radius: 3px;
+    color: #9ca3af;
+    font: 11px sans-serif;
+    padding: 1px 4px;
+    outline: none;
+    z-index: 200;
+    min-width: 60px;
+    width: 120px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
+    user-select: text;
+}
+
+#inline-title-input:focus {
+    border-color: #6b7280;
+    box-shadow: 0 0 0 2px rgba(107, 114, 128, 0.25), 0 2px 8px rgba(0, 0, 0, 0.6);
+}
+
+/* Selection toolbar - instant tooltip built from the button's title attribute */
+#selection-toolbar button {
+    position: relative;
+}
+
+#selection-toolbar button::after {
+    content: attr(title);
+    position: absolute;
+    bottom: calc(100% + 6px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+    border: 1px solid var(--border-secondary);
+    border-radius: 4px;
+    padding: 3px 6px;
+    font-size: 10px;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s;
+    z-index: 50;
+    box-shadow: var(--shadow-sm);
+}
+
+#selection-toolbar button:hover::after {
+    opacity: 1;
+}
+
 /* Calibration Modal - Modern Toast Style */
 .calibration-modal {
     position: fixed;

@@ -151,6 +151,48 @@ function updateCellAngleFromPoint(el, worldPoint) {
 }
 
 /**
+ * Get custom-polarizer axis knob hit test
+ * @param {Object} mousePoint - Screen coordinates
+ * @returns {Object|null} Hit custom polarizer or null
+ */
+function getCustomPolKnobHit(mousePoint) {
+    const polarizers = elements.filter(el => el.type === 'custom' && el.customBehavior === 'polarizer').reverse();
+    for (let el of polarizers) {
+        const knobWorld = el.getAxisKnobWorldPosition();
+        const knobScreen = worldToScreen(knobWorld.x, knobWorld.y);
+        const radiusPx = Math.max(8, WAVEPLATE_KNOB_RADIUS_MM * view.scale * PIXELS_PER_MM);
+        const dx = mousePoint.x - knobScreen.x;
+        const dy = mousePoint.y - knobScreen.y;
+        if (dx * dx + dy * dy <= radiusPx * radiusPx) return el;
+    }
+    return null;
+}
+
+/**
+ * Update custom-polarizer transmission axis from mouse position
+ * Angle is stored in degrees relative to the element body, folded to [-90, 90)
+ * @param {Object} el - Custom polarizer element
+ * @param {Object} worldPoint - World coordinates of mouse
+ * @returns {boolean} True if angle changed
+ */
+function updateCustomPolAngleFromPoint(el, worldPoint) {
+    if (el.type !== 'custom' || el.customBehavior !== 'polarizer') return false;
+    const knobWorld = el.getAxisKnobWorldPosition();
+    const worldAngle = Math.atan2(worldPoint.y - knobWorld.y, worldPoint.x - knobWorld.x);
+    let deg = toDeg(worldAngle - el.rotation);
+    let stepDeg = 5;
+    if (shiftPressed) stepDeg = 0;
+    else if (ctrlPressed) stepDeg = 1;
+    if (stepDeg > 0) deg = Math.round(deg / stepDeg) * stepDeg;
+    deg = ((deg % 180) + 270) % 180 - 90;
+    if (typeof el.customPolAngle !== 'number' || Math.abs(el.customPolAngle - deg) > 0.01) {
+        el.customPolAngle = deg;
+        return true;
+    }
+    return false;
+}
+
+/**
  * Get AOM direction vector
  * @param {Object} el - AOM element
  * @returns {Object} Normalized direction vector
