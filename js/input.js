@@ -522,6 +522,38 @@ function handleMouseDown(e) {
                 return;
             }
         } else if (primary.type !== 'board') {
+            // Component corner resize handles
+            const resizableTypes = ['laser', 'mirror', 'splitter', 'pbs', 'aom', 'lens', 'blocker',
+                'detector', 'fiber-coupler', 'amplifier', 'iris', 'twinleaf', 'cell', 'filter', 'custom'];
+            if (resizableTypes.includes(primary.type)) {
+                const r = primary.rotation;
+                const cos = Math.cos(r), sin = Math.sin(r);
+                const compCorners = [
+                    { key: 'br', lx: primary.width / 2, ly: primary.height / 2 },
+                    { key: 'bl', lx: -primary.width / 2, ly: primary.height / 2 },
+                    { key: 'tr', lx: primary.width / 2, ly: -primary.height / 2 },
+                    { key: 'tl', lx: -primary.width / 2, ly: -primary.height / 2 },
+                ];
+                let hitCompCornerKey = null;
+                for (const c of compCorners) {
+                    const wx2 = primary.x + c.lx * cos - c.ly * sin;
+                    const wy2 = primary.y + c.lx * sin + c.ly * cos;
+                    const cs = worldToScreen(wx2, wy2);
+                    if ((m.x - cs.x) ** 2 + (m.y - cs.y) ** 2 < 100) {
+                        hitCompCornerKey = c.key;
+                        break;
+                    }
+                }
+                if (hitCompCornerKey) {
+                    saveToHistory();
+                    isResizing = true;
+                    resizeCorner = hitCompCornerKey;
+                    originalBoardState = { w: primary.width, h: primary.height, x: primary.x, y: primary.y };
+                    draw();
+                    return;
+                }
+            }
+
             // Component rotate handle
             const hl = primary.getHandlePosition();
             const hs = worldToScreen(primary.x + hl.x, primary.y + hl.y);
@@ -808,38 +840,66 @@ function handleMouseMove(e) {
             const ox = originalBoardState.x, oy = originalBoardState.y;
             const ow = originalBoardState.w, oh = originalBoardState.h;
             const minW = originalBoardState.minW, minH = originalBoardState.minH;
-            let fixedX, fixedY, newW, newH, newCx, newCy;
+            let fixedX, fixedY, newW, newH;
             if (resizeCorner === 'br') {
                 fixedX = ox - ow / 2; fixedY = oy - oh / 2;
                 newW = Math.max(minW, w.x - fixedX);
                 newH = Math.max(minH, w.y - fixedY);
-                newCx = fixedX + newW / 2; newCy = fixedY + newH / 2;
             } else if (resizeCorner === 'bl') {
                 fixedX = ox + ow / 2; fixedY = oy - oh / 2;
                 newW = Math.max(minW, fixedX - w.x);
                 newH = Math.max(minH, w.y - fixedY);
-                newCx = fixedX - newW / 2; newCy = fixedY + newH / 2;
             } else if (resizeCorner === 'tr') {
                 fixedX = ox - ow / 2; fixedY = oy + oh / 2;
                 newW = Math.max(minW, w.x - fixedX);
                 newH = Math.max(minH, fixedY - w.y);
-                newCx = fixedX + newW / 2; newCy = fixedY - newH / 2;
             } else {
                 fixedX = ox + ow / 2; fixedY = oy + oh / 2;
                 newW = Math.max(minW, fixedX - w.x);
                 newH = Math.max(minH, fixedY - w.y);
-                newCx = fixedX - newW / 2; newCy = fixedY - newH / 2;
             }
-            if (!shiftPressed) {
-                newW = Math.round(newW / GRID_PITCH_MM) * GRID_PITCH_MM;
-                newH = Math.round(newH / GRID_PITCH_MM) * GRID_PITCH_MM;
-                newCx = fixedX + (resizeCorner.includes('l') ? -1 : 1) * newW / 2;
-                newCy = fixedY + (resizeCorner.includes('t') ? -1 : 1) * newH / 2;
+            if (shiftPressed) {
+                const aspect = ow / oh;
+                if (newW / aspect >= newH) {
+                    newH = newW / aspect;
+                } else {
+                    newW = newH * aspect;
+                }
             }
+            newW = Math.round(newW / GRID_PITCH_MM) * GRID_PITCH_MM;
+            newH = Math.round(newH / GRID_PITCH_MM) * GRID_PITCH_MM;
             newW = Math.max(minW, newW);
             newH = Math.max(minH, newH);
+            const newCx = fixedX + (resizeCorner.includes('l') ? -1 : 1) * newW / 2;
+            const newCy = fixedY + (resizeCorner.includes('t') ? -1 : 1) * newH / 2;
             invalidBoardPlacement = checkBoardOverlap(p, newCx, newCy, newW, newH);
             p.width = newW; p.height = newH; p.x = newCx; p.y = newCy;
+            draw();
+        } else if (p && p.type !== 'board') {
+            // Component resize: keep center fixed, adjust width/height in local frame
+            const r = p.rotation;
+            const dx = w.x - p.x;
+            const dy = w.y - p.y;
+            const localX = dx * Math.cos(-r) - dy * Math.sin(-r);
+            const localY = dx * Math.sin(-r) + dy * Math.cos(-r);
+            const minDim = 5;
+            const ow = originalBoardState.w, oh = originalBoardState.h;
+            let newW = resizeCorner === 'br' || resizeCorner === 'tr' ? localX * 2 : -localX * 2;
+            let newH = resizeCorner === 'br' || resizeCorner === 'bl' ? localY * 2 : -localY * 2;
+            newW = Math.max(minDim * 2, newW);
+            newH = Math.max(minDim * 2, newH);
+            if (shiftPressed) {
+                const aspect = ow / oh;
+                if (newW / aspect >= newH) {
+                    newH = newW / aspect;
+                } else {
+                    newW = newH * aspect;
+                }
+            }
+            newW = Math.max(minDim * 2, Math.round(newW / GRID_PITCH_MM) * GRID_PITCH_MM);
+            newH = Math.max(minDim * 2, Math.round(newH / GRID_PITCH_MM) * GRID_PITCH_MM);
+            p.width = newW;
+            p.height = newH;
             draw();
         }
         return;

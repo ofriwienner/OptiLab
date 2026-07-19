@@ -368,7 +368,18 @@ function renderCustomLibrary() {
         const previewCanvas = document.createElement('canvas');
         previewCanvas.width = 32;
         previewCanvas.height = 32;
-        drawCustomPreview(previewCanvas.getContext('2d'), template);
+        if (template.elementType && template.elementType !== 'custom') {
+            const pctx = previewCanvas.getContext('2d');
+            pctx.fillStyle = '#1f2937';
+            pctx.fillRect(0, 0, 32, 32);
+            pctx.fillStyle = '#9ca3af';
+            pctx.font = 'bold 7px sans-serif';
+            pctx.textAlign = 'center';
+            pctx.textBaseline = 'middle';
+            pctx.fillText(template.elementType.toUpperCase().slice(0,6), 16, 16);
+        } else {
+            drawCustomPreview(previewCanvas.getContext('2d'), template);
+        }
         item.appendChild(previewCanvas);
 
         const nameSpan = document.createElement('span');
@@ -411,21 +422,25 @@ function startCustomComponentDrag(e, template) {
         ny = snap.y;
     }
 
-    const el = new Element('custom', nx, ny, template.width || 30, template.height || 30, template.name || '');
-    el.width = template.width || 30;
-    el.height = template.height || 30;
-    el.customShape = template.customShape || 'rectangle';
-    el.customColor = template.customColor || '#3b82f6';
-    el.customBorderColor = template.customBorderColor || '#93c5fd';
-    el.customText = template.customText || '';
-    el.customTextColor = template.customTextColor || '#ffffff';
-    el.customFontSize = template.customFontSize || 10;
-    el.customFontBold = !!template.customFontBold;
-    el.customNoBorder = !!template.customNoBorder;
-    el.customOpacity = template.customOpacity ?? 1;
-    el.customBehavior = template.customBehavior || 'none';
-    el.customTransmission = template.customTransmission ?? 0.5;
-    el.customPolAngle = template.customPolAngle ?? 0;
+    const elementType = template.elementType || 'custom';
+    const el = new Element(elementType, nx, ny, template.width || 30, template.height || 30, template.name || '');
+    el.width = template.width || el.width;
+    el.height = template.height || el.height;
+    if (elementType === 'lens' && template.optics) el.optics = { ...template.optics };
+    if (elementType === 'custom') {
+        el.customShape = template.customShape || 'rectangle';
+        el.customColor = template.customColor || '#3b82f6';
+        el.customBorderColor = template.customBorderColor || '#93c5fd';
+        el.customText = template.customText || '';
+        el.customTextColor = template.customTextColor || '#ffffff';
+        el.customFontSize = template.customFontSize || 10;
+        el.customFontBold = !!template.customFontBold;
+        el.customNoBorder = !!template.customNoBorder;
+        el.customOpacity = template.customOpacity ?? 1;
+        el.customBehavior = template.customBehavior || 'none';
+        el.customTransmission = template.customTransmission ?? 0.5;
+        el.customPolAngle = template.customPolAngle ?? 0;
+    }
 
     elements.push(el);
     selection.clear();
