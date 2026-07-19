@@ -140,6 +140,10 @@ let customComponentLibrary = [];
 let isMeasureMode = false;
 let measureP1 = null;
 
+// Border creation tool state
+let isBorderMode = false;
+let borderPolyPoints = [];
+
 // Alignment state
 let alignPreference = 0;
 let hasCycleOptions = false;

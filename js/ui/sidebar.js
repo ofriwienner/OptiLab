@@ -139,6 +139,14 @@ function copySelected() {
         if (el.type === 'board' && el.imgSrc) {
             data.imgSrc = el.imgSrc;
         }
+        if (el.type === 'border') {
+            data.borderShape = el.borderShape;
+            data.borderColor = el.borderColor;
+            data.borderFillColor = el.borderFillColor;
+            if (typeof el.borderFillOpacity === 'number') data.borderFillOpacity = el.borderFillOpacity;
+            data.borderLineStyle = el.borderLineStyle;
+            if (typeof el.borderLineWidth === 'number') data.borderLineWidth = el.borderLineWidth;
+        }
 
         return data;
     });
@@ -241,6 +249,16 @@ function pasteElements() {
             if (typeof data.customBehavior === 'string') el.customBehavior = data.customBehavior;
             if (typeof data.customTransmission === 'number') el.customTransmission = data.customTransmission;
             if (typeof data.customPolAngle === 'number') el.customPolAngle = data.customPolAngle;
+            el.width = data.width;
+            el.height = data.height;
+        }
+        if (el.type === 'border') {
+            if (data.borderShape) el.borderShape = data.borderShape;
+            if (data.borderColor) el.borderColor = data.borderColor;
+            if (data.borderFillColor) el.borderFillColor = data.borderFillColor;
+            if (typeof data.borderFillOpacity === 'number') el.borderFillOpacity = data.borderFillOpacity;
+            if (data.borderLineStyle) el.borderLineStyle = data.borderLineStyle;
+            if (typeof data.borderLineWidth === 'number') el.borderLineWidth = data.borderLineWidth;
             el.width = data.width;
             el.height = data.height;
         }

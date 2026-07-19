@@ -134,6 +134,16 @@ class Element {
                 this.customTransmission = 0.5;
                 this.customPolAngle = 0;
                 break;
+            case 'border':
+                this.width = 200;
+                this.height = 150;
+                this.borderShape = 'rect';
+                this.borderColor = '#4a5568';
+                this.borderFillColor = '#1e3a5f';
+                this.borderFillOpacity = 0.2;
+                this.borderLineStyle = 'dashed';
+                this.borderLineWidth = 2;
+                break;
         }
     }
 
@@ -207,7 +217,7 @@ class Element {
      * @returns {Array} Array of segments
      */
     getSegments() {
-        if (this.type === 'board') return [];
+        if (this.type === 'board' || this.type === 'border') return [];
 
         const cx = this.x;
         const cy = this.y;
