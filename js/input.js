@@ -113,6 +113,29 @@ function applyBorderSnap(p1, p2) {
     return p2;
 }
 
+function snapBorderVertexAlign(raw, p) {
+    if (borderPolyPoints.length === 0) return p;
+    const thr = 10 / (view.scale * PIXELS_PER_MM);
+    let x = p.x, y = p.y;
+    let bestDX = thr, bestDY = thr;
+    for (const v of borderPolyPoints) {
+        const ddx = Math.abs(v.x - raw.x);
+        if (ddx < bestDX) { bestDX = ddx; x = v.x; }
+        const ddy = Math.abs(v.y - raw.y);
+        if (ddy < bestDY) { bestDY = ddy; y = v.y; }
+    }
+    return { x, y };
+}
+
+function computeBorderPoint(raw) {
+    let p = snapBorderPoint(raw);
+    p = snapBorderVertexAlign(raw, p);
+    if (borderPolyPoints.length > 0) {
+        p = applyBorderSnap(borderPolyPoints[borderPolyPoints.length - 1], p);
+    }
+    return p;
+}
+
 function addBorder() {
     if (isBorderMode) {
         isBorderMode = false;
@@ -329,14 +352,14 @@ function handleMouseDown(e) {
     // Border tool placement (polyline mode)
     if (isBorderMode && e.button === 0) {
         const raw = screenToWorld(m.x, m.y);
-        const snapped = snapBorderPoint(raw);
+        const snapped = computeBorderPoint(raw);
 
         if (borderPolyPoints.length === 0) {
             borderPolyPoints.push(snapped);
             draw();
         } else {
             const last = borderPolyPoints[borderPolyPoints.length - 1];
-            const p2 = applyBorderSnap(last, snapped);
+            const p2 = snapped;
             const first = borderPolyPoints[0];
             const closeDist = Math.sqrt((p2.x - first.x) ** 2 + (p2.y - first.y) ** 2);
 
@@ -358,7 +381,9 @@ function handleMouseDown(e) {
                 selection.clear();
                 selection.add(el);
                 borderPolyPoints = [];
-                canvas.style.cursor = 'crosshair';
+                isBorderMode = false;
+                updateBorderBtn();
+                canvas.style.cursor = 'default';
                 updateUI();
                 draw();
             } else {

@@ -1897,7 +1897,7 @@ function drawBorderOverlay() {
     if (!isBorderMode) return;
 
     const w = screenToWorld(lastMousePos.x, lastMousePos.y);
-    const snapped = snapBorderPoint(w);
+    const snapped = computeBorderPoint(w);
     const ss = worldToScreen(snapped.x, snapped.y);
 
     if (borderPolyPoints.length === 0) {
@@ -1917,13 +1917,39 @@ function drawBorderOverlay() {
         ctx.restore();
     } else {
         const last = borderPolyPoints[borderPolyPoints.length - 1];
-        const p2 = applyBorderSnap(last, snapped);
+        const p2 = snapped;
         const first = borderPolyPoints[0];
         const closeDist = Math.sqrt((p2.x - first.x) ** 2 + (p2.y - first.y) ** 2);
         const isClosing = borderPolyPoints.length >= 2 && closeDist < 15;
         const liveTarget = isClosing ? first : p2;
         const livePt = worldToScreen(liveTarget.x, liveTarget.y);
         const s0 = worldToScreen(first.x, first.y);
+
+        if (!isClosing) {
+            const alignV = borderPolyPoints.find(v => v !== last && Math.abs(v.x - p2.x) < 1e-6);
+            const alignH = borderPolyPoints.find(v => v !== last && Math.abs(v.y - p2.y) < 1e-6);
+            if (alignV || alignH) {
+                ctx.save();
+                ctx.strokeStyle = 'rgba(253, 224, 71, 0.6)';
+                ctx.lineWidth = 1;
+                ctx.setLineDash([3, 4]);
+                if (alignV) {
+                    const va = worldToScreen(alignV.x, alignV.y);
+                    ctx.beginPath();
+                    ctx.moveTo(va.x, va.y);
+                    ctx.lineTo(livePt.x, livePt.y);
+                    ctx.stroke();
+                }
+                if (alignH) {
+                    const ha = worldToScreen(alignH.x, alignH.y);
+                    ctx.beginPath();
+                    ctx.moveTo(ha.x, ha.y);
+                    ctx.lineTo(livePt.x, livePt.y);
+                    ctx.stroke();
+                }
+                ctx.restore();
+            }
+        }
 
         ctx.save();
         ctx.strokeStyle = 'rgba(94, 234, 212, 0.85)';
