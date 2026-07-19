@@ -840,36 +840,38 @@ function handleMouseMove(e) {
             const ox = originalBoardState.x, oy = originalBoardState.y;
             const ow = originalBoardState.w, oh = originalBoardState.h;
             const minW = originalBoardState.minW, minH = originalBoardState.minH;
-            let fixedX, fixedY, newW, newH, newCx, newCy;
+            let fixedX, fixedY, newW, newH;
             if (resizeCorner === 'br') {
                 fixedX = ox - ow / 2; fixedY = oy - oh / 2;
                 newW = Math.max(minW, w.x - fixedX);
                 newH = Math.max(minH, w.y - fixedY);
-                newCx = fixedX + newW / 2; newCy = fixedY + newH / 2;
             } else if (resizeCorner === 'bl') {
                 fixedX = ox + ow / 2; fixedY = oy - oh / 2;
                 newW = Math.max(minW, fixedX - w.x);
                 newH = Math.max(minH, w.y - fixedY);
-                newCx = fixedX - newW / 2; newCy = fixedY + newH / 2;
             } else if (resizeCorner === 'tr') {
                 fixedX = ox - ow / 2; fixedY = oy + oh / 2;
                 newW = Math.max(minW, w.x - fixedX);
                 newH = Math.max(minH, fixedY - w.y);
-                newCx = fixedX + newW / 2; newCy = fixedY - newH / 2;
             } else {
                 fixedX = ox + ow / 2; fixedY = oy + oh / 2;
                 newW = Math.max(minW, fixedX - w.x);
                 newH = Math.max(minH, fixedY - w.y);
-                newCx = fixedX - newW / 2; newCy = fixedY - newH / 2;
             }
-            if (!shiftPressed) {
-                newW = Math.round(newW / GRID_PITCH_MM) * GRID_PITCH_MM;
-                newH = Math.round(newH / GRID_PITCH_MM) * GRID_PITCH_MM;
-                newCx = fixedX + (resizeCorner.includes('l') ? -1 : 1) * newW / 2;
-                newCy = fixedY + (resizeCorner.includes('t') ? -1 : 1) * newH / 2;
+            if (shiftPressed) {
+                const aspect = ow / oh;
+                if (newW / aspect >= newH) {
+                    newH = newW / aspect;
+                } else {
+                    newW = newH * aspect;
+                }
             }
+            newW = Math.round(newW / GRID_PITCH_MM) * GRID_PITCH_MM;
+            newH = Math.round(newH / GRID_PITCH_MM) * GRID_PITCH_MM;
             newW = Math.max(minW, newW);
             newH = Math.max(minH, newH);
+            const newCx = fixedX + (resizeCorner.includes('l') ? -1 : 1) * newW / 2;
+            const newCy = fixedY + (resizeCorner.includes('t') ? -1 : 1) * newH / 2;
             invalidBoardPlacement = checkBoardOverlap(p, newCx, newCy, newW, newH);
             p.width = newW; p.height = newH; p.x = newCx; p.y = newCy;
             draw();
@@ -881,16 +883,23 @@ function handleMouseMove(e) {
             const localX = dx * Math.cos(-r) - dy * Math.sin(-r);
             const localY = dx * Math.sin(-r) + dy * Math.cos(-r);
             const minDim = 5;
-            if (resizeCorner === 'br' || resizeCorner === 'tr') {
-                p.width = Math.max(minDim * 2, localX * 2);
-            } else if (resizeCorner === 'bl' || resizeCorner === 'tl') {
-                p.width = Math.max(minDim * 2, -localX * 2);
+            const ow = originalBoardState.w, oh = originalBoardState.h;
+            let newW = resizeCorner === 'br' || resizeCorner === 'tr' ? localX * 2 : -localX * 2;
+            let newH = resizeCorner === 'br' || resizeCorner === 'bl' ? localY * 2 : -localY * 2;
+            newW = Math.max(minDim * 2, newW);
+            newH = Math.max(minDim * 2, newH);
+            if (shiftPressed) {
+                const aspect = ow / oh;
+                if (newW / aspect >= newH) {
+                    newH = newW / aspect;
+                } else {
+                    newW = newH * aspect;
+                }
             }
-            if (resizeCorner === 'br' || resizeCorner === 'bl') {
-                p.height = Math.max(minDim * 2, localY * 2);
-            } else if (resizeCorner === 'tr' || resizeCorner === 'tl') {
-                p.height = Math.max(minDim * 2, -localY * 2);
-            }
+            newW = Math.max(minDim * 2, Math.round(newW / GRID_PITCH_MM) * GRID_PITCH_MM);
+            newH = Math.max(minDim * 2, Math.round(newH / GRID_PITCH_MM) * GRID_PITCH_MM);
+            p.width = newW;
+            p.height = newH;
             draw();
         }
         return;
