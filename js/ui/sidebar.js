@@ -150,6 +150,10 @@ function copySelected() {
 
         return data;
     });
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(JSON.stringify({ __optilab: 1, elements: clipboard })).catch(() => {});
+    }
 }
 
 /**
@@ -175,17 +179,33 @@ function moveToBack(el) {
 /**
  * Paste elements from clipboard
  */
-function pasteElements() {
-    if (!clipboard || clipboard.length === 0) return;
+async function pasteElements() {
+    let pasteData = clipboard;
+
+    if (navigator.clipboard && navigator.clipboard.readText) {
+        try {
+            const text = await navigator.clipboard.readText();
+            const parsed = JSON.parse(text);
+            if (parsed && parsed.__optilab === 1 && Array.isArray(parsed.elements) && parsed.elements.length > 0) {
+                pasteData = parsed.elements;
+            }
+        } catch (e) {
+            // Clipboard read failed or text was not optilab data — fall back to in-memory
+        }
+    }
+
+    if (!pasteData || pasteData.length === 0) return;
+
+    clipboard = pasteData;
 
     saveToHistory();
     let centerX = 0, centerY = 0;
-    clipboard.forEach(data => {
+    pasteData.forEach(data => {
         centerX += data.x;
         centerY += data.y;
     });
-    centerX /= clipboard.length;
-    centerY /= clipboard.length;
+    centerX /= pasteData.length;
+    centerY /= pasteData.length;
 
     const mouseWorld = lastMousePos.x > 0 && lastMousePos.y > 0
         ? screenToWorld(lastMousePos.x, lastMousePos.y)
@@ -198,7 +218,7 @@ function pasteElements() {
     const pastedElements = [];
     const relativeOffsets = [];
 
-    clipboard.forEach(data => {
+    pasteData.forEach(data => {
         const relX = data.x - centerX;
         const relY = data.y - centerY;
         relativeOffsets.push({ x: relX, y: relY });
