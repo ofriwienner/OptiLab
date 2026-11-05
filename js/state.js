@@ -99,6 +99,15 @@ function rehydrateElement(data) {
         el.axisAngle = clampWaveplateAngle(el.rotation || toRad(45));
     }
 
+    if (isDualWaveplateElement(el)) {
+        el.qwpAxisAngle = clampWaveplateAngle(
+            typeof data.qwpAxisAngle === 'number' ? data.qwpAxisAngle : (el.rotation || toRad(45))
+        );
+        el.hwpAxisAngle = clampWaveplateAngle(
+            typeof data.hwpAxisAngle === 'number' ? data.hwpAxisAngle : (el.rotation || toRad(45))
+        );
+    }
+
     if (data.optics) {
         el.optics = data.optics;
     } else if (el.type === 'lens') {
@@ -107,6 +116,9 @@ function rehydrateElement(data) {
 
     if (el.type === 'aom' && typeof data.aomEnabled === 'boolean') {
         el.aomEnabled = data.aomEnabled;
+    }
+    if (el.type === 'splitter' && typeof data.bsReflect === 'number') {
+        el.bsReflect = data.bsReflect;
     }
 
     // Fiber coupler pairing and color

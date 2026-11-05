@@ -116,7 +116,7 @@ function updateUI() {
             const TYPE_DISPLAY = {
                 'laser': 'Laser', 'mirror': 'Mirror', 'mirror-d': 'D-Mirror',
                 'splitter': 'Splitter', 'pbs': 'PBS', 'aom': 'AOM', 'lens': 'Lens',
-                'hwp': 'HWP', 'qwp': 'QWP', 'blocker': 'Blocker', 'detector': 'Detector',
+                'hwp': 'HWP', 'qwp': 'QWP', 'dwp': 'Dual WP', 'blocker': 'Blocker', 'detector': 'Detector',
                 'fiber-coupler': 'Fiber', 'amplifier': 'Amplifier', 'iris': 'Iris',
                 'twinleaf': 'Twinleaf', 'cell': 'Cell', 'filter': 'Filter',
                 'custom': 'Custom', 'board': 'Board', 'border': 'Border', 'measure': 'Measure'
@@ -129,6 +129,7 @@ function updateUI() {
                 'pbs':           'bg-purple-900/50 border border-purple-700/50 text-purple-300',
                 'hwp':           'bg-green-900/50 border border-green-700/50 text-green-300',
                 'qwp':           'bg-orange-900/50 border border-orange-700/50 text-orange-300',
+                'dwp':           'bg-lime-900/50 border border-lime-700/50 text-lime-300',
                 'lens':          'bg-blue-900/50 border border-blue-700/50 text-blue-300',
                 'aom':           'bg-red-900/50 border border-red-700/50 text-red-300',
                 'detector':      'bg-pink-900/50 border border-pink-700/50 text-pink-300',
@@ -285,6 +286,80 @@ function updateUI() {
                 updateUI();
             };
             btnContainer.appendChild(alignBtn);
+        }
+
+        // Dual Waveplate Controls
+        if (isDualWaveplateElement(p)) {
+            const qwpRow = document.createElement('div');
+            qwpRow.className = "flex items-center justify-between text-[10px] text-orange-300 mt-2";
+            qwpRow.innerHTML = `<span>QWP Axis</span><span class="font-mono">${formatAxisAngleDeg(getDwpAxisAngle(p, 'qwp'))}°</span>`;
+            btnContainer.appendChild(qwpRow);
+
+            const hwpRow = document.createElement('div');
+            hwpRow.className = "flex items-center justify-between text-[10px] text-green-300";
+            hwpRow.innerHTML = `<span>HWP Axis</span><span class="font-mono">${formatAxisAngleDeg(getDwpAxisAngle(p, 'hwp'))}°</span>`;
+            btnContainer.appendChild(hwpRow);
+
+            const dwpHint = document.createElement('p');
+            dwpHint.className = "text-[9px] text-gray-500";
+            dwpHint.innerText = "Top knob sets QWP axis, bottom knob sets HWP axis. Regular propagation is QWP then HWP; light entering from the other side passes HWP then QWP.";
+            btnContainer.appendChild(dwpHint);
+
+            const alignQwpBtn = document.createElement('button');
+            alignQwpBtn.className = "w-full py-1 bg-gray-700 border border-gray-600 rounded text-[10px] text-gray-200 hover:bg-gray-600 transition cursor-pointer";
+            alignQwpBtn.innerText = "Match QWP Axis to Body";
+            alignQwpBtn.onclick = () => {
+                saveToHistory();
+                p.qwpAxisAngle = clampWaveplateAngle(p.rotation || 0);
+                draw();
+                updateUI();
+            };
+            btnContainer.appendChild(alignQwpBtn);
+
+            const alignHwpBtn = document.createElement('button');
+            alignHwpBtn.className = "w-full py-1 bg-gray-700 border border-gray-600 rounded text-[10px] text-gray-200 hover:bg-gray-600 transition cursor-pointer";
+            alignHwpBtn.innerText = "Match HWP Axis to Body";
+            alignHwpBtn.onclick = () => {
+                saveToHistory();
+                p.hwpAxisAngle = clampWaveplateAngle(p.rotation || 0);
+                draw();
+                updateUI();
+            };
+            btnContainer.appendChild(alignHwpBtn);
+        }
+
+        if (p.type === 'splitter') {
+            const bsBox = document.createElement('div');
+            bsBox.className = "mt-2 border-t border-gray-600 pt-2 space-y-1";
+            const bsTitle = document.createElement('div');
+            bsTitle.className = "text-[10px] uppercase text-gray-400";
+            bsTitle.innerText = "Split Ratio";
+            bsBox.appendChild(bsTitle);
+
+            const row = document.createElement('div');
+            row.className = "flex items-center justify-between";
+            const lbl = document.createElement('span');
+            lbl.className = "text-[9px] text-gray-400";
+            const fmt = r => `R:T ${Math.round(r * 100)}:${100 - Math.round(r * 100)}`;
+            lbl.innerText = fmt(p.bsReflect ?? 0.5);
+            const input = document.createElement('input');
+            input.type = 'range';
+            input.min = '0';
+            input.max = '1';
+            input.step = '0.05';
+            input.value = p.bsReflect ?? 0.5;
+            input.className = "w-24 accent-yellow-400 cursor-pointer";
+            input.onmousedown = e => e.stopPropagation();
+            makeUndoable(input);
+            input.oninput = e => {
+                p.bsReflect = parseFloat(e.target.value);
+                lbl.innerText = fmt(p.bsReflect);
+                draw();
+            };
+            row.appendChild(lbl);
+            row.appendChild(input);
+            bsBox.appendChild(row);
+            btnContainer.appendChild(bsBox);
         }
 
         // AOM Controls
@@ -1486,7 +1561,7 @@ function tryAutoAlign(element) {
         } else if (element.type === 'filter') {
             const beamAngle = Math.atan2(inc.y, inc.x);
             element.rotation = Math.round(beamAngle / (Math.PI / 2)) * (Math.PI / 2);
-        } else if (['splitter', 'pbs', 'aom', 'hwp', 'qwp', 'detector', 'blocker'].includes(element.type)) {
+        } else if (['splitter', 'pbs', 'aom', 'hwp', 'qwp', 'dwp', 'detector', 'blocker'].includes(element.type)) {
             element.rotation = Math.round(element.rotation / (Math.PI / 2)) * (Math.PI / 2);
         } else if (element.type === 'fiber-coupler' && !element.pairedWith) {
             element.rotation = Math.atan2(inc.y, inc.x) + Math.PI;

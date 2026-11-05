@@ -256,7 +256,7 @@ canvas {
     box-shadow: 0 0 6px rgba(249, 115, 22, 0.4);
 }
 
-.icon-qwp::before { 
+.icon-qwp::before {
     content: 'λ/4';
     font-size: 7px;
     color: var(--accent-orange);
@@ -264,6 +264,35 @@ canvas {
     transform: rotate(-90deg);
     white-space: nowrap;
     text-shadow: 0 0 4px rgba(249, 115, 22, 0.8);
+}
+
+.icon-dwp {
+    width: 5px;
+    height: 20px;
+    border-radius: 3px;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 0 6px rgba(163, 230, 53, 0.4);
+    overflow: hidden;
+}
+
+.icon-dwp::before {
+    content: '';
+    flex: 1;
+    background: rgba(249, 115, 22, 0.35);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.5);
+    border-top: 2px solid var(--accent-orange);
+    border-left: 2px solid var(--accent-orange);
+    border-right: 2px solid var(--accent-orange);
+}
+
+.icon-dwp::after {
+    content: '';
+    flex: 1;
+    background: rgba(16, 185, 129, 0.35);
+    border-bottom: 2px solid var(--accent-green);
+    border-left: 2px solid var(--accent-green);
+    border-right: 2px solid var(--accent-green);
 }
 
 .icon-blocker { 

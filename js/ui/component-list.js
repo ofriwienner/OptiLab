@@ -13,6 +13,7 @@ const COMP_TYPE_LABELS = {
     'lens':         'Lens',
     'hwp':          'HWP (λ/2)',
     'qwp':          'QWP (λ/4)',
+    'dwp':          'Dual WP (λ/4+λ/2)',
     'blocker':      'Beam Blocker',
     'detector':     'Detector',
     'fiber-coupler':'Fiber Coupler',

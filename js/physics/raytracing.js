@@ -136,8 +136,9 @@ function traceRay(ray, depth, results) {
                     stokes: stokesRefl
                 }, depth + 1, results);
             } else {
-                const reflStokes = MuellerMath.interact(ray.stokes, MuellerMath.MATRICES.MIRROR).map(v => v * 0.5);
-                const tranStokes = ray.stokes.map(val => val * 0.5);
+                const R = Math.max(0, Math.min(1, hitObject.bsReflect ?? 0.5));
+                const reflStokes = MuellerMath.interact(ray.stokes, MuellerMath.MATRICES.MIRROR).map(v => v * R);
+                const tranStokes = ray.stokes.map(val => val * (1 - R));
                 traceRay({
                     ...ray,
                     x: closestHit.x,
@@ -176,6 +177,46 @@ function traceRay(ray, depth, results) {
 
             const rotMatrix = MuellerMath.rotateComponent(baseMatrix, theta);
             const newStokes = MuellerMath.interact(ray.stokes, rotMatrix);
+
+            traceRay({
+                ...ray,
+                x: closestHit.x + inc.x * 0.1,
+                y: closestHit.y + inc.y * 0.1,
+                dx: inc.x,
+                dy: inc.y,
+                intensity: newStokes[0],
+                stokes: newStokes,
+                color: ray.color
+            }, depth + 1, results);
+
+        } else if (hitObject.type === 'dwp') {
+            // Dual waveplate: QWP and HWP stacked on one plate. Regular
+            // propagation direction (matching the segment normal) applies
+            // QWP then HWP; the reverse direction applies HWP then QWP,
+            // each with its angle conjugated, mirroring single-waveplate physics.
+            let qwpTheta = getSignedDwpAngle(hitObject, 'qwp');
+            let hwpTheta = getSignedDwpAngle(hitObject, 'hwp');
+            let forward = true;
+
+            const normal = hitSegment.normal || normalize({ x: -segVec.y, y: segVec.x });
+            const dir = dot(inc, normal);
+            if (dir < 0) {
+                qwpTheta = -qwpTheta;
+                hwpTheta = -hwpTheta;
+                forward = false;
+            }
+
+            const qwpMatrix = MuellerMath.rotateComponent(MuellerMath.MATRICES.QWP_H, qwpTheta);
+            const hwpMatrix = MuellerMath.rotateComponent(MuellerMath.MATRICES.HWP_H, hwpTheta);
+
+            let newStokes = ray.stokes;
+            if (forward) {
+                newStokes = MuellerMath.interact(newStokes, qwpMatrix);
+                newStokes = MuellerMath.interact(newStokes, hwpMatrix);
+            } else {
+                newStokes = MuellerMath.interact(newStokes, hwpMatrix);
+                newStokes = MuellerMath.interact(newStokes, qwpMatrix);
+            }
 
             traceRay({
                 ...ray,

@@ -112,6 +112,87 @@ function getWaveplateKnobHit(mousePoint) {
 }
 
 /**
+ * Check if an element is a dual waveplate (combined QWP + HWP)
+ * @param {Object} el - Element to check
+ * @returns {boolean} True if dual waveplate
+ */
+function isDualWaveplateElement(el) {
+    return !!el && el.type === 'dwp';
+}
+
+/**
+ * Get one axis angle of a dual waveplate
+ * @param {Object} el - Dual waveplate element
+ * @param {string} which - 'qwp' or 'hwp'
+ * @returns {number} Axis angle in radians
+ */
+function getDwpAxisAngle(el, which) {
+    if (!isDualWaveplateElement(el)) return 0;
+    const key = which === 'hwp' ? 'hwpAxisAngle' : 'qwpAxisAngle';
+    if (typeof el[key] !== 'number') return clampWaveplateAngle(el.rotation || toRad(45));
+    return clampWaveplateAngle(el[key]);
+}
+
+/**
+ * Get signed axis angle of a dual waveplate (for bidirectional operation)
+ * @param {Object} el - Dual waveplate element
+ * @param {string} which - 'qwp' or 'hwp'
+ * @returns {number} Signed angle in radians
+ */
+function getSignedDwpAngle(el, which) {
+    const axis = getDwpAxisAngle(el, which);
+    return axis > Math.PI / 2 ? axis - Math.PI : axis;
+}
+
+/**
+ * Get dual-waveplate knob hit test (checks both the QWP and HWP knobs)
+ * @param {Object} mousePoint - Screen coordinates
+ * @returns {{el: Object, which: string}|null} Hit result or null
+ */
+function getDwpKnobHit(mousePoint) {
+    const plates = elements.filter(isDualWaveplateElement).reverse();
+    const radiusPx = Math.max(8, WAVEPLATE_KNOB_RADIUS_MM * view.scale * PIXELS_PER_MM);
+    for (let el of plates) {
+        const qwpWorld = el.getQwpKnobWorldPosition();
+        const qwpScreen = worldToScreen(qwpWorld.x, qwpWorld.y);
+        let dx = mousePoint.x - qwpScreen.x;
+        let dy = mousePoint.y - qwpScreen.y;
+        if (dx * dx + dy * dy <= radiusPx * radiusPx) return { el, which: 'qwp' };
+
+        const hwpWorld = el.getHwpKnobWorldPosition();
+        const hwpScreen = worldToScreen(hwpWorld.x, hwpWorld.y);
+        dx = mousePoint.x - hwpScreen.x;
+        dy = mousePoint.y - hwpScreen.y;
+        if (dx * dx + dy * dy <= radiusPx * radiusPx) return { el, which: 'hwp' };
+    }
+    return null;
+}
+
+/**
+ * Update one axis of a dual waveplate from mouse position
+ * @param {Object} el - Dual waveplate element
+ * @param {string} which - 'qwp' or 'hwp'
+ * @param {Object} worldPoint - World coordinates of mouse
+ * @returns {boolean} True if angle was changed
+ */
+function updateDwpAxisFromPoint(el, which, worldPoint) {
+    if (!isDualWaveplateElement(el)) return false;
+    const knobWorld = which === 'hwp' ? el.getHwpKnobWorldPosition() : el.getQwpKnobWorldPosition();
+    const angle = Math.atan2(worldPoint.y - knobWorld.y, worldPoint.x - knobWorld.x);
+    let normalized = clampWaveplateAngle(angle);
+    let stepRad = Math.PI / 8; // 22.5°
+    if (ctrlPressed) stepRad = toRad(WAVEPLATE_FINE_STEP_DEG); // 5°
+    else if (shiftPressed) stepRad = Math.PI / 4; // 45°
+    normalized = snapWaveplateAngle(normalized, stepRad);
+    const key = which === 'hwp' ? 'hwpAxisAngle' : 'qwpAxisAngle';
+    if (typeof el[key] !== 'number' || Math.abs(el[key] - normalized) > 0.0005) {
+        el[key] = normalized;
+        return true;
+    }
+    return false;
+}
+
+/**
  * Get cell polarization-rotation knob hit test
  * @param {Object} mousePoint - Screen coordinates
  * @returns {Object|null} Hit cell or null

@@ -63,6 +63,7 @@ let isResizing = false;
 let isSelecting = false;
 let isAdjustingAxis = false;
 let axisAdjustTarget = null;
+let axisAdjustWhich = null; // 'qwp' | 'hwp' — which knob of a dual waveplate is being adjusted
 let selectionRect = null;
 let dragOffsets = new Map();
 let draggedChildren = new Map();

@@ -446,6 +446,7 @@ function handleMouseDown(e) {
         selection.clear();
         selection.add(cellKnobTarget);
         axisAdjustTarget = cellKnobTarget;
+        axisAdjustWhich = null;
         isAdjustingAxis = true;
         canvas.style.cursor = 'crosshair';
         updateCellAngleFromPoint(cellKnobTarget, w);
@@ -461,6 +462,7 @@ function handleMouseDown(e) {
         selection.clear();
         selection.add(polKnobTarget);
         axisAdjustTarget = polKnobTarget;
+        axisAdjustWhich = null;
         isAdjustingAxis = true;
         canvas.style.cursor = 'crosshair';
         updateCustomPolAngleFromPoint(polKnobTarget, w);
@@ -476,9 +478,26 @@ function handleMouseDown(e) {
         selection.clear();
         selection.add(knobTarget);
         axisAdjustTarget = knobTarget;
+        axisAdjustWhich = null;
         isAdjustingAxis = true;
         canvas.style.cursor = 'crosshair';
         updateWaveplateAxisFromPoint(knobTarget, w);
+        updateUI();
+        draw();
+        return;
+    }
+
+    // Dual waveplate knob hit test (QWP or HWP knob)
+    const dwpKnobTarget = getDwpKnobHit(m);
+    if (dwpKnobTarget) {
+        saveToHistory();
+        selection.clear();
+        selection.add(dwpKnobTarget.el);
+        axisAdjustTarget = dwpKnobTarget.el;
+        axisAdjustWhich = dwpKnobTarget.which;
+        isAdjustingAxis = true;
+        canvas.style.cursor = 'crosshair';
+        updateDwpAxisFromPoint(dwpKnobTarget.el, dwpKnobTarget.which, w);
         updateUI();
         draw();
         return;
@@ -923,6 +942,8 @@ function handleMouseMove(e) {
             changed = updateCellAngleFromPoint(axisAdjustTarget, w);
         } else if (axisAdjustTarget.type === 'custom') {
             changed = updateCustomPolAngleFromPoint(axisAdjustTarget, w);
+        } else if (axisAdjustTarget.type === 'dwp') {
+            changed = updateDwpAxisFromPoint(axisAdjustTarget, axisAdjustWhich, w);
         } else {
             changed = updateWaveplateAxisFromPoint(axisAdjustTarget, w);
         }
@@ -1206,7 +1227,7 @@ function updateIdleCursor(m) {
     let cursor = 'default';
     let hover = null;
 
-    if (getWaveplateKnobHit(m) || getCellKnobHit(m) || getCustomPolKnobHit(m) || getAomToggleHit(m) || getFiberConnectorPinHit(m)) {
+    if (getWaveplateKnobHit(m) || getDwpKnobHit(m) || getCellKnobHit(m) || getCustomPolKnobHit(m) || getAomToggleHit(m) || getFiberConnectorPinHit(m)) {
         cursor = 'pointer';
     } else {
         hover = findElementAtScreen(m);
@@ -1303,6 +1324,7 @@ function cancelActiveInteraction() {
     isResizing = false;
     isAdjustingAxis = false;
     axisAdjustTarget = null;
+    axisAdjustWhich = null;
     groupRotateState = null;
     draggedChildren.clear();
     dragOffsets.clear();
@@ -1429,6 +1451,7 @@ function handleMouseUp(e) {
     isResizing = false;
     isAdjustingAxis = false;
     axisAdjustTarget = null;
+    axisAdjustWhich = null;
     isFiberConnecting = false;
     fiberConnectSource = null;
     fiberConnectMousePos = null;

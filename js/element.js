@@ -80,6 +80,12 @@ class Element {
                 this.height = 30;
                 this.axisAngle = clampWaveplateAngle(toRad(45));
                 break;
+            case 'dwp':
+                this.width = 5;
+                this.height = 30;
+                this.qwpAxisAngle = clampWaveplateAngle(toRad(45));
+                this.hwpAxisAngle = clampWaveplateAngle(toRad(45));
+                break;
             case 'fiber-coupler':
                 this.width = 25;
                 this.height = 25;
@@ -213,6 +219,26 @@ class Element {
     }
 
     /**
+     * Get dual-waveplate QWP axis knob position (above the plate) in world coordinates
+     * @returns {Object} Knob position
+     */
+    getQwpKnobWorldPosition() {
+        const local = { x: 0, y: -this.height / 2 - WAVEPLATE_KNOB_OFFSET_MM };
+        const rotated = rotatePoint(local, this.rotation);
+        return { x: this.x + rotated.x, y: this.y + rotated.y };
+    }
+
+    /**
+     * Get dual-waveplate HWP axis knob position (below the plate) in world coordinates
+     * @returns {Object} Knob position
+     */
+    getHwpKnobWorldPosition() {
+        const local = { x: 0, y: this.height / 2 + WAVEPLATE_KNOB_OFFSET_MM };
+        const rotated = rotatePoint(local, this.rotation);
+        return { x: this.x + rotated.x, y: this.y + rotated.y };
+    }
+
+    /**
      * Get collision/interaction segments for ray tracing
      * @returns {Array} Array of segments
      */
@@ -287,6 +313,16 @@ class Element {
                 p1: { x: cx + start.x, y: cy + start.y },
                 p2: { x: cx + end.x, y: cy + end.y },
                 type: 'waveplate',
+                normal
+            });
+        } else if (this.type === 'dwp') {
+            const start = rotatePoint({ x: 0, y: -this.height / 2 }, this.rotation);
+            const end = rotatePoint({ x: 0, y: this.height / 2 }, this.rotation);
+            const normal = normalize(rotatePoint({ x: 1, y: 0 }, this.rotation));
+            segments.push({
+                p1: { x: cx + start.x, y: cy + start.y },
+                p2: { x: cx + end.x, y: cy + end.y },
+                type: 'dwp',
                 normal
             });
         } else if (this.type === 'aom') {

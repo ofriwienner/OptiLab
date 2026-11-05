@@ -157,6 +157,8 @@ function drawElement(el) {
         drawAmplifier(el);
     } else if (el.type === 'hwp' || el.type === 'qwp') {
         drawWaveplate(el, isSelected);
+    } else if (el.type === 'dwp') {
+        drawDualWaveplate(el, isSelected);
     } else if (el.type === 'iris') {
         drawIris(el);
     } else if (el.type === 'twinleaf') {
@@ -336,6 +338,19 @@ function drawSplitterPBS(el) {
     ctx.moveTo(-el.width / 2, -el.height / 2);
     ctx.lineTo(el.width / 2, el.height / 2);
     ctx.stroke();
+    if (el.type === 'splitter') {
+        const R = Math.round((el.bsReflect ?? 0.5) * 100);
+        if (R !== 50) {
+            ctx.save();
+            ctx.rotate(-el.rotation);
+            ctx.fillStyle = 'rgba(255, 255, 0, 0.95)';
+            ctx.font = '6px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'bottom';
+            ctx.fillText(`R:T ${R}:${100 - R}`, 0, -Math.max(el.width, el.height) / 2 - 3);
+            ctx.restore();
+        }
+    }
     if (el.type === 'pbs') {
         ctx.beginPath();
         ctx.strokeStyle = 'white';
@@ -900,6 +915,137 @@ function drawWaveplate(el, isSelected) {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'bottom';
     ctx.fillText(`${formatAxisAngleDeg(axisAngle)}°`, 0, -knobRadius - 2);
+    ctx.restore();
+}
+
+/**
+ * Draw dual waveplate (combined QWP + HWP on one plate)
+ * Top half is the QWP stage, bottom half is the HWP stage. The default
+ * propagation direction runs QWP -> HWP (matching the "IN" side indicator,
+ * same convention as the single waveplates); light can also enter from
+ * the other side, which reverses both the order and each axis sign.
+ */
+function drawDualWaveplate(el, isSelected) {
+    const w = el.width;
+    const h = el.height;
+    const qwpColor = 'rgba(251, 146, 60, 0.4)';
+    const qwpBorder = '#fb923c';
+    const hwpColor = 'rgba(74, 222, 128, 0.4)';
+    const hwpBorder = '#4ade80';
+
+    // Top half = QWP stage, bottom half = HWP stage
+    ctx.fillStyle = qwpColor;
+    ctx.fillRect(-w / 2, -h / 2, w, h / 2);
+    ctx.fillStyle = hwpColor;
+    ctx.fillRect(-w / 2, 0, w, h / 2);
+
+    ctx.lineWidth = 0.5;
+    ctx.strokeStyle = qwpBorder;
+    ctx.strokeRect(-w / 2, -h / 2, w, h / 2);
+    ctx.strokeStyle = hwpBorder;
+    ctx.strokeRect(-w / 2, 0, w, h / 2);
+
+    // Divider with a small arrow pointing from the QWP stage to the HWP
+    // stage, marking the "regular" (QWP-first) propagation order
+    ctx.beginPath();
+    ctx.strokeStyle = 'rgba(255,255,255,0.6)';
+    ctx.lineWidth = 0.4;
+    ctx.moveTo(-w / 2, 0);
+    ctx.lineTo(w / 2, 0);
+    ctx.stroke();
+
+    ctx.save();
+    ctx.strokeStyle = '#facc15';
+    ctx.lineWidth = 0.6;
+    ctx.beginPath();
+    ctx.moveTo(0, -4);
+    ctx.lineTo(0, 4);
+    ctx.moveTo(-1.6, 2.2);
+    ctx.lineTo(0, 4);
+    ctx.lineTo(1.6, 2.2);
+    ctx.stroke();
+    ctx.restore();
+
+    // Stage labels
+    ctx.save();
+    ctx.translate(w / 2 + 2, -h / 4);
+    ctx.rotate(-Math.PI / 2);
+    ctx.fillStyle = qwpBorder;
+    ctx.font = '8px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('λ/4', 0, 0);
+    ctx.restore();
+
+    ctx.save();
+    ctx.translate(w / 2 + 2, h / 4);
+    ctx.rotate(-Math.PI / 2);
+    ctx.fillStyle = hwpBorder;
+    ctx.font = '8px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('λ/2', 0, 0);
+    ctx.restore();
+
+    // QWP axis knob (above the plate)
+    ctx.save();
+    ctx.translate(0, -h / 2 - WAVEPLATE_KNOB_OFFSET_MM);
+    ctx.rotate(-el.rotation);
+    const knobRadius = WAVEPLATE_KNOB_RADIUS_MM;
+    ctx.beginPath();
+    ctx.arc(0, 0, knobRadius, 0, Math.PI * 2);
+    ctx.fillStyle = isAdjustingAxis && axisAdjustTarget === el && axisAdjustWhich === 'qwp' ? '#c2410c' : '#111827';
+    ctx.strokeStyle = isSelected ? '#fed7aa' : qwpBorder;
+    ctx.lineWidth = 0.6;
+    ctx.fill();
+    ctx.stroke();
+
+    const qwpAxisAngle = getDwpAxisAngle(el, 'qwp');
+    ctx.save();
+    ctx.rotate(qwpAxisAngle);
+    ctx.strokeStyle = qwpBorder;
+    ctx.lineWidth = 0.6;
+    ctx.beginPath();
+    ctx.moveTo(-knobRadius * 0.8, 0);
+    ctx.lineTo(knobRadius * 0.8, 0);
+    ctx.stroke();
+    ctx.restore();
+
+    ctx.fillStyle = '#fed7aa';
+    ctx.font = '8px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+    ctx.fillText(`QWP ${formatAxisAngleDeg(qwpAxisAngle)}°`, 0, -knobRadius - 2);
+    ctx.restore();
+
+    // HWP axis knob (below the plate)
+    ctx.save();
+    ctx.translate(0, h / 2 + WAVEPLATE_KNOB_OFFSET_MM);
+    ctx.rotate(-el.rotation);
+    ctx.beginPath();
+    ctx.arc(0, 0, knobRadius, 0, Math.PI * 2);
+    ctx.fillStyle = isAdjustingAxis && axisAdjustTarget === el && axisAdjustWhich === 'hwp' ? '#166534' : '#111827';
+    ctx.strokeStyle = isSelected ? '#bbf7d0' : hwpBorder;
+    ctx.lineWidth = 0.6;
+    ctx.fill();
+    ctx.stroke();
+
+    const hwpAxisAngle = getDwpAxisAngle(el, 'hwp');
+    ctx.save();
+    ctx.rotate(hwpAxisAngle);
+    ctx.strokeStyle = hwpBorder;
+    ctx.lineWidth = 0.6;
+    ctx.beginPath();
+    ctx.moveTo(-knobRadius * 0.8, 0);
+    ctx.lineTo(knobRadius * 0.8, 0);
+    ctx.stroke();
+    ctx.restore();
+
+    ctx.fillStyle = '#bbf7d0';
+    ctx.font = '8px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    ctx.fillText(`HWP ${formatAxisAngleDeg(hwpAxisAngle)}°`, 0, knobRadius + 2);
     ctx.restore();
 }
 
@@ -1536,6 +1682,7 @@ function _computeRayHash() {
         if (e.blockedLasers && e.blockedLasers.length) {
             for (const id of e.blockedLasers) h = _hashNum(h, id % 1e6);
         }
+        if (e.type === 'splitter' && e.bsReflect != null) h = _hashNum(h, e.bsReflect);
         if (e.type === 'custom') {
             h = _hashStr(h, e.customBehavior || 'none');
             if (e.customTransmission != null) h = _hashNum(h, e.customTransmission);

@@ -99,8 +99,15 @@ function copySelected() {
         if (isWaveplateElement(el) && typeof el.axisAngle === 'number') {
             data.axisAngle = el.axisAngle;
         }
+        if (isDualWaveplateElement(el)) {
+            if (typeof el.qwpAxisAngle === 'number') data.qwpAxisAngle = el.qwpAxisAngle;
+            if (typeof el.hwpAxisAngle === 'number') data.hwpAxisAngle = el.hwpAxisAngle;
+        }
         if (el.type === 'aom' && typeof el.aomEnabled === 'boolean') {
             data.aomEnabled = el.aomEnabled;
+        }
+        if (el.type === 'splitter' && typeof el.bsReflect === 'number') {
+            data.bsReflect = el.bsReflect;
         }
         if (el.type === 'lens' && el.optics) {
             data.optics = { focalLength: el.optics.focalLength };
@@ -213,8 +220,15 @@ function pasteElements() {
         if (isWaveplateElement(el) && typeof data.axisAngle === 'number') {
             el.axisAngle = data.axisAngle;
         }
+        if (isDualWaveplateElement(el)) {
+            if (typeof data.qwpAxisAngle === 'number') el.qwpAxisAngle = data.qwpAxisAngle;
+            if (typeof data.hwpAxisAngle === 'number') el.hwpAxisAngle = data.hwpAxisAngle;
+        }
         if (el.type === 'aom' && typeof data.aomEnabled === 'boolean') {
             el.aomEnabled = data.aomEnabled;
+        }
+        if (el.type === 'splitter' && typeof data.bsReflect === 'number') {
+            el.bsReflect = data.bsReflect;
         }
         if (el.type === 'lens' && data.optics) {
             el.optics = { focalLength: data.optics.focalLength };
