@@ -454,6 +454,31 @@ function drawDetector(el) {
     ctx.beginPath();
     ctx.arc(0, 0, 5, 0, Math.PI * 2);
     ctx.fill();
+
+    const reading = getDetectorReading(el.id);
+    ctx.save();
+    ctx.rotate(-el.rotation);
+    ctx.font = 'bold 7px monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+    ctx.fillStyle = reading > 0 ? '#fcd34d' : '#9ca3af';
+    ctx.fillText(`${(reading * 100).toFixed(1)}%`, 0, -el.width / 2 - 3);
+    ctx.restore();
+}
+
+let _detectorReadingsHash = null;
+let _detectorReadings = new Map();
+
+function getDetectorReading(id) {
+    if (_detectorReadingsHash !== _lastRayHash) {
+        _detectorReadings = new Map();
+        (_cachedRays || []).forEach(seg => {
+            if (!seg.hitId || !seg.stokes) return;
+            _detectorReadings.set(seg.hitId, (_detectorReadings.get(seg.hitId) || 0) + seg.stokes[0]);
+        });
+        _detectorReadingsHash = _lastRayHash;
+    }
+    return _detectorReadings.get(id) || 0;
 }
 
 /**
