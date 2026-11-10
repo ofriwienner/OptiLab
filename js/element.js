@@ -124,6 +124,12 @@ class Element {
                 this.height = 1;
                 this.rotation = 0;
                 break;
+            case 'marker':
+                this.width = 1;
+                this.height = 1;
+                this.markerNumber = 1;
+                this.markerColor = '#f0541e';
+                break;
             case 'custom':
                 this.width = 30;
                 this.height = 30;
@@ -413,8 +419,8 @@ class Element {
                 });
             }
             // behavior 'none': visual marker, no optical interaction
-        } else if (this.type === 'measure') {
-            // Measurement annotations have no optical interaction
+        } else if (this.type === 'measure' || this.type === 'marker') {
+            // Annotations have no optical interaction
         } else if (this.type === 'filter') {
             const start = rotatePoint({ x: 0, y: -this.height / 2 }, this.rotation);
             const end = rotatePoint({ x: 0, y: this.height / 2 }, this.rotation);

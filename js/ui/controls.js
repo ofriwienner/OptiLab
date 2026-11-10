@@ -119,7 +119,7 @@ function updateUI() {
                 'hwp': 'HWP', 'qwp': 'QWP', 'dwp': 'Dual WP', 'blocker': 'Blocker', 'detector': 'Detector',
                 'fiber-coupler': 'Fiber', 'amplifier': 'Amplifier', 'iris': 'Iris',
                 'twinleaf': 'Twinleaf', 'cell': 'Cell', 'filter': 'Filter',
-                'custom': 'Custom', 'board': 'Board', 'border': 'Border', 'measure': 'Measure'
+                'custom': 'Custom', 'board': 'Board', 'border': 'Border', 'measure': 'Measure', 'marker': 'Marker'
             };
             const TYPE_BADGE_CLASSES = {
                 'laser':         'bg-red-900/50 border border-red-700/50 text-red-300',
@@ -148,6 +148,9 @@ function updateUI() {
             badge.classList.add('hidden');
         }
     }
+
+    const rotSection = document.getElementById('rotation-section');
+    if (rotSection) rotSection.classList.toggle('hidden', !!p && p.type === 'marker');
 
     if (p) {
         // Rotation Slider
@@ -774,6 +777,58 @@ function updateUI() {
             btnContainer.appendChild(measureBox);
         }
 
+        // Number Marker Controls
+        if (p.type === 'marker') {
+            const markerBox = document.createElement('div');
+            markerBox.className = "mt-2 space-y-1.5";
+
+            const numRow = document.createElement('div');
+            numRow.className = "flex items-center justify-between";
+            const numLbl = document.createElement('label');
+            numLbl.className = "text-[10px] text-gray-400";
+            numLbl.innerText = "Number";
+            const numInp = document.createElement('input');
+            numInp.type = 'number';
+            numInp.min = '0';
+            numInp.step = '1';
+            numInp.value = p.markerNumber;
+            numInp.className = "w-16 bg-gray-700 border border-gray-600 rounded px-1 py-0.5 text-[10px] text-white";
+            numInp.onmousedown = e => e.stopPropagation();
+            numInp.onchange = () => {
+                const v = parseInt(numInp.value, 10);
+                if (isNaN(v) || v < 0) { numInp.value = p.markerNumber; return; }
+                saveToHistory();
+                p.markerNumber = v;
+                draw();
+            };
+            numRow.appendChild(numLbl);
+            numRow.appendChild(numInp);
+            markerBox.appendChild(numRow);
+
+            const colRow = document.createElement('div');
+            colRow.className = "flex items-center justify-between";
+            const colLbl = document.createElement('label');
+            colLbl.className = "text-[10px] text-gray-400";
+            colLbl.innerText = "Color";
+            const colInp = document.createElement('input');
+            colInp.type = 'color';
+            colInp.value = p.markerColor;
+            colInp.className = "w-16 h-5 bg-transparent border border-gray-600 rounded cursor-pointer";
+            colInp.onmousedown = e => e.stopPropagation();
+            colInp.onfocus = () => saveToHistory();
+            colInp.oninput = () => { p.markerColor = colInp.value; draw(); };
+            colRow.appendChild(colLbl);
+            colRow.appendChild(colInp);
+            markerBox.appendChild(colRow);
+
+            const hint = document.createElement('p');
+            hint.className = "text-[9px] text-gray-500";
+            hint.innerText = "Drag to move freely. Delete to remove.";
+            markerBox.appendChild(hint);
+
+            btnContainer.appendChild(markerBox);
+        }
+
         // Custom Component Controls
         if (p.type === 'custom') {
             const customBox = document.createElement('div');
@@ -1194,7 +1249,7 @@ function updateUI() {
         }
 
         // Move to Back button (for all non-board, non-measure elements)
-        if (p.type !== 'board' && p.type !== 'measure') {
+        if (p.type !== 'board' && p.type !== 'measure' && p.type !== 'marker') {
             const backBtn = document.createElement('button');
             backBtn.className = "w-full py-1 text-[10px] rounded border transition mb-1 cursor-pointer bg-gray-800/50 border-gray-600 text-gray-300 hover:bg-gray-700";
             backBtn.innerText = "Move to Back";

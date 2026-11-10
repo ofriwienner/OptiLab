@@ -64,6 +64,8 @@ function startMeasureTool() {
     } else {
         isMeasureMode = true;
         measureP1 = null;
+        isMarkerMode = false;
+        updateMarkerBtn();
         selection.clear();
     }
     updateMeasureBtn();
@@ -82,6 +84,56 @@ function updateMeasureBtn() {
         btn.classList.remove('border-gray-700/50', 'text-gray-300');
     } else {
         btn.classList.remove('border-amber-500', 'text-amber-300', 'bg-amber-900/20');
+        btn.classList.add('border-gray-700/50', 'text-gray-300');
+    }
+}
+
+// ── Number marker tool helpers ────────────────────────────────────────────────
+
+function markerRadiusMM() {
+    return MARKER_RADIUS_PX / (view.scale * PIXELS_PER_MM);
+}
+
+function nextMarkerNumber() {
+    let max = 0;
+    for (const el of elements) {
+        if (el.type === 'marker' && el.markerNumber > max) max = el.markerNumber;
+    }
+    return max + 1;
+}
+
+function markerHit(el, worldPoint) {
+    const r = markerRadiusMM() + 2 / (view.scale * PIXELS_PER_MM);
+    return Math.hypot(worldPoint.x - el.x, worldPoint.y - el.y) <= r;
+}
+
+function startMarkerTool() {
+    if (isMarkerMode) {
+        isMarkerMode = false;
+    } else {
+        isMarkerMode = true;
+        isMeasureMode = false;
+        measureP1 = null;
+        updateMeasureBtn();
+        isBorderMode = false;
+        borderPolyPoints = [];
+        updateBorderBtn();
+        selection.clear();
+        updateUI();
+    }
+    updateMarkerBtn();
+    canvas.style.cursor = isMarkerMode ? 'crosshair' : 'default';
+    draw();
+}
+
+function updateMarkerBtn() {
+    const btn = document.getElementById('addMarkerBtn');
+    if (!btn) return;
+    if (isMarkerMode) {
+        btn.classList.add('border-orange-500', 'text-orange-300', 'bg-orange-900/20');
+        btn.classList.remove('border-gray-700/50', 'text-gray-300');
+    } else {
+        btn.classList.remove('border-orange-500', 'text-orange-300', 'bg-orange-900/20');
         btn.classList.add('border-gray-700/50', 'text-gray-300');
     }
 }
@@ -143,6 +195,8 @@ function addBorder() {
     } else {
         isBorderMode = true;
         borderPolyPoints = [];
+        isMarkerMode = false;
+        updateMarkerBtn();
         selection.clear();
     }
     updateBorderBtn();
@@ -313,6 +367,17 @@ function handleMouseDown(e) {
 
     if (calibrationState > 0) {
         handleCalibrationClick(m);
+        return;
+    }
+
+    // Number marker placement (stays active so markers can be dropped in sequence)
+    if (isMarkerMode && e.button === 0) {
+        const raw = screenToWorld(m.x, m.y);
+        saveToHistory();
+        const el = new Element('marker', raw.x, raw.y, 1, 1, '');
+        el.markerNumber = nextMarkerNumber();
+        elements.push(el);
+        draw();
         return;
     }
 
@@ -694,7 +759,7 @@ function handleMouseDown(e) {
                     return;
                 }
             }
-        } else if (primary.type !== 'board' && primary.type !== 'border') {
+        } else if (primary.type !== 'board' && primary.type !== 'border' && primary.type !== 'marker') {
             // Component rotate handle
             const hl = primary.getHandlePosition();
             const hs = worldToScreen(primary.x + hl.x, primary.y + hl.y);
@@ -763,6 +828,7 @@ function handleMouseDown(e) {
     const components = elements.filter(el => el.type !== 'board' && el.type !== 'border');
     clicked = components.reverse().find(el => {
         if (el.type === 'measure') return measureLineHit(el, w);
+        if (el.type === 'marker') return markerHit(el, w);
         const cosR = Math.cos(-el.rotation);
         const sinR = Math.sin(-el.rotation);
         const dx = w.x - el.x;
@@ -1093,7 +1159,9 @@ function handleMouseMove(e) {
                     const rawX = w.x + off.dx;
                     const rawY = w.y + off.dy;
                     let snapX = rawX, snapY = rawY;
-                    if (ref.type === 'measure') {
+                    if (ref.type === 'marker') {
+                        snapX = rawX; snapY = rawY;
+                    } else if (ref.type === 'measure') {
                         snapX = Math.round(rawX / HALF_GRID_MM) * HALF_GRID_MM;
                         snapY = Math.round(rawY / HALF_GRID_MM) * HALF_GRID_MM;
                     } else if (shiftPressed) {
@@ -1146,7 +1214,10 @@ function handleMouseMove(e) {
                         newY = Math.round(rawY / HALF_GRID_MM) * HALF_GRID_MM;
                     }
                 } else {
-                    if (el.type === 'measure') {
+                    if (el.type === 'marker') {
+                        newX = rawX;
+                        newY = rawY;
+                    } else if (el.type === 'measure') {
                         newX = Math.round(rawX / HALF_GRID_MM) * HALF_GRID_MM;
                         newY = Math.round(rawY / HALF_GRID_MM) * HALF_GRID_MM;
                     } else if (el.type === 'custom' && !shiftPressed && !ctrlPressed) {
@@ -1208,7 +1279,7 @@ function handleMouseMove(e) {
     }
 
     // If pending board, measure mode, or border mode, redraw to update preview
-    if (pendingBoard || isMeasureMode || isBorderMode) {
+    if (pendingBoard || isMeasureMode || isBorderMode || isMarkerMode) {
         canvas.style.cursor = 'crosshair';
         hoverTarget = null;
         draw();
@@ -1340,7 +1411,7 @@ function cancelActiveInteraction() {
 function handleMouseUp(e) {
     if (e?.button === 1) {
         view.isPanning = false;
-        if (!isDragging) canvas.style.cursor = (isMeasureMode || pendingBoard) ? 'crosshair' : 'default';
+        if (!isDragging) canvas.style.cursor = (isMeasureMode || isMarkerMode || pendingBoard) ? 'crosshair' : 'default';
         return;
     }
     // Fiber connecting mode stays active until user clicks on another pin or elsewhere
@@ -1456,7 +1527,7 @@ function handleMouseUp(e) {
     fiberConnectSource = null;
     fiberConnectMousePos = null;
     view.isPanning = false;
-    canvas.style.cursor = (isMeasureMode || pendingBoard) ? 'crosshair' : 'default';
+    canvas.style.cursor = (isMeasureMode || isMarkerMode || pendingBoard) ? 'crosshair' : 'default';
 
     if (wasDragging && selection.size === 1) {
         const el = Array.from(selection)[0];
@@ -1587,6 +1658,11 @@ function handleKeyDown(e) {
             measureP1 = null;
             canvas.style.cursor = 'crosshair';
             updateMeasureBtn();
+        }
+        if (isMarkerMode) {
+            isMarkerMode = false;
+            canvas.style.cursor = 'crosshair';
+            updateMarkerBtn();
         }
         if (isBorderMode) {
             if (borderPolyPoints.length > 0) {
@@ -1979,6 +2055,7 @@ function findElementAtScreen(screenPos) {
     const components = elements.filter(el => el.type !== 'board');
     const hit = components.slice().reverse().find(el => {
         if (el.type === 'measure') return measureLineHit(el, w);
+        if (el.type === 'marker') return markerHit(el, w);
         const cosR = Math.cos(-el.rotation);
         const sinR = Math.sin(-el.rotation);
         const dx = w.x - el.x;

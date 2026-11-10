@@ -141,6 +141,10 @@ let customComponentLibrary = [];
 let isMeasureMode = false;
 let measureP1 = null;
 
+// Number marker annotation tool state
+let isMarkerMode = false;
+const MARKER_RADIUS_PX = 11;
+
 // Border creation tool state
 let isBorderMode = false;
 let borderPolyPoints = [];

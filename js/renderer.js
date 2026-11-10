@@ -84,6 +84,10 @@ function strokeElementOutline(el) {
         } else {
             ctx.strokeRect(-el.width / 2, -el.height / 2, el.width, el.height);
         }
+    } else if (el.type === 'marker') {
+        ctx.beginPath();
+        ctx.arc(0, 0, (MARKER_RADIUS_PX + 3) / (view.scale * PIXELS_PER_MM), 0, Math.PI * 2);
+        ctx.stroke();
     } else if (el.type === 'measure') {
         ctx.strokeRect(-el.width / 2 - 2, -5, el.width + 4, 10);
     } else if (el.type.includes('mirror')) {
@@ -108,7 +112,7 @@ function drawElement(el) {
         ctx.globalAlpha = 0.3;
     }
     ctx.translate(pos.x, pos.y);
-    ctx.rotate(el.rotation);
+    ctx.rotate(el.type === 'marker' ? 0 : el.rotation);
     ctx.scale(sc, sc);
 
     // Highlight Selection
@@ -169,6 +173,8 @@ function drawElement(el) {
         drawFilter(el);
     } else if (el.type === 'custom') {
         drawCustom(el);
+    } else if (el.type === 'marker') {
+        drawMarker(el.markerNumber, el.markerColor, sc);
     } else if (el.type === 'measure') {
         drawMeasure(el, sc);
     } else if (el.type === 'border') {
@@ -176,7 +182,7 @@ function drawElement(el) {
     }
 
     // Draw Title Label (lasers show title inside their body instead)
-    if (el.title && el.type !== 'laser') {
+    if (el.title && el.type !== 'laser' && el.type !== 'marker') {
         ctx.fillStyle = '#9ca3af';
         ctx.font = '10px sans-serif';
         ctx.textAlign = 'left';
@@ -189,7 +195,7 @@ function drawElement(el) {
     const isPrimary = Array.from(selection).pop() === el;
 
     // Draw Handles
-    if (isSelected && isPrimary && el.type !== 'board' && el.type !== 'border') {
+    if (isSelected && isPrimary && el.type !== 'board' && el.type !== 'border' && el.type !== 'marker') {
         drawComponentHandles(el, sc);
     } else if (isSelected && el.type === 'board' && !el.locked) {
         drawBoardHandles(el, sc);
@@ -1461,7 +1467,7 @@ function drawHints() {
     if (selection.size !== 1) return;
 
     const el = Array.from(selection)[0];
-    if (el.type === 'board' || el.type === 'border' || el.type === 'measure' || el.locked) return;
+    if (el.type === 'board' || el.type === 'border' || el.type === 'measure' || el.type === 'marker' || el.locked) return;
 
     const hints = [];
     hints.push("R/T: Rotation | S: Smart");
@@ -1752,6 +1758,7 @@ function draw() {
     drawFiberConnectingLine();
     drawPendingBoardPreview();
     drawMeasureOverlay();
+    drawMarkerOverlay();
     drawBorderOverlay();
     drawHints();
     updateSelectionToolbarPosition();
@@ -1766,7 +1773,7 @@ function updateSelectionToolbarPosition() {
     if (!bar) return;
     const items = Array.from(selection).filter(el => el.type !== 'board');
     const busy = isDragging || isRotating || isResizing || isSelecting || isAdjustingAxis ||
-                 view.isPanning || isFiberConnecting || isMeasureMode || pendingBoard ||
+                 view.isPanning || isFiberConnecting || isMeasureMode || isMarkerMode || pendingBoard ||
                  calibrationState > 0;
     if (items.length === 0 || busy) {
         bar.classList.add('hidden');
@@ -1853,6 +1860,47 @@ function formatDistance(mm) {
     const mmStr = mm >= 100 ? mm.toFixed(1) : mm.toFixed(2);
     const inStr = Math.round(mm / 25.4);
     return `${mmStr} mm / ${inStr} in`;
+}
+
+/**
+ * Draw a numbered circular badge at the current origin (screen-constant size)
+ */
+function drawMarker(number, color, sc) {
+    const r = MARKER_RADIUS_PX / sc;
+    const label = String(number);
+    ctx.save();
+    ctx.shadowColor = 'rgba(0,0,0,0.5)';
+    ctx.shadowBlur = 4;
+    ctx.shadowOffsetY = 1;
+    ctx.beginPath();
+    ctx.arc(0, 0, r, 0, Math.PI * 2);
+    ctx.fillStyle = color || '#f0541e';
+    ctx.fill();
+    ctx.shadowColor = 'transparent';
+    ctx.lineWidth = 1.5 / sc;
+    ctx.strokeStyle = '#ffffff';
+    ctx.stroke();
+    const fontPx = label.length > 2 ? 9 : label.length > 1 ? 11 : 13;
+    ctx.font = `bold ${fontPx / sc}px sans-serif`;
+    ctx.fillStyle = '#ffffff';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(label, 0, 0.5 / sc);
+    ctx.restore();
+}
+
+/**
+ * Draw a translucent preview of the next marker under the cursor
+ */
+function drawMarkerOverlay() {
+    if (!isMarkerMode) return;
+    const sc = view.scale * PIXELS_PER_MM;
+    ctx.save();
+    ctx.translate(lastMousePos.x, lastMousePos.y);
+    ctx.scale(sc, sc);
+    ctx.globalAlpha = 0.6;
+    drawMarker(nextMarkerNumber(), '#f0541e', sc);
+    ctx.restore();
 }
 
 /**

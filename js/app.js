@@ -117,6 +117,8 @@ function exposeGlobalFunctions() {
     window.renderCustomLibrary = renderCustomLibrary;
     window.startMeasureTool = startMeasureTool;
     window.updateMeasureBtn = updateMeasureBtn;
+    window.startMarkerTool = startMarkerTool;
+    window.updateMarkerBtn = updateMarkerBtn;
     window.addBorder = addBorder;
     window.updateBorderBtn = updateBorderBtn;
     window.tryAutoAlign = tryAutoAlign;

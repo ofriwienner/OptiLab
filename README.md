@@ -38,6 +38,7 @@ open index.html  # or double-click the file
 | **Cell** | Generic two-port element; rotates beam from all directions |
 | **Twinleaf** | MOT coil representation |
 | **Measurement** | Ruler tool for measuring distances |
+| **Number Marker** | Numbered callout badges (1, 2, 3…) for annotating a layout; placed from the tools section, auto-incrementing, free-moving |
 | **Custom** | Freeform labeled shape with configurable color and text |
 | **Board** | Organizational container; groups components visually |
 

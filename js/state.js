@@ -184,6 +184,11 @@ function rehydrateElement(data) {
         img.src = data.imgSrc;
     }
 
+    if (el.type === 'marker') {
+        if (typeof data.markerNumber === 'number') el.markerNumber = data.markerNumber;
+        if (data.markerColor) el.markerColor = data.markerColor;
+    }
+
     // Border/area annotation properties
     if (el.type === 'border') {
         if (data.borderShape) el.borderShape = data.borderShape;

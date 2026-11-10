@@ -142,7 +142,7 @@ function openComponentListModal() {
     document.body.appendChild(overlay);
 
     function getFilteredComps() {
-        let comps = elements.filter(e => e.type !== 'board' && e.type !== 'measure');
+        let comps = elements.filter(e => e.type !== 'board' && e.type !== 'measure' && e.type !== 'marker');
         if (scopeSel.value !== 'all') {
             const tb = elements.find(e => String(e.id) === scopeSel.value);
             if (tb) comps = comps.filter(e => getParentBoard(e) === tb);
