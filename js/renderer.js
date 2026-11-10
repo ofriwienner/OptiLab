@@ -7,7 +7,7 @@
  * Draw the background grid
  */
 function drawGrid() {
-    ctx.fillStyle = '#0f172a';
+    ctx.fillStyle = '#131416';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     const sc = view.scale * PIXELS_PER_MM;
@@ -27,7 +27,7 @@ function drawGrid() {
     const dotRadius = 1.2 * view.scale;
     if (dotRadius < 0.3) return;
 
-    ctx.fillStyle = 'rgba(50, 50, 70, 0.6)';
+    ctx.fillStyle = 'rgba(70, 72, 78, 0.6)';
     ctx.beginPath();
     for (let wx = startX; wx < endX; wx += gridStep) {
         for (let wy = startY; wy < endY; wy += gridStep) {
@@ -246,8 +246,8 @@ function drawBoard(el, sc) {
     const startWY = Math.ceil((boardTop - gridOffset) / gx) * gx + gridOffset;
 
     if (sc >= 0.25) {
-        ctx.fillStyle = '#0a0a0b';
-        ctx.strokeStyle = '#2c2e33';
+        ctx.fillStyle = '#26282c';
+        ctx.strokeStyle = '#5a5e66';
         ctx.lineWidth = 0.8;
         ctx.beginPath();
         for (let wx = startWX; wx < boardRight; wx += gx) {
