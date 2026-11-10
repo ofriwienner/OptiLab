@@ -246,8 +246,8 @@ function drawBoard(el, sc) {
     const startWY = Math.ceil((boardTop - gridOffset) / gx) * gx + gridOffset;
 
     if (sc >= 0.25) {
-        ctx.fillStyle = '#26282c';
-        ctx.strokeStyle = '#5a5e66';
+        ctx.fillStyle = '#141517';
+        ctx.strokeStyle = '#3f4248';
         ctx.lineWidth = 0.8;
         ctx.beginPath();
         for (let wx = startWX; wx < boardRight; wx += gx) {
