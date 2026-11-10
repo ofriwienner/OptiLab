@@ -204,7 +204,7 @@ function drawElement(el) {
  * Draw board element
  */
 function drawBoard(el, sc) {
-    ctx.fillStyle = '#1f2937';
+    ctx.fillStyle = '#1b1c1f';
     ctx.fillRect(-el.width / 2, -el.height / 2, el.width, el.height);
 
     // Draw background image if present
@@ -246,17 +246,20 @@ function drawBoard(el, sc) {
     const startWY = Math.ceil((boardTop - gridOffset) / gx) * gx + gridOffset;
 
     if (sc >= 0.25) {
-        ctx.fillStyle = '#111';
+        ctx.fillStyle = '#0a0a0b';
+        ctx.strokeStyle = '#2c2e33';
+        ctx.lineWidth = 0.8;
         ctx.beginPath();
         for (let wx = startWX; wx < boardRight; wx += gx) {
             for (let wy = startWY; wy < boardBottom; wy += gx) {
                 const lx = wx - el.x;
                 const ly = wy - el.y;
-                ctx.moveTo(lx + 1.2, ly);
-                ctx.arc(lx, ly, 1.2, 0, Math.PI * 2);
+                ctx.moveTo(lx + 2.6, ly);
+                ctx.arc(lx, ly, 2.6, 0, Math.PI * 2);
             }
         }
         ctx.fill();
+        ctx.stroke();
     }
     ctx.restore();
 }
